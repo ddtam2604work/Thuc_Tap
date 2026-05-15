@@ -1,5 +1,6 @@
 // Khai báo "Magic Strings" cho giao diện
 
+//Login
 export const LOGIN_TEXT = {
     TITLE: 'Đăng nhập',
     SUBTITLE: 'để bắt đầu',
@@ -9,3 +10,4 @@ export const LOGIN_TEXT = {
     LOGIN_BUTTON: 'Đăng nhập',
     ERROR_INVALID_CREDENTIALS: 'Sai tên đăng nhập hoặc mật khẩu',
 };
+

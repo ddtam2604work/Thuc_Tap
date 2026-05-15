@@ -1,6 +1,6 @@
 // Logic xử lý input, state và validate đăng nhập
 import { useState } from 'react';
-import { LOGIN_TEXT } from '../constant/uiText';
+import { LOGIN_TEXT } from '../constants/login';
 
 export const useAuth = () => {
     const [username, setUsername] = useState('');

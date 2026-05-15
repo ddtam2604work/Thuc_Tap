@@ -1,7 +1,7 @@
 import FormInput from '../../components/FormInput';
 import PrimaryButton from '../../components/PrimaryButton';
 import { useAuth } from '../../hooks/useAuth';
-import { LOGIN_TEXT } from '../../constant/uiText';
+import { LOGIN_TEXT } from '../../constants/login';
 import Background_Login from '../../assets/images/background_login.png';
 
 const LoginPage = () => {
