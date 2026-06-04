@@ -1,0 +1,23 @@
+$kind: http-request
+name: Image File
+url: "{MEDIA_URL}/api/upload/image/multi-draft"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: formdata
+  content:
+    - type: file
+      key: files
+      src:
+        - /C:/Users/duyta/Downloads/z7835858815355_d203e7e7b54ea4fcc9aa795a10e25cff.jpg
+      description: ""
+      disabled: false
+    - type: text
+      key: ispublic
+      value: "1"
+      description: ""
+      disabled: false
+auth:
+  type: noauth
+order: 3836945077633023

@@ -1,76 +1,110 @@
 import { useState } from 'react';
-import useCategories from '../../hooks/useCategories';
-import ProductCatalogTable from '../../components/partials/table/ProductCatalogTable';
-import PrimaryButton from '../../components/skeleton/PrimaryButton';
+import useCategories from '../../hooks/Product/useCategories';
+import ProductCatalogTable from '../../components/partials/table/product/ProductCatalogTable';
+import Button from '../../components/skeleton/Button';
 import Modal from '../../components/skeleton/Modal';
-// Đảm bảo đường dẫn import chính xác theo cấu trúc thư mục của bạn
 import FormInsertCategory from '../../components/partials/forms/products/FormInsert-Category';
 import FormEditCategory from '../../components/partials/forms/products/FormEdit-Category';
 
 const ProductCatalogPage = () => {
-  const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
+  const { 
+    categories, loading, error, searchTerm, setSearchTerm, 
+    generateCategoryCode, addCategory, updateCategory, deleteCategory 
+  } = useCategories();
   
-  // Quản lý trạng thái Modal tập trung: type ('insert' hoặc 'edit') và data cho trường hợp sửa
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // State chống double-click khi sinh mã
 
-  const handleOpenInsert = () => setModal({ isOpen: true, type: 'insert', data: null });
+  // LUỒNG MỚI: Lấy mã từ Backend TRƯỚC KHI mở Form Thêm
+  const handleOpenInsert = async () => {
+    try {
+      setIsGenerating(true);
+      const newCode = await generateCategoryCode();
+      // Truyền mã vừa lấy được vào data để FormInsert hứng
+      setModal({ isOpen: true, type: 'insert', data: { code: newCode } });
+    } catch (error) {
+      alert("Lỗi khi tạo mã danh mục: " + error.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   
   const handleOpenEdit = (item) => setModal({ isOpen: true, type: 'edit', data: item });
   
-  const handleClose = () => setModal({ isOpen: false, type: null, data: null });
+  const handleClose = () => {
+    if (!isSaving) setModal({ isOpen: false, type: null, data: null });
+  };
 
-  const handleSave = (formData) => {
-    if (modal.type === 'edit') {
-      updateCategory(modal.data.id, formData);
-    } else {
-      addCategory(formData);
+  const handleSave = async (formData) => {
+    try {
+      setIsSaving(true);
+      if (modal.type === 'edit') {
+        await updateCategory(modal.data.id, formData);
+        alert("Cập nhật danh mục thành công!");
+      } else {
+        await addCategory(formData);
+        alert("Thêm danh mục mới thành công!");
+      }
+      handleClose();
+    } catch (err) {
+      alert("Lỗi thao tác: " + (err.message || "Không thể kết nối máy chủ."));
+    } finally {
+      setIsSaving(false);
     }
-    handleClose();
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này không?')) {
+      try {
+        await deleteCategory(id);
+        alert("Đã xóa danh mục!");
+      } catch(err) {
+        alert("Lỗi khi xóa: " + err.message);
+      }
+    }
   };
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">
       <div className="bg-white border border-[#C4C5D7] rounded-xl overflow-hidden shadow-sm">
-        {/* Toolbar điều phối hành động Thêm */}
-        {/* Toolbar tại trang danh sách */}
-        <div className="p-4 border-b border-[#C4C5D7] flex justify-between items-center bg-white">
-          {/* Nhóm tìm kiếm bên trái */}
+        
+        <div className="p-4 border-b border-[#C4C5D7] flex justify-between items-center bg-white flex-wrap gap-4">
           <div className="flex flex-1 max-w-[600px] gap-2">
-            <input type="text" placeholder="Tìm kiếm..." className="h-10 flex-1 border border-[#C4C5D7] px-4 rounded-md" />
-            <button className="bg-[#2E478A] text-white px-6 h-10 rounded-md text-xs font-semibold">TÌM KIẾM</button>
+            <input 
+              type="text" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm kiếm theo mã hoặc tên danh mục..." 
+              className="h-10 flex-1 border border-[#C4C5D7] px-4 rounded-md outline-none focus:border-[#0037B0] transition-colors" 
+            />
+            <Button variant="search">TÌM KIẾM</Button>
           </div>
 
-          {/* Nút thêm mới bên phải - Bây giờ sẽ rất cân đối */}
-          <PrimaryButton onClick={handleOpenInsert}>
-            + THÊM DANH MỤC
-          </PrimaryButton>
+          {/* Hiển thị trạng thái đang lấy mã */}
+          <Button onClick={handleOpenInsert} disabled={isGenerating} className={`!bg-[#1D4ED8] ${isGenerating ? 'opacity-70' : ''}`}>
+            {isGenerating ? '⏳ ĐANG TẠO MÃ...' : '+ THÊM DANH MỤC'}
+          </Button>
         </div>
 
-        {/* Table nhận sự kiện onEdit từ các hàng dữ liệu */}
-        <ProductCatalogTable 
-          data={categories} 
-          onEdit={handleOpenEdit} 
-          onDelete={deleteCategory} 
-        />
+        {loading ? (
+           <div className="p-10 text-center text-gray-500 font-medium">⏳ Đang tải dữ liệu danh mục...</div>
+        ) : error ? (
+           <div className="p-10 text-center text-red-500 font-medium">❌ {error}</div>
+        ) : (
+          <ProductCatalogTable data={categories} onEdit={handleOpenEdit} onDelete={handleDelete} />
+        )}
       </div>
 
-      {/* Modal dùng chung: Điều phối Form tương ứng dựa trên modal.type */}
       <Modal 
         isOpen={modal.isOpen} 
         onClose={handleClose}
         title={modal.type === 'insert' ? "Thêm danh mục mới" : "Chỉnh sửa danh mục"}
       >
         {modal.type === 'insert' ? (
-          <FormInsertCategory 
-            onSave={handleSave} 
-            onCancel={handleClose} 
-          />
+          <FormInsertCategory initialData={modal.data} onSave={handleSave} onCancel={handleClose} isSaving={isSaving} />
         ) : (
-          <FormEditCategory 
-            initialData={modal.data} 
-            onSave={handleSave} 
-            onCancel={handleClose} 
-          />
+          <FormEditCategory initialData={modal.data} onSave={handleSave} onCancel={handleClose} isSaving={isSaving} />
         )}
       </Modal>
     </div>

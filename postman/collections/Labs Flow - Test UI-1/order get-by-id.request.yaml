@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/order/get-by-id"
+method: POST
+headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc5OTU0OTQ3LCJleHAiOjE3ODA1NTk3NDd9.Jv41DQppBDNPQbtYnEYvtkOTGt_clqdGamD0HIZ9xuM
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: "{\r
+
+    \    \"id\": \"a3595bf6-8082-4b7f-afae-115793e8f60a\"\r
+
+    }\r\n"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 2219463463141375

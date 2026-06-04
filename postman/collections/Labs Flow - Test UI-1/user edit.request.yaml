@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/user/edit"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZjZiMDA2ZC1lMGVmLTRkZmItOWY5MC05ZDkzM2NmZmQ2ZTUiLCJ1c2VybmFtZSI6ImFkbWluMSIsImlhdCI6MTc3NTc0ODcxNCwiZXhwIjoxNzc2MzUzNTE0fQ.uUhMw4Wnr4FvgINey3oxBOyhhGq0QyQsuPZBC4XIFSc
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "id":"bf6b006d-e0ef-4dfb-9f90-9d933cffd6e5",
+        "fullname":"Nguyễn Văn B",
+        "email":"nvb@example.com",
+        "phone":"0912345678",
+        "address":"Hà Nội",
+        "gender":1,
+        "avatar":""
+      }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 956468612300799

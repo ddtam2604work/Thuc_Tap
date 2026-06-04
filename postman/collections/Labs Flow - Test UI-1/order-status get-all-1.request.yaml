@@ -1,0 +1,21 @@
+$kind: http-request
+name: order-status get-all
+url: "{{BE_URL}}/api/v1/order/order-status/get-all"
+method: POST
+headers:
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: "{\r
+
+    \    \"parent_id\": null,\r
+
+    \    \"isactive\": 1 \r
+
+    }\r\n"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 2490108011872255

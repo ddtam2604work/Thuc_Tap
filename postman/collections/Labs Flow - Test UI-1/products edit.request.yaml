@@ -1,0 +1,29 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/products/edit"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc5ODU0MTMzLCJleHAiOjE3ODA0NTg5MzN9.t2YIOCGc4TXnpPK2raGNQq0b7zrLtx-56WrBUqVZfa4
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "id": "a7e39fba-42dd-4eec-9b8d-75e4922d232b",
+        "productcategory_id": "",
+        "units_id": "",
+        "name": "Ảnh cưới khung sắt 30x50",
+        "price": 300000,
+        "thumbnail": "https://example.com/thumb2.jpg",
+        "description": "Cập nhật mô tả",
+        "sortorder": 2,
+        "attributes": {
+            "material": "iron",
+            "size": "30x50"
+        }
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 3943013776621567

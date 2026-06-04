@@ -1,45 +1,118 @@
-import TopNavBar from '../../components/skeleton/TopNavBar';
-import PrimaryButton from '../../components/skeleton/PrimaryButton';
+import { useState } from 'react';
+import Button from '../../components/skeleton/Button';
 import FormInput from '../../components/skeleton/FormInput';
-import AccountTable from '../../components/partials/table/AccountTable';
-import { useAccounts } from '../../hooks/useAccounts';
+import AccountTable from '../../components/partials/table/account/AccountTable';
+import { useAccounts } from '../../hooks/Account/useAccounts';
 import InsertAccount from './InsertAccount';
 import EditAccount from './EditAccount';
 import LockAccount from './LockAccount';
-import { useState } from 'react';
 
 const AccountPage = () => {
-  const { accounts, setSearchTerm } = useAccounts();
+  const { 
+    accounts, loading, error,
+    roles, rolesLoading,
+    searchTerm, setSearchTerm, 
+    filterRole, setFilterRole, 
+    filterStatus, setFilterStatus,
+    currentPage, setCurrentPage, 
+    totalPages, totalAccounts,
+    addAccount, editAccount, toggleAccountStatus, setPassword, deleteAccount
+  } = useAccounts();
 
-  // 1. Quản lý trạng thái đóng/mở riêng biệt cho Thêm và Sửa, khóa
-  const [isInsertOpen, setIsInsertOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isLockOpen, setIsLockOpen] = useState(false);
+  // Quản lý trạng thái modal tập trung
+  const [modal, setModal] = useState({ type: null, data: null, isOpen: false });
 
-  // 2. Lưu dữ liệu tài khoản được chọn để sửa
-  const [selectedAccount, setSelectedAccount] = useState(null);
+  const closeModal = () => setModal({ type: null, data: null, isOpen: false });
 
-  // 3. Hàm xử lý khi nhấn "Sửa" từ bảng
-  const handleEditClick = (account) => {
-    setSelectedAccount(account);
-    setIsEditOpen(true);
+  // Logic UI cho phân trang
+  const getPaginationGroup = () => {
+    let start = Math.max(currentPage - 2, 1);
+    let end = Math.min(start + 4, totalPages);
+    if (end - start < 4) {
+      start = Math.max(end - 4, 1);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
 
-  const handleLockClick = (account) => {
-    setSelectedAccount(account);
-    setIsLockOpen(true);
+  // --- HANDLERS ---
+  // Các handler này giờ chủ yếu quản lý trạng thái UI (modals, thông báo)
+  // Logic nghiệp vụ cốt lõi nằm trong hook useAccounts.
+  const handleAddSubmit = async (formData) => {
+    try {
+      // Gọi hàm Thêm tài khoản từ Hook useAccounts
+      await addAccount(formData);
+      
+      closeModal(); // Đóng Modal Insert
+      alert("🎉 Thêm tài khoản mới thành công!");
+    } catch (error) {
+      console.error("Add account failed:", error);
+      alert("Lỗi khi thêm: " + (error.message || "Không thể kết nối đến máy chủ."));
+      throw error; // Ném lỗi ngược lại để InsertAccount bắt và tắt trạng thái isSaving
+    }
   };
 
-  const confirmLock = () => {
-    console.log("Đã khóa tài khoản:", selectedAccount?.name);
-    // Logic gọi API khóa tại đây
-    setIsLockOpen(false);
+  const handleEditSubmit = async (formData) => {
+    if (!formData.fullname) {
+      alert("Họ tên không được để trống!");
+      return;
+    }
+    try {
+      // ĐÃ SỬA: Chỉ truyền 1 biến duy nhất, không truyền thêm id rời ở ngoài
+      await editAccount(formData);
+      
+      closeModal();
+      alert("Cập nhật tài khoản thành công!");
+    } catch (error) {
+      console.error("Edit account failed:", error);
+      alert("Lỗi cập nhật: " + error.message);
+    }
+  };
+
+  const handleConfirmLock = async () => {
+    try {
+      const { id, isactive, isActive } = modal.data;
+      const currentStatus = isactive !== undefined ? isactive : isActive;
+      await toggleAccountStatus(id, currentStatus);
+      closeModal();
+      const actionText = (currentStatus === 1 || currentStatus === true) ? "khóa" : "mở khóa";
+      alert(`Đã ${actionText} tài khoản thành công!`);
+    } catch (error) {
+      console.error("Toggle account status failed:", error);
+      alert("Lỗi thay đổi trạng thái: " + error.message);
+    }
+  };
+
+  const handleResetPassword = async (account) => {
+    const newPass = window.prompt(`Nhập mật khẩu mới cho user [${account.username}]:`);
+    if (newPass) {
+      if (newPass.length < 6) {
+        alert("Mật khẩu phải từ 6 ký tự trở lên!");
+        return;
+      }
+      try {
+        await setPassword(account.id, newPass);
+        alert("Cập nhật mật khẩu thành công!");
+      } catch (error) {
+        alert("Lỗi reset mật khẩu: " + (error.message || "Lỗi máy chủ"));
+      }
+    }
   };
   
+  const handleDeleteAccount = async (account) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa tài khoản [${account.username}] không? Hành động này không thể hoàn tác.`)) {
+      try {
+        await deleteAccount(account.id);
+        alert('Xóa tài khoản thành công!');
+      } catch (error) {
+        console.error("Delete account failed:", error);
+        alert('Lỗi khi xóa: ' + error.message);
+      }
+    }
+  };
+
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <TopNavBar title="Quản lý Tài khoản" />
-      
+    <div className="flex flex-col">
       <main className="p-6 flex-1">
         {/* Banner thông báo */}
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 flex items-start gap-3 rounded-r-lg">
@@ -49,12 +122,12 @@ const AccountPage = () => {
           </p>
         </div>
 
-        {/* Toolbar: Giữ mọi thứ trên cùng 1 hàng ngang bằng cách bỏ w-full và dùng flex-1 hợp lý */}
+        {/* Toolbar */}
         <div className="flex flex-row items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-wrap md:flex-nowrap">
           
-          {/* Khối 1: Ô tìm kiếm - Bỏ w-full để nó không chiếm hết dòng trên màn hình md trở lên */}
           <div className="flex-1 min-w-[280px] max-w-md relative">
             <FormInput 
+              value={searchTerm}
               placeholder="Tìm kiếm theo tên, username hoặc email..." 
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-gray-50/50 border-gray-200 h-10 pr-10 focus:bg-white transition-all w-full"
@@ -66,72 +139,138 @@ const AccountPage = () => {
             </div>
           </div>
 
-          {/* Khối 2: Nhóm Filters và Button - Dùng ml-auto để đẩy cụm này về bên phải */}
           <div className="flex items-center gap-3 ml-auto flex-wrap sm:flex-nowrap justify-end w-full md:w-auto">
             <div className="flex gap-2 shrink-0">
-              <select className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer hover:border-blue-400 transition-colors">
-                <option value="all">Tất cả vai trò</option>
+              <select 
+                value={filterRole} 
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
+                disabled={rolesLoading}
+              >
+                <option value="all">
+                  {rolesLoading ? "Đang tải..." : "Tất cả vai trò"}
+                </option>
+                
+                {roles.map((role) => (
+                  // Gắn key là role.id, value (để lọc) là role.code, và text hiển thị là role.name
+                  <option key={role.id} value={role.code}>
+                    {role.name}
+                  </option>
+                ))}
               </select>
               
-              <select className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer hover:border-blue-400 transition-colors">
+              <select 
+                value={filterStatus} 
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
+              >
                 <option value="all">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Bị khóa</option>
               </select>
             </div>
 
-            {/* Nút thêm tài khoản - Dùng w-auto để kích thước co theo nội dung */}
-            <PrimaryButton 
-              onClick={() => setIsInsertOpen(true)}
-              className="w-auto px-[60px] h-10 shadow-md shrink-0"
-              className="w-fit px-12 shrink-0 whitespace-nowrap">
-              <span className="text-xl font-light mr-2">+</span>
-              Thêm tài khoản
-            </PrimaryButton>
+            <Button onClick={() => setModal({ type: 'insert', data: null, isOpen: true })} className="w-fit px-12 h-10 shadow-md shrink-0 whitespace-nowrap">
+              <span className="text-xl font-light mr-2">+</span> Thêm tài khoản
+            </Button>
           </div>
         </div>
 
-        {/* Bảng dữ liệu: Đã truyền handleEditClick vào onEdit */}
-        <AccountTable 
-        accounts={accounts} 
-        onEdit={handleEditClick} 
-        onLock={handleLockClick} 
-        />
+        {/* Trạng thái Loading và Error */}
+        {loading && <div className="text-center py-10 text-gray-500">Đang tải dữ liệu...</div>}
+        {error && !loading && <div className="text-center py-10 text-red-500">Lỗi: {error}</div>}
+        
+        {!loading && !error && (
+          <AccountTable 
+            accounts={accounts} 
+            onEdit={(acc) => setModal({ type: 'edit', data: acc, isOpen: true })} 
+            onLock={(acc) => setModal({ type: 'lock', data: acc, isOpen: true })} 
+            onResetPassword={handleResetPassword}
+            onDelete={handleDeleteAccount}
+          />
+        )}
 
-        {/* Modal Thêm tài khoản */}
+        {/* Modals */}
         <InsertAccount 
-          isOpen={isInsertOpen} 
-          onClose={() => setIsInsertOpen(false)} 
+          isOpen={modal.isOpen && modal.type === 'insert'} 
+          onClose={closeModal} 
+          onSave={handleAddSubmit}
+          roles={roles}
         />
 
-        {/* Modal Sửa tài khoản: Dùng 'key' để tự động reset State khi đổi ID */}
         <EditAccount 
-          key={selectedAccount?.id || 'edit-modal'} 
-          isOpen={isEditOpen} 
-          onClose={() => setIsEditOpen(false)} 
-          accountData={selectedAccount} 
+          key={`edit-${modal.data?.id || modal.data?.user_id || 'modal'}`}
+          isOpen={modal.isOpen && modal.type === 'edit'} 
+          onClose={closeModal} 
+          accountData={modal.data} 
+          onSave={handleEditSubmit}
+          roles={roles}
         />
 
         <LockAccount
-        isOpen={isLockOpen} 
-        onClose={() => setIsLockOpen(false)} 
-        onConfirm={confirmLock}
-        accountName={selectedAccount?.name}
+          key={`lock-${modal.data?.id || modal.data?.user_id || 'modal'}`}
+          isOpen={modal.isOpen && modal.type === 'lock'} 
+          onClose={closeModal} 
+          onConfirm={handleConfirmLock}
+          accountName={modal.data?.fullname || modal.data?.username}
+          isActive={modal.data?.isactive ?? modal.data?.isActive}
         />
 
-        {/* Phân trang */}
-        <div className="flex justify-center mt-8 gap-1.5">
-          {[1, 2, 3].map(page => (
-            <button 
-              key={page}
-              className={`w-9 h-9 rounded-md border text-sm font-medium transition-all ${
-                page === 1 
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+        {totalPages > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 px-2 gap-4">
+            {/* Bộ đếm thống kê bên trái */}
+            <div className="text-sm text-gray-500">
+              Hiển thị <span className="font-semibold text-gray-900">{Math.min((currentPage - 1) * 10 + 1, totalAccounts)}</span>
+              {' '}đến <span className="font-semibold text-gray-900">{Math.min(currentPage * 10, totalAccounts)}</span>
+              {' '}trong tổng số <span className="font-semibold text-gray-900">{totalAccounts}</span>
+              {' '}tài khoản
+            </div>
+
+            {/* Các nút bấm phân trang bên phải */}
+            <div className="flex gap-1.5">
+              {/* Nút Previous */}
+              <Button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
+                  currentPage === 1 
+                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              {page}
-            </button>
-          ))}
-        </div>
+                }`}
+              >
+                &lt;
+              </Button>
+
+              {/* Danh sách các số trang */}
+              {getPaginationGroup().map(page => (
+                <Button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 ${
+                    page === currentPage 
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {/* Nút Next */}
+              <Button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
+                  currentPage === totalPages 
+                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                &gt;
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

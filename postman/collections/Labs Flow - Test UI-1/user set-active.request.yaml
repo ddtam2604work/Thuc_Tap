@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/user/set-active"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzgwMzY5MjEyLCJleHAiOjE3ODA5NzQwMTJ9.hJ_StAcDUNjT4AhdFhkyCKOh11-aSEC9rAemnuf0AcQ
+  lang: vi
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "id": "c44c37e9-45ae-4345-8f32-109732419581",
+        "isactive": 0
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 1561073602789375

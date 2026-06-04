@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/order/order-status/get-all"
+method: POST
+headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc5OTU0OTQ3LCJleHAiOjE3ODA1NTk3NDd9.Jv41DQppBDNPQbtYnEYvtkOTGt_clqdGamD0HIZ9xuM
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: "{\r
+
+    \    \"parent_id\": null,\r
+
+    \    \"isactive\": 1 \r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 3463776529547263

@@ -1,0 +1,30 @@
+// import axios from 'axios';
+
+// const apiClient = axios.create({
+//   baseURL: '/api/v1', 
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+// });
+
+// apiClient.interceptors.request.use((config) => {
+//   // Thay 'token' thành 'accessToken' để đồng bộ với useAuth và HomePage
+//   const token = localStorage.getItem('accessToken');
+//   if (token) {
+//     config.headers.Authorization = `Bearer ${token}`;
+//   }
+//   return config;
+// });
+
+// apiClient.interceptors.response.use(
+//   (response) => response.data,
+//   (error) => {
+//     if (error.response?.status === 401) {
+//       localStorage.removeItem('accessToken'); // Thay đổi ở đây
+//       window.location.href = '/login';
+//     }
+//     return Promise.reject(error);
+//   }
+// );
+
+// export default apiClient;

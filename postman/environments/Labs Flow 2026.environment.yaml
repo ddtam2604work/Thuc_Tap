@@ -1,0 +1,11 @@
+name: Labs Flow 2026
+values:
+  - key: BE_URL
+    value: ''
+  - key: MEDIA_URL
+    value: ''
+  - key: accessToken
+    value: ''
+  - key: refreshToken
+    value: ''
+color: 180

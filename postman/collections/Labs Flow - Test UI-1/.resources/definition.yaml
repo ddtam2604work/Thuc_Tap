@@ -1,0 +1,6 @@
+$kind: collection
+name: Labs Flow - Test UI-1
+auth:
+  - id: 6cec87c5-53a2-47b7-9f59-64bd60284fe1
+    type: bearer
+    name: Bearer Token

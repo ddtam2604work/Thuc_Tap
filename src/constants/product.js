@@ -3,12 +3,23 @@ export const PRODUCT_NAV_TABS = [
   { id: 'products', label: 'Sản phẩm in', icon: 'image' },
 ];
 
-export const STATUS_LABELS = {
-  ACTIVE: { text: 'HOẠT ĐỘNG', class: 'bg-green-100 text-green-700' },
-  INACTIVE: { text: 'KHOÁ', class: 'bg-red-100 text-red-700' },
-  STOP_BUSINESS: { text: 'NGỪNG KINH DOANH', class: 'bg-red-100 text-red-700' },
-};
+// 🎯 Đã gỡ bỏ STATUS_LABELS vì sử dụng trực tiếp isactive (0 và 1) từ API để đồng bộ dữ liệu
 
-// Bổ sung Headers cho 2 loại bảng
-export const CATALOG_TABLE_HEADERS = ["Mã DM", "Tên danh mục", "Mô tả", "Số sản phẩm", "Trạng thái", "Thao tác"];
-export const PRODUCT_TABLE_HEADERS = ["Mã SP", "Tên sản phẩm", "Danh mục", "Giá cơ bản (Standard)", "Mô tả", "Trạng thái", "Thao tác"];
+export const CATALOG_TABLE_HEADERS = [
+  "Mã DM", 
+  "Tên danh mục", 
+  "Mô tả", 
+  "Số sản phẩm", 
+  "Trạng thái", 
+  "Thao tác"
+];
+
+export const PRODUCT_TABLE_HEADERS = [
+  "Mã SP", 
+  "Tên sản phẩm", 
+  "Danh mục", 
+  "Giá cơ bản (Standard)", 
+  "Mô tả", 
+  "Trạng thái", 
+  "Thao tác"
+];

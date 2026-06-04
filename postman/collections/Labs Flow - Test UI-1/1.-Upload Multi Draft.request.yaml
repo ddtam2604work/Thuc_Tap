@@ -1,0 +1,29 @@
+$kind: http-request
+name: 1.	Upload Multi Draft
+url: "{{MEDIA_URL}}/api/upload/image/multi-draft"
+method: POST
+headers:
+  Content-Type: multipart/form-data
+  refreshToken: "{{refreshToken}}"
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc5Nzc5MTY0LCJleHAiOjE3ODAzODM5NjR9.HpKbbsuhNvdsKcygBIZ7HiVDH2b30mgOPH3MmuJFYF8
+body:
+  type: formdata
+  content:
+    - type: file
+      key: files
+      src:
+        - /C:/Users/duyta/OneDrive/Pictures/Screenshots/Screenshot 2026-05-13 141952.png
+        - /C:/Users/duyta/OneDrive/Pictures/Screenshots/Screenshot 2026-05-13 144743.png
+        - /C:/Users/duyta/OneDrive/Pictures/Screenshots/Screenshot 2026-05-13 141952.png
+      description: ""
+      disabled: false
+    - type: text
+      key: ispublic
+      value: "1"
+      description: ""
+      disabled: false
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 3443499609358335

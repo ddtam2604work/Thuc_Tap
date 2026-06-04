@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/products/generate-code"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZjcwMDYwNWEtYjIwZC00NjAyLWE4ZDQtZmY4Y2ZjY2JkZWFkIiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2MjIwODExLCJleHAiOjE3NzY4MjU2MTF9.LU-ppUrHVKog8ZSabRyteshjh1Oz5hj5icVO8iHMeKo
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: "{}"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 3848610468855807

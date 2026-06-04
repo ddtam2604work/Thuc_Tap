@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/user/get-detail"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYmRkOGYyMzItMGQ5YS00NzczLTgwOTEtOWIwOTA5YTRlOGEzIiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2MDQyNjkzLCJleHAiOjE3NzY2NDc0OTN9.fgZdPHdv9TfWTUuNenn6phtzGHegnupxMvN3ur9WEzU
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "id": "73a38bf9-5c80-453a-ac89-749a77b2078c"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 1098872380194815

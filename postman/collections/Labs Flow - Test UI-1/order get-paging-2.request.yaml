@@ -1,0 +1,32 @@
+$kind: http-request
+name: order get-paging
+url: "{{BE_URL}}/api/v1/order/get-paging"
+method: POST
+headers:
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiODhhOTE5ZDgtMGFlNy00MmU4LWFhZTMtNzY5YmI0MDhkMzZjIiwidXNlcm5hbWUiOiJob2FpYWRtaW42IiwiY3VzdG9tZXJfaWQiOm51bGwsImlhdCI6MTc3NzA4NDc5MCwiZXhwIjoxNzc3Njg5NTkwfQ.YVObrqHQ_AHsT33a2X1ogDPqOvWxHLWVFHN2LOnjHvE
+body:
+  type: json
+  content: "{\r
+
+    \    \r
+
+    \    \"orderstatuses_id\": \"10233c7a-7f9c-4ec9-8882-9ecfbf85728a\", \r
+
+    \    \"search\": null,\r
+
+    \    \"from_createdate\": \"2026-03-01\",\r
+
+    \    \"to_createdate\": \"2026-06-01\",\r
+
+    \    \"page\": 1,\r
+
+    \    \"pagesize\": 20\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 4396214321676287

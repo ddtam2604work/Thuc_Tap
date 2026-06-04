@@ -10,4 +10,15 @@ export default defineConfig({
     tailwindcss(),
     babel({ presets: [reactCompilerPreset()] })
   ],
+  server: {
+    proxy: {
+      // Chuyển hướng tất cả các request bắt đầu bằng /api sang BE_URL
+      '/api': {
+        target: 'https://113.161.204.185:4000',
+        changeOrigin: true,
+        secure: false,
+        
+      }
+    }
+  }
 })

@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/customercategories/get-all"
+method: POST
+headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZjZiMDA2ZC1lMGVmLTRkZmItOWY5MC05ZDkzM2NmZmQ2ZTUiLCJ1c2VybmFtZSI6ImFkbWluMSIsImlhdCI6MTc3NTc0ODcxNCwiZXhwIjoxNzc2MzUzNTE0fQ.uUhMw4Wnr4FvgINey3oxBOyhhGq0QyQsuPZBC4XIFSc
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "isactive": null,
+        "search": ""
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 652361732194303

@@ -2,6 +2,7 @@ import ProductCatalogPage from './ProductCatalogPage';
 import ProductManagementPage from './ProductManagementPage';
 import NavPage from '../Nav/NavPage';
 import { PRODUCT_NAV_TABS } from '../../constants/product';
+import Button from '../../components/skeleton/Button';
 import { useState } from 'react';
 
 const ProductPage = () => {
@@ -29,12 +30,12 @@ const ProductPage = () => {
       </div>
 
       {/* Floating Chat Button */}
-      <button className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-xl bg-[#0037B0] text-white shadow-xl hover:scale-110 transition-all z-50">
+      <Button variant="fab">
         <span className="text-2xl">💬</span>
         <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#BA1A1A] text-[10px] font-bold">
           3
         </div>
-      </button>
+      </Button>
     </div>
   );
 };

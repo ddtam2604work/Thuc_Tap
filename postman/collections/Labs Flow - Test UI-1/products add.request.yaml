@@ -1,0 +1,28 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/products/add"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZjcwMDYwNWEtYjIwZC00NjAyLWE4ZDQtZmY4Y2ZjY2JkZWFkIiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2MjIwODExLCJleHAiOjE3NzY4MjU2MTF9.LU-ppUrHVKog8ZSabRyteshjh1Oz5hj5icVO8iHMeKo
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "productcategory_id": "f07e1ce2-dc6b-4c02-b75c-168592da22d6",
+        "units_id": "83253678-cc50-4f28-806e-1d2570caead0",
+        "name": "Ảnh cưới khung gỗ 30x50",
+        "price": 350000,
+        "thumbnail": "",
+        "description": "Ảnh cưới in canvas khung gỗ",
+        "sortorder": 1,
+        "attributes": {
+            "material": "canvas",
+            "size": "30x50"
+        }
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 923784094679039

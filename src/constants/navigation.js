@@ -1,6 +1,6 @@
 //Navigation
 export const NAV_LINKS = [
-    { label: "Trang chủ", path: "/" },
+    { label: "Trang chủ", path: "/home" },
     { label: 'Sản Phẩm', path: '/products' },
     { label: 'Khách Hàng', path: '/customers' },
     { label: 'Đơn Hàng', path: '/orders' },

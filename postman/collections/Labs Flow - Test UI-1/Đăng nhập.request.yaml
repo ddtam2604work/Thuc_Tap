@@ -1,0 +1,75 @@
+$kind: http-request
+name: Đăng nhập
+url: "{{BE_URL}}/api/v1/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: "{\r
+
+    \    \"username\": \"admin1\",\r
+
+    \    \"password\": \"Matkhau@123456\"\r
+
+    }"
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: "// 1. Kiểm tra xem request có thành công không (mã 200 OK)\r
+
+      if (pm.response.code === 200) {\r
+
+      \    // 2. Chuyển đổi dữ liệu trả về từ server sang định dạng JSON\r
+
+      \    var jsonData = pm.response.json();\r
+
+      \    \r
+
+      \    // 3. Tìm và lưu accessToken vào biến môi trường\r
+
+      \    // LƯU Ý: Thay đổi 'jsonData.accessToken' cho khớp với tên trường dữ liệu thực tế của backend\r
+
+      \    if (jsonData.accessToken) {\r
+
+      \        pm.environment.set(\"accessToken\", jsonData.accessToken);\r
+
+      \        console.log(\"Đã lưu accessToken thành công!\");\r
+
+      \    } else if (jsonData.data && jsonData.data.accessToken) {\r
+
+      \        // Trường hợp token nằm trong object 'data'\r
+
+      \        pm.environment.set(\"accessToken\", jsonData.data.accessToken);\r
+
+      \        console.log(\"Đã lưu accessToken (từ data) thành công!\");\r
+
+      \    }\r
+
+      \r
+
+      \    // 4. Tìm và lưu refreshToken vào biến môi trường\r
+
+      \    if (jsonData.refreshToken) {\r
+
+      \        pm.environment.set(\"refreshToken\", jsonData.refreshToken);\r
+
+      \        console.log(\"Đã lưu refreshToken thành công!\");\r
+
+      \    } else if (jsonData.data && jsonData.data.refreshToken) {\r
+
+      \        pm.environment.set(\"refreshToken\", jsonData.data.refreshToken);\r
+
+      \        console.log(\"Đã lưu refreshToken (từ data) thành công!\");\r
+
+      \    }\r
+
+      \r
+
+      } else {\r
+
+      \    console.log(\"Đăng nhập thất bại, không thể lấy token.\");\r
+
+      }"
+    language: text/javascript

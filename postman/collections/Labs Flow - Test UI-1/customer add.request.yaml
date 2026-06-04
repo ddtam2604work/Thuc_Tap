@@ -1,0 +1,28 @@
+$kind: http-request
+url: "{{BE_URL}}/api/v1/customer/add"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMDNlOWY4NC1lZjdkLTQzODMtODQ2NC1jNjY4NmIzZDQ3ZjYiLCJ1c2VybmFtZSI6InVzZXIwMDEiLCJpYXQiOjE3NzYwMDQ2NDEsImV4cCI6MTc3NjYwOTQ0MX0.kCrIpGM_yNJQ3PUroQ6CikOPlPrUzz40NuutcHtQJ9c
+  lang: vi
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "customercategories_id": "532a6670-b42f-4a5e-bbc6-b6e129341b4d",
+        "username": "khachddha1ng01111111",
+        "password": "Password@123",
+        "fullname": "Nguyễn Văn A",
+        "phone": "0901334263",
+        "address": "123 Đường ABC",
+        "email": "khachhang@email.com",
+        "gender": 1,
+        "studioname": "studioname",
+       "description": "description"
+      }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 4394206848090111

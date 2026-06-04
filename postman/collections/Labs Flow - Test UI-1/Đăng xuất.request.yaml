@@ -1,0 +1,10 @@
+$kind: http-request
+name: Đăng xuất
+url: "{BE_URL}api/v1/auth/logout"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: "\r\n"
+order: 3921070122860543

@@ -1,0 +1,8 @@
+# Use this workspace to collaborate
+workspace:
+  id: 5a808876-3f9d-490d-8a36-add9663a8747
+
+localResources:
+  docs:
+    - ..\PROJECT_ANALYSIS.md
+    - ..\README.md

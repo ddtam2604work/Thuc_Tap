@@ -1,0 +1,20 @@
+$kind: http-request
+name: productcategories set-active
+url: "{{BE_URL}}/api/v1/productcategories/set-active"
+method: POST
+headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZjcwMDYwNWEtYjIwZC00NjAyLWE4ZDQtZmY4Y2ZjY2JkZWFkIiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2MTQwNzc0LCJleHAiOjE3NzY3NDU1NzR9.OMvKr2_xSXgUvUa7uwfzwskaLKhmeLPqzUDKPch9Lcs
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: |-
+    {
+        "id": "6bcabf08-b7c2-4eb3-b55b-b1e982a23d3b",
+        "isactive": 0
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 1099999385485311
