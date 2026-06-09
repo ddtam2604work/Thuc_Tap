@@ -7,11 +7,19 @@ import FormInput from '../../components/skeleton/FormInput';
 import FormInsertCategory from '../../components/partials/forms/products/FormInsert-Category';
 import FormEditCategory from '../../components/partials/forms/products/FormEdit-Category';
 
+// --- ĐÃ SỬA CÚ PHÁP IMPORT CHUẨN Ở ĐÂY ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const ProductCatalogPage = () => {
   const { 
     categories, loading, error, searchTerm, setSearchTerm, 
     generateCategoryCode, addCategory, updateCategory, deleteCategory 
   } = useCategories();
+  
+  // SỬA TẠI ĐÂY: Thêm dấu { } vào để lấy chính xác hàm confirm từ Context Object
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
   
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
   const [isSaving, setIsSaving] = useState(false);
@@ -25,7 +33,7 @@ const ProductCatalogPage = () => {
       // Truyền mã vừa lấy được vào data để FormInsert hứng
       setModal({ isOpen: true, type: 'insert', data: { code: newCode } });
     } catch (error) {
-      alert("Lỗi khi tạo mã danh mục: " + error.message);
+      showToast("Lỗi khi tạo mã danh mục: " + error.message, "error");
     } finally {
       setIsGenerating(false);
     }
@@ -42,26 +50,35 @@ const ProductCatalogPage = () => {
       setIsSaving(true);
       if (modal.type === 'edit') {
         await updateCategory(modal.data.id, formData);
-        alert("Cập nhật danh mục thành công!");
+        showToast("Cập nhật danh mục thành công!", "success");
       } else {
         await addCategory(formData);
-        alert("Thêm danh mục mới thành công!");
+        showToast("Thêm danh mục mới thành công!", "success");
       }
       handleClose();
     } catch (err) {
-      alert("Lỗi thao tác: " + (err.message || "Không thể kết nối máy chủ."));
+      showToast("Lỗi thao tác: " + (err.message || "Không thể kết nối máy chủ."), "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này không?')) {
+    // Bây giờ hàm confirm() này đã hoạt động chuẩn xác nhờ có dấu destructuring rước đó
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa danh mục',
+      message: 'Bạn có chắc chắn muốn xóa danh mục này không? Hành động này không thể hoàn tác.',
+      confirmText: 'Đồng ý xóa',
+      cancelText: 'Hủy bỏ',
+      type: 'danger'
+    });
+
+    if (isConfirmed) {
       try {
         await deleteCategory(id);
-        alert("Đã xóa danh mục!");
+        showToast("Đã xóa danh mục thành công!", "success");
       } catch(err) {
-        alert("Lỗi khi xóa: " + err.message);
+        showToast("Lỗi khi xóa: " + err.message, "error");
       }
     }
   };
@@ -119,7 +136,9 @@ const ProductCatalogPage = () => {
         
         {/* Bảng dữ liệu */}
         {!loading && !error && (
-          <ProductCatalogTable data={categories} onEdit={handleOpenEdit} onDelete={handleDelete} />
+          <div className="w-full overflow-x-auto bg-white rounded-lg shadow-sm border border-gray-100">
+            <ProductCatalogTable data={categories} onEdit={handleOpenEdit} onDelete={handleDelete} />
+          </div>
         )}
       </main>
 

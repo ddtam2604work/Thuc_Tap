@@ -2,6 +2,10 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { orderService } from '../../services/orderService';
 
+// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG CHUẨN XÁC ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const MEDIA_URL = 'https://113.161.204.185:4010';
 
 const formatAbsoluteDriveLink = (url) => {
@@ -45,6 +49,10 @@ export const useOrderDetail = () => {
   const [logsLoading, setLogsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Kích hoạt các công cụ điều khiển thông báo và xác nhận dùng chung
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
+
   const fetchLogs = useCallback(async () => {
     setLogsLoading(true);
     try {
@@ -65,8 +73,11 @@ export const useOrderDetail = () => {
     if (!silent) setIsLoading(true);
     try {
       const res = await orderService.getDetail(id);
-      if (res?.errorCode === 1 && res?.data) {
-        const raw = res.data;
+      
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 && beData?.data) {
+        const raw = beData.data;
         
         let formattedDate = '---';
         if (raw.orderdate) {
@@ -80,17 +91,14 @@ export const useOrderDetail = () => {
           setAudioNoteUrl('');
         }
 
-        // 🌟 KỸ THUẬT: Trích xuất tệp đính kèm cấp ĐƠN HÀNG (để xử lý lỗi 0 folders)
         const orderAttachments = safeParseAttachments(raw.attachments || raw.files || raw.general_attachments || raw.images);
 
-        // ✅ CẬP NHẬT BỘ ĐẾM FILE: Tính tổng cả tệp chung và tệp riêng từng sản phẩm
         let totalFiles = orderAttachments.length;
         (raw.items || []).forEach((item) => {
           const itemAtts = safeParseAttachments(item.attachments || item.images);
           totalFiles += itemAtts.length;
         });
 
-        // 🌟 LẤY ĐỊA CHỈ KHÁCH HÀNG TỪ API CHI TIẾT KHÁCH HÀNG
         let finalCustomerAddress = raw.customer_address;
         if (raw.customer_id) {
           try {
@@ -113,7 +121,6 @@ export const useOrderDetail = () => {
             employee: raw.createuser_fullname || 'Hệ thống',
             address: finalCustomerAddress || 'Nhận tại cửa hàng'
           },
-          // 🌟 ÁNH XẠ ATTACHMENTS TỔNG ĐƠN (Sửa lỗi khuyết key truyền sang component con)
           attachments: orderAttachments.map((img, i) => {
             const fId = typeof img === 'string' ? img : (img.id || img.fileId || '');
             const absolutePath = resolveAbsoluteUrl(fId);
@@ -124,12 +131,9 @@ export const useOrderDetail = () => {
               previewUrl: absolutePath,
             };
           }),
-          // MAPPING SẢN PHẨM IN ẤN
           products: (raw.items || []).map(item => {
             const itemDriveLink = formatAbsoluteDriveLink(item.linkgoogledrive);
 
-            // 🌟 FALLBACK: Nếu sản phẩm không có file riêng, nhưng đơn hàng chỉ có 1 sản phẩm,
-            // tự động lấy ảnh tổng đơn đưa vào sản phẩm để hiển thị đẹp mắt trên dòng table.
             let rawItemImages = safeParseAttachments(item.attachments || item.images);
             if (rawItemImages.length === 0 && (raw.items || []).length === 1) {
               rawItemImages = orderAttachments;
@@ -178,7 +182,7 @@ export const useOrderDetail = () => {
         });
         setStatus(raw.orderstatus_code || 'NEW'); 
       } else {
-        alert(res?.message || 'Không thể tải dữ liệu đơn hàng.');
+        showToast(beData?.message || 'Không thể tải dữ liệu đơn hàng.', 'error');
         navigate('/orders');
       }
     } catch (error) {
@@ -186,7 +190,7 @@ export const useOrderDetail = () => {
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, showToast]);
 
   useEffect(() => {
     if (id) fetchOrderDetail();
@@ -214,17 +218,38 @@ export const useOrderDetail = () => {
     });
   }, [status]);
 
-  const executeStatusChange = async (targetStatus, successMsg) => {
+  // Thay thế hàm executeStatusChange cũ bằng logic này:
+const executeStatusChange = async (targetStatus, successMsg) => {
     setIsLoading(true);
     try {
-      const res = await orderService.changeStatus(id, targetStatus);
-      if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
-        setStatus(targetStatus);
-        setRefreshKey(prev => prev + 1);
-        if (successMsg) alert(successMsg);
-      } else { alert(res?.message || 'Thao tác cập nhật trạng thái thất bại.'); }
-    } catch (err) { alert('Lỗi kết nối máy chủ hệ thống.'); } finally { setIsLoading(false); }
-  };
+        const res = await orderService.changeStatus(id, targetStatus);
+        
+        // 1. Phân tách response an toàn (Đảm bảo lấy đúng errorCode dù nằm ở lớp nào)
+        const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+        // 2. Kiểm tra điều kiện thành công (Mở rộng cho cả statusCode 200)
+        if (beData?.errorCode === 1 || beData?.errorCode === "1" || beData?.statusCode === 200) {
+            
+            // 3. Cập nhật State tức thì để React re-render lại UI theo trạng thái mới
+            setStatus(targetStatus); 
+            
+            // 4. Force refresh lại dữ liệu chi tiết đơn hàng để các logic phụ thuộc (như timeline) update theo
+            setRefreshKey(prev => prev + 1);
+            
+            if (successMsg) showToast(successMsg, 'success');
+            
+            // 5. Nếu cần thiết, gọi lại fetchOrderDetail để đồng bộ lại toàn bộ dữ liệu từ server
+            await fetchOrderDetail(true); 
+        } else { 
+            showToast(beData?.message || 'Thao tác cập nhật trạng thái thất bại.', 'error'); 
+        }
+    } catch (err) { 
+        console.error("Execute status change error:", err);
+        showToast('Lỗi kết nối máy chủ hệ thống.', 'error'); 
+    } finally { 
+        setIsLoading(false); 
+    }
+};
 
   return {
     isLoading, status, orderStatus: status, order: orderData || {}, timeline, refreshKey, audioNoteUrl,
@@ -238,42 +263,81 @@ export const useOrderDetail = () => {
       setIsLoading(true);
       try {
         const res = await orderService.doneOrder(id);
-        if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
+        const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+        if (beData?.errorCode === 1 || beData?.statusCode === 200) {
           setStatus('DONE');
           setRefreshKey(prev => prev + 1);
-          alert('🎉 Đơn hàng đã được quyết toán hoàn thành xuất sắc!');
+          showToast('🎉 Đơn hàng đã được quyết toán hoàn thành xuất sắc!', 'success');
+        } else {
+          showToast(beData?.message || 'Không thể hoàn thành đơn hàng.', 'error');
         }
-      } catch (err) { alert('Lỗi hoàn thành đơn.'); } finally { setIsLoading(false); }
+      } catch (err) { 
+        showToast('Lỗi hoàn thành đơn.', 'error'); 
+      } finally { 
+        setIsLoading(false); 
+      }
     }, 
+    // =================================================================
+    // LUỒNG XỬ LÝ HỦY ĐƠN HÀNG (SỬ DỤNG TOAST)
+    // =================================================================
     handleCancelInvoice: async () => {
-      if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
       setIsLoading(true);
       try {
         const res = await orderService.cancelOrder(id);
-        if (res?.errorCode === 1 || res?.data?.errorCode === 1) { setStatus('CANCELED'); setRefreshKey(prev => prev + 1); }
-      } catch (err) { alert('Lỗi khi gửi yêu cầu hủy đơn.'); } finally { setIsLoading(false); }
+        const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+        if (beData?.errorCode === 1 || beData?.statusCode === 200) { 
+          setStatus('CANCELED'); 
+          setRefreshKey(prev => prev + 1); 
+          showToast('Đã thực hiện hủy đơn hàng thành công!', 'success');
+        } else {
+          showToast(beData?.message || 'Yêu cầu hủy đơn thất bại từ hệ thống.', 'error');
+        }
+      } catch (err) { 
+        showToast('Lỗi khi gửi yêu cầu hủy đơn.', 'error'); 
+      } finally { 
+        setIsLoading(false); 
+      }
     }, 
+    // =================================================================
+    // LUỒNG XỬ LÝ XÓA ĐƠN HÀNG VÀ BẢN NHÁP (SỬ DỤNG TOAST + TRÌ HOÃN ĐIỀU HƯỚNG)
+    // =================================================================
     handleRejectOrder: async () => {
-      const confirmText = status === 'DRAFT' ? 'Xóa vĩnh viễn bản nháp này?' : 'Xác nhận xóa hoàn toàn đơn hàng khỏi hệ thống?';
-      if (!window.confirm(confirmText)) return;
       setIsLoading(true);
       try {
         const res = status === 'DRAFT' ? await orderService.deleteDraft(id) : await orderService.deleteOrder(id);
-        if (res?.errorCode === 1 || res?.data?.errorCode === 1) { alert('Đã xóa dữ liệu đơn hàng thành công.'); navigate('/orders'); }
-      } catch (err) { alert('Lỗi hệ thống khi xóa đơn.'); } finally { setIsLoading(false); }
+        const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+        if (beData?.errorCode === 1 || beData?.statusCode === 200) { 
+          // showToast('Đã thực hiện xóa dữ liệu đơn hàng thành công!', 'success');
+          // Tạo khoảng trễ nhỏ 50ms giúp Toast kịp render trước khi UI cha bị unmount do chuyển trang
+          setTimeout(() => navigate('/orders'), 50);
+        } else {
+          showToast(beData?.message || 'Hệ thống từ chối xóa đơn hàng này.', 'error');
+        }
+      } catch (err) { 
+        showToast('Lỗi hệ thống khi xóa đơn.', 'error'); 
+      } finally { 
+        setIsLoading(false); 
+      }
     }, 
     handleEditOrder: () => navigate(`/orders/edit/${id}`), 
     handlePrintInvoice: async () => {
       try {
         const res = await orderService.exportFullPdf(id);
         window.open(URL.createObjectURL(new Blob([res.data || res], { type: 'application/pdf' })), '_blank');
-      } catch (err) { alert('Lỗi kết nối máy ins hóa đơn.'); }
+      } catch (err) { 
+        showToast('Lỗi kết nối máy in hóa đơn.', 'error'); 
+      }
     }, 
     handlePrintJobTicket: async () => {
       try {
         const res = await orderService.exportLimitPdf(id);
         window.open(URL.createObjectURL(new Blob([res.data || res], { type: 'application/pdf' })), '_blank');
-      } catch (err) { alert('Lỗi kết nối máy in xưởng sản xuất.'); }
+      } catch (err) { 
+        showToast('Lỗi kết nối máy in xưởng sản xuất.', 'error'); 
+      }
     }, 
     handleBack: () => navigate('/orders')
   };

@@ -3,7 +3,7 @@ import Table from '../../../skeleton/Table'; // SỬA LỖI ĐƯỜNG DẪN: Lù
 import Button from '../../../skeleton/Button'; // SỬA LỖI ĐƯỜNG DẪN
 
 // SỬA LỖI CHÍ MẠNG: Gán giá trị mặc định accounts = [] để tránh crash ứng dụng khi API chưa tải xong
-const AccountTable = ({ accounts = [], onEdit, onLock, onResetPassword, onDelete }) => {
+const AccountTable = ({ accounts = [], onEdit, onLock, onDelete }) => {
   const headers = ['STT', 'Họ tên', 'Username', 'Email', 'Số điện thoại', 'Nhóm quyền', 'Trạng thái', 'Đăng nhập gần nhất', 'Thao tác'];
 
   const formatLastLogin = (dateString) => {
@@ -85,11 +85,7 @@ const AccountTable = ({ accounts = [], onEdit, onLock, onResetPassword, onDelete
                 <Button variant={isUserActive ? "text-danger" : "text"} className="font-medium px-2 hover:bg-gray-50" onClick={() => onLock(acc)}>
                   {isUserActive ? 'Khoá' : 'Mở Khoá'}
                 </Button>
-                
-                <Button variant="text-ghost" className="text-gray-500 font-medium px-2 whitespace-nowrap hover:bg-gray-50 border-l border-gray-200" onClick={() => onResetPassword(acc)}>
-                  Reset MK
-                </Button>
-                
+                                
                 <Button variant="text-danger" className="font-medium px-2 hover:bg-red-50 border-l border-gray-200" onClick={() => onDelete(acc)}>
                   Xóa
                 </Button>

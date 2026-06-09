@@ -1,6 +1,9 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { userService } from '../../services/accountService';
 
+// --- IMPORT HOOK THÔNG BÁO DÙNG CHUNG ---
+import { useNotification } from '../../context/NotificationContext';
+
 export const useAccounts = () => {
     const [roles, setRoles] = useState([]); // State lưu danh sách roles
     const [rolesLoading, setRolesLoading] = useState(false);
@@ -14,6 +17,9 @@ export const useAccounts = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all'); 
+
+    // Kích hoạt hook thông báo hệ thống
+    const { showToast } = useNotification();
 
     const checkTokenGuard = () => {
         if (!localStorage.getItem('accessToken')) {
@@ -32,8 +38,9 @@ export const useAccounts = () => {
                 const rawList = response.data?.list || response.list || (Array.isArray(response.data) ? response.data : []);
                 const accountsList = Array.isArray(rawList) ? rawList : [];
                 
-                // 👉 FIX BẪY PHÂN TRANG: Đảo ngược mảng để tài khoản mới nhất luôn trồi lên trên cùng!
-                setAccounts([...accountsList].reverse()); 
+                // 🛠️ ĐIỀU CHỈNH 1 (Theo logic useCustomer_List): 
+                // Đổ thẳng dữ liệu gốc từ API vào state để giữ nguyên thứ tự mới nhất ở đầu thay vì dùng .reverse() gây ngược dòng
+                setAccounts(accountsList); 
                 
             } else {
                 throw new Error(response?.message || 'Không thể lấy danh sách tài khoản.');
@@ -41,10 +48,12 @@ export const useAccounts = () => {
         } catch (err) {
             setError(err.message);
             setAccounts([]); 
+            // Hiển thị Toast cảnh báo lỗi nạp danh sách
+            showToast("Lỗi tải danh sách tài khoản: " + err.message, "error");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [showToast]);
 
     useEffect(() => {
         const fetchRoles = async () => {
@@ -166,12 +175,9 @@ export const useAccounts = () => {
     };
 
     const addAccount = async (formData) => {
-        // 1. Chuẩn hóa Tên đăng nhập
         const rawUsername = formData.username || "";
         const processedUsername = rawUsername.trim().replace(/\s+/g, '_');
 
-        // 2. GỬI ĐẦY ĐỦ THÔNG TIN (Bao gồm cả password & isactive) 
-        // để Backend không bị hụt data và chắc chắn trả về user_id
         const fullPayload = {
             username: processedUsername,
             fullname: formData.fullname?.trim() || "",
@@ -179,36 +185,26 @@ export const useAccounts = () => {
             address: formData.address?.trim() || "",
             gender: Number(formData.gender ?? 1),
             role: String(formData.role),
-            password: formData.password,               // Đã thêm lại vào Payload gốc
-            isactive: String(formData.isactive ?? "1") // Đã thêm lại vào Payload gốc
+            password: formData.password,               
+            isactive: String(formData.isactive ?? "1") 
         };
 
         try {
-            // ==========================================
-            // BƯỚC 1: GỌI API THÊM MỚI
-            // ==========================================
             const responseAdd = await userService.addUser(fullPayload);
             const beData = handleBusinessError(responseAdd);
 
-            // Bắt Token gói đầu
             if (beData?.data?.accessToken) {
                 localStorage.setItem('accessToken', beData.data.accessToken);
             }
 
-            // Trích xuất ID linh hoạt (Chống mọi trường hợp Backend đổi key)
             const innerData = beData?.data || beData;
             const newUserId = innerData?.user_id || innerData?.id;
 
-            // Nếu Backend vẫn "ngoan cố" không trả về ID, log ra F12 để kiểm tra và chặn luồng
             if (!newUserId) {
                 console.error("🚨 Backend không trả về ID. Chi tiết Response:", beData);
                 throw new Error("Hệ thống lưu thành công nhưng Backend không trả về user_id để hiển thị!");
             }
 
-            // ==========================================
-            // BƯỚC 2 & 3: ĐỒNG BỘ MẬT KHẨU VÀ TRẠNG THÁI
-            // (Chỉ gọi khi đã có chắc chắn newUserId)
-            // ==========================================
             if (formData.password) {
                 await userService.setPassword(newUserId, formData.password)
                     .catch(e => console.warn("Lưu ý: API set-password lỗi ngầm", e));
@@ -216,26 +212,15 @@ export const useAccounts = () => {
             await userService.setActive(newUserId, String(fullPayload.isactive))
                 .catch(e => console.warn("Lưu ý: API set-active lỗi ngầm", e));
 
-            // ==========================================
-            // BƯỚC 4: RENDER TỨC THÌ LÊN BẢNG (Optimistic Update)
-            // ==========================================
-            const newUserToRender = {
-                ...fullPayload,
-                ...innerData,
-                id: newUserId, // Map đúng ID cho Table nhận diện
-                roles: [{ code: fullPayload.role, name: fullPayload.role }] 
-            };
-
-            setAccounts(prevAccounts => [newUserToRender, ...prevAccounts]);
-
-            // Dọn dẹp giao diện
+            // 🛠️ ĐIỀU CHỈNH 2 (Theo logic useCustomer_List):
+            // Loại bỏ hoàn toàn mảng local trung gian và setTimeout bất đồng bộ dễ gây lệch DOM.
+            // Tiến hành làm sạch bộ lọc trước và gọi trực tiếp await fetchAccounts() để lấy data chuẩn chỉ từ máy chủ.
             setSearchTerm('');
             setFilterRole('all');
             setFilterStatus('all');
             setCurrentPage(1);
 
-            // Fetch lại danh sách ngầm sau nửa giây
-            setTimeout(() => fetchAccounts(), 500);
+            await fetchAccounts();
 
             return beData;
 
@@ -245,17 +230,14 @@ export const useAccounts = () => {
         }
     };
 
-    // ĐÂY LÀ HÀM EDIT ACCOUNT ĐÃ ĐƯỢC CẬP NHẬT ĐỒNG BỘ PHÂN QUYỀN VÀ TRẠNG THÁI KHÓA
     const editAccount = async (formData) => {
         checkTokenGuard();
         
-        // Bọc lót an toàn: Tự trích xuất ID từ formData và ép về dạng chuỗi
         const targetId = String(formData.id || formData.user_id || "");
         if (!targetId || targetId === "undefined") {
             throw new Error("Không tìm thấy ID của tài khoản để cập nhật!");
         }
 
-        // 👉 XỬ LÝ ĐỒNG BỘ QUYỀN: Giải mã code nhóm quyền từ mảng 'roles' hoặc trường 'role' của bạn
         let roleCode = "";
         if (Array.isArray(formData?.roles) && formData.roles.length > 0) {
             roleCode = formData.roles[0].code || formData.roles[0].id || "";
@@ -271,18 +253,16 @@ export const useAccounts = () => {
             address: formData.address?.trim() || "",
             gender: formData.gender !== undefined ? Number(formData.gender) : 1,
             avatar: formData.avatar || "",
-            role: String(roleCode) // Đã đính kèm trường role hợp lệ vào payload của editUser
+            role: String(roleCode) 
         };
 
         const response = await userService.editUser(payload);
         const beData = handleBusinessError(response);
 
-        // KỸ THUẬT GÓI ĐẦU CHỦ ĐỘNG: Bắt ngay Token mới từ API EditUser và lưu vào bộ nhớ
         if (beData?.data?.accessToken) {
             localStorage.setItem('accessToken', beData.data.accessToken);
         }
 
-        // 👉 XỬ LÝ ĐỒNG BỘ TRẠNG THÁI: Tự động gọi API trạng thái /user/set-active nếu người dùng đổi Radio
         if (formData.isactive !== undefined) {
             const statusValue = (formData.isactive === 1 || String(formData.isactive) === "1" || formData.isActive === true) ? 1 : 0;
             await handleBusinessError(await userService.setActive(targetId, statusValue));

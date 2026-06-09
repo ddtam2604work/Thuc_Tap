@@ -7,6 +7,10 @@ import ProductListSection from './CreateOrder/ProductListSection';
 import OrderSummaryCard from './CreateOrder/OrderSummaryCard';
 import AdditionalInfoCard from './CreateOrder/AdditionalInfoCard';
 
+// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const EditOrder = () => {
   const navigate = useNavigate();
   const {
@@ -23,18 +27,37 @@ const EditOrder = () => {
     isSubmitting, isLoading, orderStatus
   } = useEditOrder();
 
+  // Kích hoạt các công cụ thông báo và xác nhận dùng chung toàn cục
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
+
   // Biến đổi nhãn chữ động trên nút hành động dựa trên tiến trình workflow của đơn hàng gốc
   const saveButtonLabel = useMemo(() => {
     if (isSubmitting) return '⏳ Đang ghi nhận thay đổi...';
     switch (orderStatus?.toUpperCase()) {
-      case 'DRAFT': return '💾 Lưu bản nháp';
-      case 'NEW': return '💾 Lưu thay đổi'; 
-      case 'AWAIT': return '💾 Lưu thay đổi'; 
-      case 'CONFIRMED': return '💾 Lưu thay đổi';
-      case 'IN_PROGRESS': return '💾 Lưu thay đổi';
-      default: return '💾 Lưu thay đổi';
+      case 'DRAFT': return 'Lưu bản nháp';
+      case 'NEW': return 'Lưu thay đổi'; 
+      case 'AWAIT': return 'Lưu thay đổi'; 
+      case 'CONFIRMED': return 'Lưu thay đổi';
+      case 'IN_PROGRESS': return 'Lưu thay đổi';
+      default: return 'Lưu thay đổi';
     }
   }, [orderStatus, isSubmitting]);
+
+  // 🌟 BỔ SUNG LUỒNG ĐÁNH CHẶN: Đợi người dùng phản hồi trên Custom Confirm Modal trước khi cho phép lùi trang
+  const handleBackClick = async () => {
+    const isConfirmed = await confirm({
+      title: 'Hủy bỏ chỉnh sửa đơn hàng?',
+      message: 'Bạn có chắc chắn muốn rời khỏi trang chỉnh sửa này không? Mọi thông tin vừa thay đổi cấu hình sẽ không được lưu lại.',
+      confirmText: 'Đồng ý thoát',
+      cancelText: 'Ở lại kiểm tra',
+      type: 'danger'
+    });
+
+    if (isConfirmed) {
+      navigate(-1);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -55,7 +78,7 @@ const EditOrder = () => {
         <Button 
           type="button" 
           variant="icon-dark" 
-          onClick={() => navigate(-1)} 
+          onClick={handleBackClick} // 🛠️ ĐÃ ĐIỀU CHỈNH: Thay thế hàm nội tuyến cũ bằng handleBackClick đã bọc Confirm guard
           disabled={isSubmitting}
           className="p-0 h-7.5 w-7.5 rounded-lg bg-white border border-gray-200/80 hover:bg-gray-50 flex items-center justify-center transition-all shadow-2xs disabled:opacity-50"
         >

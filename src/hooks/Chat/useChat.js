@@ -4,7 +4,20 @@ import { chatService } from '../../services/chatService';
 
 const COMPANY_ID = '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791';
 
-// Hàm helper phân tích vai trò từ JWT Token
+// Dữ liệu giả lập cho Hệ thống Cửa hàng Sticker
+const INITIAL_MY_STICKERS = [
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Jack',
+];
+const INITIAL_STORE_STICKERS = [
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Socks',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Tiger',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Smokey',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Buster',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=Missy'
+];
+
 const getUserRoleFromToken = () => {
     try {
         const token = localStorage.getItem('accessToken');
@@ -12,7 +25,6 @@ const getUserRoleFromToken = () => {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const payload = JSON.parse(window.atob(base64));
-        // Giống file test HTML: Nếu có customer_id thì là Khách hàng, ngược lại là Nhân viên
         return payload.customer_id ? 'customer' : 'staff';
     } catch (e) {
         return 'staff';
@@ -20,9 +32,14 @@ const getUserRoleFromToken = () => {
 };
 
 export const useChat = () => {
-    const { socket, setGlobalUnreadCount } = useSocket();
+    const { socket } = useSocket();
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recognitionRef = useRef(null);
+    const typingTimeoutRef = useRef(null);
+    const inputMessageRef = useRef('');
 
     const [chatRooms, setChatRooms] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -31,41 +48,67 @@ export const useChat = () => {
     const [inputMessage, setInputMessage] = useState('');
     const [pagination, setPagination] = useState({ page: 1, hasMore: false, isLoading: false });
 
-    // Xác định vai trò hiện tại của người dùng
+    // States UI nâng cao
+    const [showMediaSidebar, setShowMediaSidebar] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    
+    // States cho Hệ thống Sticker
+    const [showStickerPicker, setShowStickerPicker] = useState(false);
+    const [myStickers, setMyStickers] = useState(INITIAL_MY_STICKERS);
+    const [storeStickers, setStoreStickers] = useState(INITIAL_STORE_STICKERS);
+    
+    // States cho Modal Forward
+    const [forwardModalOpen, setForwardModalOpen] = useState(false);
+    const [selectedMsgToForward, setSelectedMsgToForward] = useState(null);
+
     const role = useMemo(() => getUserRoleFromToken(), []);
+
+    useEffect(() => {
+        inputMessageRef.current = inputMessage;
+    }, [inputMessage]);
 
     const formatTime = (dateStr) => {
         if (!dateStr) return '';
         return new Date(dateStr).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     };
 
-    // 1. Logic Khởi tạo dựa trên Vai trò (Role-based Initialization)
+    const mediaStorage = useMemo(() => {
+        const images = [];
+        const links = [];
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+
+        messages.forEach(msg => {
+            if (msg.is_recalled) return;
+            const content = msg.content || msg.text || '';
+            if (msg.msg_type === 'image') {
+                images.push({ ...msg, url: chatService.getMediaUrl(content) });
+            } 
+            if (urlRegex.test(content) && msg.msg_type !== 'image') {
+                const foundLinks = content.match(urlRegex);
+                if (foundLinks) foundLinks.forEach(link => links.push({ ...msg, url: link }));
+            }
+        });
+        return { images, links };
+    }, [messages]);
+
     useEffect(() => {
         if (!socket) return;
 
         const initializeChat = async () => {
             if (role === 'customer') {
-                // LOGIC KHÁCH HÀNG: Chỉ lấy/tạo duy nhất 1 phòng chat của chính mình với Admin
                 try {
                     const result = await chatService.getOrCreateConversation(COMPANY_ID);
                     const convId = result?.data?.id;
                     if (convId) {
                         setChatRooms([{
-                            id: convId,
-                            name: 'Labs Support',
-                            avatar: 'L',
-                            lastMessage: 'Nhân viên hỗ trợ',
-                            time: '',
-                            unread: 0,
-                            isOnline: true
+                            id: convId, name: 'Labs Support', avatar: 'L',
+                            lastMessage: 'Nhân viên hỗ trợ', time: '', unread: 0, isOnline: true
                         }]);
                         setActiveRoomId(convId);
                     }
-                } catch (err) {
-                    console.error('Không khởi tạo được cuộc hội thoại của khách hàng', err);
-                }
+                } catch (err) { console.error('Không khởi tạo được cuộc hội thoại khách hàng', err); }
             } else {
-                // LOGIC NHÂN VIÊN (Giữ nguyên cấu trúc cũ)
                 try {
                     socket.emit('chat:join_company', { company_id: COMPANY_ID });
                     const response = await chatService.getConversations(COMPANY_ID);
@@ -80,22 +123,16 @@ export const useChat = () => {
                         isOnline: true,
                     }));
                     setChatRooms(mappedRooms);
-                    if (mappedRooms.length > 0 && !activeRoomId) {
-                        setActiveRoomId(mappedRooms[0].id);
-                    }
-                } catch (err) {
-                    console.error('Không tải được danh sách phòng chat nhân viên', err);
-                }
+                    if (mappedRooms.length > 0 && !activeRoomId) setActiveRoomId(mappedRooms[0].id);
+                } catch (err) { console.error('Không tải được phòng chat', err); }
             }
         };
 
         initializeChat();
     }, [socket, role]);
 
-    // 2. Tải tin nhắn khi đổi phòng chat (Giữ nguyên logic gốc)
     useEffect(() => {
         if (!activeRoomId) return;
-
         const fetchMessages = async () => {
             try {
                 setPagination(prev => ({ ...prev, page: 1, isLoading: true }));
@@ -106,7 +143,6 @@ export const useChat = () => {
                 setPagination(prev => ({ ...prev, hasMore: total > 20, isLoading: false }));
                 setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 50);
             } catch (err) {
-                console.error('Lỗi tải tin nhắn', err);
                 setPagination(prev => ({ ...prev, isLoading: false }));
             }
         };
@@ -115,30 +151,26 @@ export const useChat = () => {
             socket.emit('chat:join', { chatconversation_id: activeRoomId, company_id: COMPANY_ID });
             socket.emit('chat:read', { chatconversation_id: activeRoomId });
         }
-
         fetchMessages();
         setTypingStatus('');
     }, [activeRoomId, socket]);
 
-    // 3. Sự kiện Real-time Socket (Đảm bảo chạy mượt cho cả 2 vai trò)
     useEffect(() => {
         if (!socket) return;
 
         const handleChatMessage = (data) => {
             const cid = data.chatconversation_id;
             if (!cid) return;
-
             if (cid === activeRoomId) {
                 setMessages((prev) => [...prev, data]);
                 socket.emit('chat:read', { chatconversation_id: activeRoomId });
             }
-
             setChatRooms((prevRooms) =>
                 prevRooms.map((room) =>
                     room.id === cid
                         ? {
                               ...room,
-                              lastMessage: data.content,
+                              lastMessage: data.is_recalled ? 'Tin nhắn đã thu hồi' : data.msg_type === 'image' ? '[Hình ảnh]' : data.msg_type === 'sticker' ? '[Nhãn dán]' : data.msg_type === 'audio' ? '[Ghi âm]' : data.content,
                               time: formatTime(data.createdate || new Date()),
                               unread: cid === activeRoomId ? 0 : room.unread + 1,
                           }
@@ -147,21 +179,22 @@ export const useChat = () => {
             );
         };
 
+        const handleChatRecall = (data) => {
+            const { message_id, chatconversation_id } = data;
+            if (chatconversation_id === activeRoomId) {
+                setMessages((prev) => prev.map((msg) => (msg.id === message_id || msg._id === message_id ? { ...msg, is_recalled: true } : msg)));
+            }
+        };
+
         const handleNewMessageNotify = (data) => {
-            // Chỉ nhân viên mới cần lắng nghe cảnh báo phòng chat mới
             if (role === 'customer') return;
             const cid = data.chatconversation_id;
             setChatRooms((prevRooms) => {
                 const exist = prevRooms.find(r => r.id === cid);
                 if (!exist) {
                     return [{
-                        id: cid,
-                        name: data.sender_name || 'Khách hàng mới',
-                        avatar: (data.sender_name || 'K')[0].toUpperCase(),
-                        lastMessage: data.content || 'Tin nhắn mới',
-                        time: formatTime(new Date()),
-                        unread: 1,
-                        isOnline: true
+                        id: cid, name: data.sender_name || 'Khách hàng mới', avatar: (data.sender_name || 'K')[0].toUpperCase(),
+                        lastMessage: data.content || 'Tin nhắn mới', time: formatTime(new Date()), unread: 1, isOnline: true
                     }, ...prevRooms];
                 }
                 return prevRooms;
@@ -170,24 +203,24 @@ export const useChat = () => {
 
         const handleTyping = (data) => {
             if (data.chatconversation_id === activeRoomId) {
-                // Tùy biến hiển thị tên người đang gõ chữ tương ứng
                 const typerName = role === 'customer' ? 'Nhân viên' : (data.sender_name || 'Khách');
                 setTypingStatus(data.isTyping ? `${typerName} đang nhập...` : '');
             }
         };
 
         socket.on('chat:message', handleChatMessage);
+        socket.on('chat:message_recalled', handleChatRecall);
         socket.on('chat:new_message', handleNewMessageNotify);
         socket.on('chat:typing', handleTyping);
 
         return () => {
             socket.off('chat:message', handleChatMessage);
+            socket.off('chat:message_recalled', handleChatRecall);
             socket.off('chat:new_message', handleNewMessageNotify);
             socket.off('chat:typing', handleTyping);
         };
     }, [socket, activeRoomId, role]);
 
-    // 4. Kéo cuộn trang cũ (Giữ nguyên)
     const handleScroll = useCallback(async (e) => {
         const container = e.currentTarget;
         if (container.scrollTop <= 10 && !pagination.isLoading && pagination.hasMore && activeRoomId) {
@@ -195,76 +228,170 @@ export const useChat = () => {
                 setPagination(prev => ({ ...prev, isLoading: true }));
                 const nextPage = pagination.page + 1;
                 const prevScrollHeight = container.scrollHeight;
-
                 const response = await chatService.getConversationMessages(activeRoomId, nextPage, 20);
                 const rawMsgs = response?.data?.rows || [];
-                const olderMsgs = rawMsgs.slice().reverse();
-
-                setMessages(prev => [...olderMsgs, ...prev]);
-                const total = response?.data?.total || 0;
-                setPagination({ page: nextPage, hasMore: total > nextPage * 20, isLoading: false });
-
+                setMessages(prev => [...rawMsgs.slice().reverse(), ...prev]);
+                setPagination({ page: nextPage, hasMore: (response?.data?.total || 0) > nextPage * 20, isLoading: false });
                 setTimeout(() => { container.scrollTop = container.scrollHeight - prevScrollHeight; }, 10);
-            } catch (error) {
-                console.error("Lỗi tải thêm tin nhắn cũ:", error);
-                setPagination(prev => ({ ...prev, isLoading: false }));
-            }
+            } catch (error) { setPagination(prev => ({ ...prev, isLoading: false })); }
         }
     }, [activeRoomId, pagination]);
 
-    // 5. Gửi tin nhắn (Ghi nhận chính xác theo ID phòng)
-    const handleSendMessage = (e) => {
-        e.preventDefault();
+    const handleSendMessage = useCallback((e) => {
+        if (e) e.preventDefault();
         if (!inputMessage.trim() || !socket || !activeRoomId) return;
-
         socket.emit('chat:send', {
-            chatconversation_id: activeRoomId,
-            company_id: COMPANY_ID,
-            content: inputMessage,
+            chatconversation_id: activeRoomId,   company_id: COMPANY_ID,
+            content: inputMessage,               msg_type: 'text'
         });
         setInputMessage('');
         socket.emit('chat:typing', { chatconversation_id: activeRoomId, isTyping: false });
-    };
+    }, [inputMessage, socket, activeRoomId]);
 
-    const typingTimeoutRef = useRef(null);
-    const handleInputChange = (val) => {
+    const handleInputChange = useCallback((val) => {
         setInputMessage(val);
         if (!socket || !activeRoomId) return;
-
-        if (!typingTimeoutRef.current) {
-            socket.emit('chat:typing', { chatconversation_id: activeRoomId, isTyping: true });
-        }
-
+        if (!typingTimeoutRef.current) socket.emit('chat:typing', { chatconversation_id: activeRoomId, isTyping: true });
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = setTimeout(() => {
             socket.emit('chat:typing', { chatconversation_id: activeRoomId, isTyping: false });
             typingTimeoutRef.current = null;
         }, 2000);
-    };
+    }, [socket, activeRoomId]);
 
-    const handleRoomSelect = (roomId) => {
-        if (role === 'customer') return; // Khách hàng không cần sự kiện chọn phòng khác
+    const handleSendImage = useCallback(async (file) => {
+        if (!file || !socket || !activeRoomId) return;
+        try {
+            const result = await chatService.uploadImage(file);
+            const savedPath = result?.data?.filePath || result?.data?.fileUrl || result?.fileUrl;
+            socket.emit('chat:send', {
+                chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+                content: savedPath, msg_type: 'image'
+            });
+        } catch (err) {
+            const localBlob = URL.createObjectURL(file);
+            socket.emit('chat:send', {
+                chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+                content: localBlob, msg_type: 'image'
+            });
+        }
+    }, [socket, activeRoomId]);
+
+    const handleRecallMessage = useCallback(async (msgId) => {
+        if (!socket || !activeRoomId || !msgId) return;
+        socket.emit('chat:recall', { chatconversation_id: activeRoomId, company_id: COMPANY_ID, message_id: msgId });
+        setMessages((prev) => prev.map((msg) => (msg.id === msgId || msg._id === msgId ? { ...msg, is_recalled: true } : msg)));
+        await chatService.recallMessageApi(msgId);
+    }, [socket, activeRoomId]);
+
+    const handleForwardMessage = useCallback((targetRoomId) => {
+        if (!socket || !targetRoomId || !selectedMsgToForward) return;
+        socket.emit('chat:send', {
+            chatconversation_id: targetRoomId, company_id: COMPANY_ID,
+            content: selectedMsgToForward.content || selectedMsgToForward.text,
+            msg_type: selectedMsgToForward.msg_type || 'text'
+        });
+        setForwardModalOpen(false);
+        setSelectedMsgToForward(null);
+    }, [socket, selectedMsgToForward]);
+
+    const handleSendSticker = useCallback((stickerUrl) => {
+        if (!socket || !activeRoomId) return;
+        socket.emit('chat:send', {
+            chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+            content: stickerUrl, msg_type: 'sticker'
+        });
+        setShowStickerPicker(false);
+    }, [socket, activeRoomId]);
+
+    /** CHỨC NĂNG TẢI STICKER TỪ CỬA HÀNG **/
+    const handleDownloadStickerPack = useCallback((stickerUrl) => {
+        setMyStickers(prev => [...prev, stickerUrl]);
+        setStoreStickers(prev => prev.filter(s => s !== stickerUrl));
+    }, []);
+
+    const handleStartRecording = useCallback(async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorderRef.current = new MediaRecorder(stream);
+            audioChunksRef.current = [];
+            mediaRecorderRef.current.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+            mediaRecorderRef.current.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const base64Data = reader.result;
+                    try {
+                        const result = await chatService.uploadAudioBase64(base64Data);
+                        const savedAudioPath = result?.data?.filePath || result?.data?.fileUrl || base64Data;
+                        socket.emit('chat:send', {
+                            chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+                            content: savedAudioPath, msg_type: 'audio'
+                        });
+                    } catch (err) {
+                        socket.emit('chat:send', {
+                            chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+                            content: base64Data, msg_type: 'audio'
+                        });
+                    }
+                };
+                stream.getTracks().forEach(track => track.stop());
+            };
+            mediaRecorderRef.current.start();
+            setIsRecording(true);
+        } catch (err) { alert('Vui lòng bật quyền Microphone.'); }
+    }, [socket, activeRoomId]);
+
+    const handleStopRecording = useCallback(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    }, []);
+
+    const handleToggleSpeechToText = useCallback(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert('Trình duyệt không hỗ trợ Web Speech API.');
+        if (isListening) {
+            if (recognitionRef.current) recognitionRef.current.stop();
+            setIsListening(false);
+            return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'vi-VN';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.onstart = () => setIsListening(true);
+        recognition.onend = () => setIsListening(false);
+        recognition.onerror = () => setIsListening(false);
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            const updatedText = inputMessageRef.current ? `${inputMessageRef.current} ${transcript}` : transcript;
+            handleInputChange(updatedText);
+        };
+        recognitionRef.current = recognition;
+        recognition.start();
+    }, [isListening, handleInputChange]);
+
+    const handleRoomSelect = useCallback((roomId) => {
+        if (role === 'customer') return;
         setActiveRoomId(roomId);
-        setChatRooms(prevRooms => prevRooms.map(room =>
-            room.id === roomId ? { ...room, unread: 0 } : room
-        ));
-    };
+        setChatRooms(prevRooms => prevRooms.map(room => room.id === roomId ? { ...room, unread: 0 } : room));
+    }, [role]);
 
     const activeRoom = useMemo(() => chatRooms.find(r => r.id === activeRoomId), [chatRooms, activeRoomId]);
 
     return {
-        role,
-        chatRooms,
-        messages,
-        activeRoomId,
-        activeRoom,
-        inputMessage,
-        typingStatus,
-        setInputMessage: handleInputChange,
-        messagesEndRef,
-        messagesContainerRef,
-        handleSendMessage,
-        handleRoomSelect,
-        handleScroll
+        role, chatRooms, messages, activeRoomId, activeRoom, inputMessage, typingStatus,
+        showMediaSidebar, isRecording, isListening, mediaStorage,
+        showStickerPicker, myStickers, storeStickers, forwardModalOpen, selectedMsgToForward,
+        setShowStickerPicker, setForwardModalOpen, setSelectedMsgToForward,
+        setShowMediaSidebar, setInputMessage: handleInputChange, messagesEndRef, messagesContainerRef,
+        handleSendMessage, handleRoomSelect, handleScroll,
+        handleSendImage, handleStartRecording, handleStopRecording, handleToggleSpeechToText,
+        handleRecallMessage, handleForwardMessage, handleSendSticker, handleDownloadStickerPack
     };
 };

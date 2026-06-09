@@ -2,9 +2,15 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../../../skeleton/Button';
 
+// --- IMPORT HOOK NOTIFICATION DÙNG CHUNG ---
+import { useNotification } from '../../../../../context/NotificationContext';
+
 const FormInsertCustomerGroup = ({ onClose, onSubmit, isSaving }) => {
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [errors, setErrors] = useState({});
+  
+  // Kích hoạt hook thông báo
+  const { showToast } = useNotification();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,6 +25,8 @@ const FormInsertCustomerGroup = ({ onClose, onSubmit, isSaving }) => {
 
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors);
+      // Bắn Toast cảnh báo validate phía Client
+      showToast('Vui lòng nhập đầy đủ các trường bắt buộc (*)', 'warning');
       return;
     }
 
@@ -87,7 +95,7 @@ const FormInsertCustomerGroup = ({ onClose, onSubmit, isSaving }) => {
           disabled={isSaving} 
           className="bg-[#0037B0] hover:bg-[#00267A] h-9 px-5 text-xs font-bold uppercase tracking-wider text-white rounded-xl shadow-xs transition-all"
         >
-          {isSaving ? '⏳ Đang lưu...' : '💾 Lưu nhóm'}
+          {isSaving ? '⏳ Đang lưu...' : 'Lưu nhóm khách hàng'}
         </Button>
       </div>
     </form>

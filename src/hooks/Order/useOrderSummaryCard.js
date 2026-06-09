@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { orderService } from '../../services/orderService';
 import axios from 'axios';
 
+// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG CHUẨN XÁC ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const MEDIA_URL = 'https://113.161.204.185:4010'; 
 
 export const useOrderSummaryCard = ({ 
@@ -16,7 +20,11 @@ export const useOrderSummaryCard = ({
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Hàm xử lý upload tệp vật lý sang Media Server
+  // Kích hoạt các dịch vụ thông báo và hộp thoại xác nhận toàn cục
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
+
+  // Hàm xử lý upload tệp vật lý sang Media Server (Giữ nguyên)
   const uploadDraftImages = useCallback(async (productImages) => {
     if (!productImages || productImages.length === 0) return null;
 
@@ -50,7 +58,7 @@ export const useOrderSummaryCard = ({
     }
   }, []);
 
-  // Hàm xử lý upload file ghi âm
+  // Hàm xử lý upload file ghi âm (Giữ nguyên)
   const uploadAudioNote = useCallback(async (file) => {
     if (!file) return null;
 
@@ -80,15 +88,16 @@ export const useOrderSummaryCard = ({
   const handleCreateOrderSubmit = useCallback(async (e) => {
     if (e) e.preventDefault();
     
-    if (!customer) return alert('Vui lòng chọn đối tác khách hàng trước khi khởi tạo!');
+    // 🛠️ ĐIỀU CHỈNH: Đổi alert thành Toast Warning
+    if (!customer) return showToast('Vui lòng chọn đối tác khách hàng trước khi khởi tạo!', 'warning');
 
-    // Lọc danh sách sản phẩm hợp lệ thực sự
     const validProducts = (products || []).filter(p => {
       const pId = p.productId || p.product_id;
       return pId && String(pId).trim() !== '';
     });
 
-    if (validProducts.length === 0) return alert('Danh sách sản phẩm không được để trống!');
+    // 🛠️ ĐIỀU CHỈNH: Đổi alert thành Toast Warning
+    if (validProducts.length === 0) return showToast('Danh sách sản phẩm không được để trống!', 'warning');
 
     setIsSubmitting(true);
     try {
@@ -112,7 +121,6 @@ export const useOrderSummaryCard = ({
       }));
 
       const firstValidDriveLink = validProducts.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
-
 
       const jsonPayload = {
         customer_id: customer || null, 
@@ -120,37 +128,43 @@ export const useOrderSummaryCard = ({
         note: generalNote || null,
         audionote: audioNoteId,
         noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
-        linkgoogledrive: firstValidDriveLink, // Đính kèm link vào payload chính
+        linkgoogledrive: firstValidDriveLink, 
       };
 
       const res = await orderService.createNew(jsonPayload);
-      if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
-        alert('Khởi tạo đơn hàng sản xuất thành công!');
-        navigate('/orders');
+      
+      // 🛠️ ĐIỀU CHỈNH: Áp dụng cơ chế ép gói Unwrap response an toàn
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 || beData?.data?.errorCode === 1 || beData?.statusCode === 200) {
+        // 🛠️ ĐIỀU CHỈNH: Thay đổi sang Toast Success kèm khoảng trễ điều hướng
+        showToast('Khởi tạo đơn hàng sản xuất thành công!', 'success');
+        setTimeout(() => navigate('/orders'), 50);
       } else {
-        alert(res?.message || 'Khởi tạo đơn hàng thất bại.');
+        showToast(beData?.message || 'Khởi tạo đơn hàng thất bại.', 'error');
       }
     } catch (error) {
       console.error('[API/createNew] Thất bại:', error);
-      alert('Lỗi kết nối máy chủ, không thể khởi tạo đơn hàng.');
-    } finally {
+      showToast('Lỗi kết nối máy chủ, không thể khởi tạo đơn hàng.', 'error');
+    } refinement: {
       setIsSubmitting(false);
     }
-  }, [customer, products, generalNote, shippingUnit, shippingCode, audioFile, uploadDraftImages, uploadAudioNote, navigate]);
+  }, [customer, products, generalNote, shippingUnit, shippingCode, audioFile, uploadDraftImages, uploadAudioNote, navigate, showToast]);
 
   // 2. LUỒNG XỬ LÝ LƯU BẢN NHÁP
   const handleSaveDraftSubmit = useCallback(async (e) => {
-    if (e && e.preventDefault) e.preventDefault(); // Ngăn submit form ngoài ý muốn
-    if (!customer) return alert('Vui lòng chọn khách hàng trước khi lưu bản nháp!');
+    if (e && e.preventDefault) e.preventDefault(); 
+    // 🛠️ ĐIỀU CHỈNH: Đổi alert thành Toast Warning
+    if (!customer) return showToast('Vui lòng chọn khách hàng trước khi lưu bản nháp!', 'warning');
     
-    // Chỉ lấy những sản phẩm đã được chọn mã rõ ràng để gửi lên database bản nháp
     const validProducts = (products || []).filter(p => {
       const pId = p.productId || p.product_id;
       return pId && String(pId).trim() !== '';
     });
 
+    // 🛠️ ĐIỀU CHỈNH: Đổi alert thành Toast Warning
     if (validProducts.length === 0) {
-      return alert('Để lưu nháp, vui lòng chọn ít nhất một sản phẩm từ danh mục hệ thống.');
+      return showToast('Để lưu nháp, vui lòng chọn ít nhất một sản phẩm từ danh mục hệ thống.', 'warning');
     }
 
     setIsSubmitting(true);
@@ -176,30 +190,34 @@ export const useOrderSummaryCard = ({
 
       const firstValidDriveLink = validProducts.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
 
-
       const jsonPayload = {
         customer_id: customer || null, 
         items: itemsPayload,
         note: generalNote || null,
         audionote: audioNoteId,
         noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
-        linkgoogledrive: firstValidDriveLink, // Đính kèm link vào payload chính
+        linkgoogledrive: firstValidDriveLink, 
       };
 
       const res = await orderService.createDraft(jsonPayload);
-      if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
-        alert('Đã lưu thông tin vào danh sách Đơn nháp thành công!');
-        navigate('/orders');
+      
+      // 🛠️ ĐIỀU CHỈNH: Áp dụng cơ chế ép gói Unwrap response an toàn
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 || beData?.data?.errorCode === 1 || beData?.statusCode === 200) {
+        // 🛠️ ĐIỀU CHỈNH: Thay đổi sang Toast Success kèm khoảng trễ điều hướng theo yêu cầu
+        showToast('Đã lưu thông tin vào danh sách Đơn nháp thành công! 📝', 'success');
+        setTimeout(() => navigate('/orders'), 50);
       } else {
-        alert(res?.message || 'Không thể lưu bản nháp.');
+        showToast(beData?.message || 'Không thể lưu bản nháp.', 'error');
       }
     } catch (error) {
       console.error('[API/createDraft] Thất bại:', error);
-      alert('Lỗi kết nối máy chủ, không thể lưu bản nháp.');
+      showToast('Lỗi kết nối máy chủ, không thể lưu bản nháp.', 'error');
     } finally {
       setIsSubmitting(false);
     }
-  }, [customer, products, generalNote, shippingUnit, shippingCode, audioFile, uploadDraftImages, uploadAudioNote, navigate]);
+  }, [customer, products, generalNote, shippingUnit, shippingCode, audioFile, uploadDraftImages, uploadAudioNote, navigate, showToast]);
 
   return {
     isSubmitting,

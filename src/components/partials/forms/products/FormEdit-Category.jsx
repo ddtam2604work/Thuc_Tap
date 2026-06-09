@@ -110,7 +110,7 @@ const FormEditCategory = ({ initialData, onSave, onCancel, isSaving }) => {
           disabled={isSaving}
           className={`px-10 !h-[40px] text-white transition-colors ${isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#0014FF] hover:bg-blue-800'}`}
         >
-          {isSaving ? 'Đang lưu...' : <><span className="mr-2 text-lg">💾</span> Lưu danh mục</>}
+          {isSaving ? 'Đang lưu...' : <> Cập nhật danh mục</>}
         </Button>
       </div>
     </form>

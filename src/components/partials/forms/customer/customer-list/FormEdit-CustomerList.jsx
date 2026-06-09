@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../../../skeleton/Button';
 
+// --- IMPORT HOOK THÔNG BÁO DÙNG CHUNG ---
+import { useNotification } from '../../../../../context/NotificationContext';
+
 const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, categories = [] }) => {
   const [formData, setFormData] = useState({
     fullname: '', studioname: '', phone: '', email: '',
@@ -9,6 +12,9 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
     isportal: false, isactive: 1
   });
   const [errors, setErrors] = useState({});
+
+  // Kích hoạt hook thông báo
+  const { showToast } = useNotification();
 
   // 🎯 THEO DÕI VÀ ĐẬP DỮ LIỆU CỦA HÀNG ĐƯỢC CHỌN LÊN Ô INPUT TRỰC QUAN
   useEffect(() => {
@@ -38,7 +44,12 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    if (!formData.fullname.trim()) return setErrors({ fullname: 'Tên khách hàng không được để trống' });
+    if (!formData.fullname.trim()) {
+      setErrors({ fullname: 'Tên khách hàng không được để trống' });
+      // Bắn Toast Warning khi validate thất bại
+      showToast('Tên khách hàng không được để trống!', 'warning');
+      return;
+    }
 
     const payload = {
       username: formData.phone.trim(), 
@@ -120,7 +131,7 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
 
       <div className="flex justify-end gap-2.5 px-6 py-4 bg-gray-50/60 border-t border-gray-100 rounded-b-2xl">
         <Button type="button" variant="outline-secondary" className="h-9 px-4 text-xs font-bold border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100" onClick={onClose} disabled={isSaving}>Huỷ</Button>
-        <Button type="submit" variant="primary" disabled={isSaving} className="bg-[#0037B0] hover:bg-[#00267A] h-9 px-5 text-xs font-bold uppercase tracking-wider text-white rounded-xl shadow-xs">{isSaving ? '⏳ Đang lưu...' : '💾 Cập nhật'}</Button>
+        <Button type="submit" variant="primary" disabled={isSaving} className="bg-[#0037B0] hover:bg-[#00267A] h-9 px-5 text-xs font-bold uppercase tracking-wider text-white rounded-xl shadow-xs">{isSaving ? '⏳ Đang lưu...' : 'Cập nhật khách hàng'}</Button>
       </div>
     </form>
   );

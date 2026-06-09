@@ -2,6 +2,9 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../../../skeleton/Button';
 
+// --- IMPORT HOOK THÔNG BÁO DÙNG CHUNG ---
+import { useNotification } from '../../../../../context/NotificationContext';
+
 const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }) => {
   const [formData, setFormData] = useState({
     fullname: '', 
@@ -15,6 +18,9 @@ const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }
     isactive: 1 // 🎯 Mặc định thêm mới là Hoạt động (1)
   });
   const [errors, setErrors] = useState({});
+
+  // Kích hoạt hook thông báo
+  const { showToast } = useNotification();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -33,6 +39,8 @@ const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }
 
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors); 
+      // Bắn Toast Warning cảnh báo nhập thiếu thông tin bắt buộc
+      showToast('Vui lòng điền đầy đủ thông tin các trường bắt buộc (*)', 'warning');
       return;
     }
 
@@ -223,7 +231,7 @@ const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }
           disabled={isSaving} 
           className="bg-[#0037B0] hover:bg-[#00267A] h-9 px-5 text-xs font-bold uppercase tracking-wider text-white rounded-xl shadow-xs transition-colors"
         >
-          {isSaving ? '⏳ Đang lưu...' : '💾 Lưu mới'}
+          {isSaving ? '⏳ Đang lưu...' : 'Lưu khách hàng'}
         </Button>
       </div>
     </form>

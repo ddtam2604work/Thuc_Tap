@@ -9,6 +9,8 @@ import Button from '../../components/skeleton/Button';
 import FormInput from '../../components/skeleton/FormInput';
 import CustomerDetail from './CustomerDetail';
 
+import { useNotification } from '../../context/NotificationContext';
+
 const CustomerList = () => {
   const {
     customers, loading, isSaving, customerSearch, setCustomerSearch,
@@ -21,6 +23,8 @@ const CustomerList = () => {
   const { filteredGroups, fetchGroups } = useCustomerGroups();
   const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'add', data: null });
   const [localSearch, setLocalSearch] = useState(customerSearch || '');
+
+  const { showToast } = useNotification();
 
   // Logic UI cho phân trang số hoàn chỉnh kế thừa từ AccountPage
   const getPaginationGroup = () => {
@@ -69,7 +73,7 @@ const CustomerList = () => {
       });
     } catch (error) {
       console.error("❌ [Component/CustomerList] Lỗi lấy thông tin chi tiết:", error);
-      alert("Không thể lấy thông tin chi tiết khách hàng. Vui lòng thử lại!");
+      showToast("Không thể lấy thông tin chi tiết khách hàng. Vui lòng thử lại!", "error");
     }
   };
 
@@ -90,6 +94,7 @@ const CustomerList = () => {
           isportal: (payload.isportal === true || payload.isportal === 1 || String(payload.isportal) === '1') ? 1 : 0,
         };
 
+        // Hàm này bên trong hook sẽ tự động bắn showToast thành công/thất bại
         await handleAddCustomer(finalPayload);
         
         setCurrentPage(1);
@@ -98,12 +103,15 @@ const CustomerList = () => {
         setPortalFilter('all');
         setStatusFilter('all');
       } else {
+        // Hàm này bên trong hook sẽ tự động bắn showToast thành công/thất bại
         await handleEditCustomer(modalConfig.data.id, payload);
       }
+      
+      // Chỉ đóng modal khi luồng API chạy thành công hoàn toàn không ném lỗi
       handleCloseModal();
-      alert(modalConfig.mode === 'add' ? 'Thêm khách hàng thành công!' : 'Cập nhật khách hàng thành công!');
     } catch (error) {
-      alert(error.response?.data?.message || error.message || 'Thao tác lưu khách hàng thất bại');
+      // Lỗi đã được tầng Hook bắt và hiển thị Toast, tại đây chỉ ghi nhận log an toàn
+      console.error("🔒 [Component/CustomerList] Huỷ đóng modal do API trả lỗi:", error.message);
     }
   };
 
@@ -128,7 +136,7 @@ const CustomerList = () => {
               placeholder="Tìm theo tên, số điện thoại, email..." 
               onChange={(e) => {
                 setLocalSearch(e.target.value);
-                setCustomerSearch(e.target.value); // Chức năng Instant Search tự kích hoạt Paging API công tâm
+                setCustomerSearch(e.target.value); 
               }}
               className="bg-gray-50/50 border-gray-200 h-10 pr-10 focus:bg-white transition-all w-full"
             />
@@ -191,7 +199,6 @@ const CustomerList = () => {
             </div>
 
             <div className="flex gap-1.5">
-              {/* Nút Trước */}
               <Button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
@@ -204,7 +211,6 @@ const CustomerList = () => {
                 &lt;
               </Button>
 
-              {/* Danh sách các số trang */}
               {getPaginationGroup().map(page => (
                 <Button
                   key={page}
@@ -219,7 +225,6 @@ const CustomerList = () => {
                 </Button>
               ))}
 
-              {/* Nút Sau */}
               <Button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}

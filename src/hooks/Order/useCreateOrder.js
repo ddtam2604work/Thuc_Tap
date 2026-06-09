@@ -4,6 +4,10 @@ import { orderService } from '../../services/orderService';
 import { productService } from '../../services/productService';
 import axios from 'axios';
 
+// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://113.161.204.185:4010';
  
 export const useCreateOrder = (existingDraftId = null) => {
@@ -25,7 +29,11 @@ export const useCreateOrder = (existingDraftId = null) => {
     { id: 1, productId: '', name: '', quantity: 1, basePrice: 0, appliedPrice: 0, note: '', images: [], driveLink: '' }
   ]);
 
-  // Đồng bộ hóa cơ chế unwrap response khớp hệ thống
+  // Kích hoạt các công cụ điều khiển thông báo và xác nhận từ Context toàn cục
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
+
+  // Đồng bộ hóa cơ chế unwrap response khớp hệ thống (Giữ nguyên)
   useEffect(() => {
     const fetchCatalogData = async () => {
       setIsLoadingCatalog(true);
@@ -48,7 +56,7 @@ export const useCreateOrder = (existingDraftId = null) => {
     fetchCatalogData();
   }, []);
 
-  // Cập nhật thông tin chi tiết sản phẩm khi chọn từ Catalog
+  // Cập nhật thông tin chi tiết sản phẩm khi chọn từ Catalog (Giữ nguyên)
   const handleUpdateProduct = useCallback((id, fields) => {
     setProducts(prev => prev.map(p => {
       if (p.id === id) {
@@ -97,7 +105,7 @@ export const useCreateOrder = (existingDraftId = null) => {
   const total = useMemo(() => subtotal, [subtotal]);
 
   // =================================================================
-  // CÁC HÀM UPLOAD FILE (ĐỒNG BỘ TỪ LUỒNG TẠO ĐƠN CHÍNH)
+  // CÁC HÀM UPLOAD FILE (Giữ nguyên)
   // =================================================================
   const uploadDraftImages = useCallback(async (productImages) => {
     if (!productImages || productImages.length === 0) return null;
@@ -152,8 +160,7 @@ export const useCreateOrder = (existingDraftId = null) => {
     }
   }, []);
 
-
-  // Xây dựng cấu trúc FormData Payload gửi lên Backend dạng Đa phần (Multipart)
+  // Xây dựng cấu trúc FormData Payload gửi lên Backend (Giữ nguyên)
   const buildFormDataPayload = useCallback((statusMode = 'NEW', audioNoteId = null) => {
     const formData = new FormData();
     formData.append('customer_id', customer);
@@ -174,7 +181,6 @@ export const useCreateOrder = (existingDraftId = null) => {
     if (audioNoteId) formData.append('audionote', audioNoteId);
     if (generalImages?.length > 0) generalImages.forEach(img => formData.append('general_attachments', img.file));
 
-    // 🌟 KHẮC PHỤC LỖI 2: Chỉ lấy sản phẩm có ID thực sự hợp lệ trước khi đẩy lên payload
     const validProducts = products.filter(p => {
       const pId = p.productId || p.product_id;
       return pId && String(pId).trim() !== '';
@@ -185,21 +191,18 @@ export const useCreateOrder = (existingDraftId = null) => {
       quantity: Number(prod.quantity || 1),
       unitprice: Number(prod.appliedPrice || prod.price || 0),
       discount: 0,
-      note: prod.note ? String(prod.note).trim() : '' // Safe trim
+      note: prod.note ? String(prod.note).trim() : '' 
     }));
     
-    // Đẩy song song cả key 'items' và 'products' dạng chuỗi JSON phòng hờ cấu hình Backend nhận diện
     formData.append('items', JSON.stringify(itemsJsonArray));
     formData.append('products', JSON.stringify(itemsJsonArray));
 
-    // 🌟 KHẮC PHỤC LỖI 1: Ánh xạ chuẩn từ khóa 'items[index]' và 'products[index]' đồng bộ cấu hình nhận Form-data của BE
     validProducts.forEach((prod, index) => {
       const pId = prod.productId || prod.product_id;
       const aPrice = prod.appliedPrice || prod.price || 0;
       const pNote = prod.note ? String(prod.note).trim() : '';
       const pDrive = prod.driveLink ? String(prod.driveLink).trim() : '';
 
-      // Set theo cấu hình mảng 'items' (Khớp với luồng JSON)
       formData.append(`items[${index}][product_id]`, pId);
       formData.append(`items[${index}][quantity]`, String(prod.quantity));
       formData.append(`items[${index}][unitprice]`, String(aPrice));
@@ -210,7 +213,6 @@ export const useCreateOrder = (existingDraftId = null) => {
         formData.append(`items[${index}][drive_link]`, pDrive);
       }
 
-      // Tương thích ngược với mảng cấu hình 'products' hiện tại
       formData.append(`products[${index}][product_id]`, pId);
       formData.append(`products[${index}][quantity]`, String(prod.quantity));
       formData.append(`products[${index}][applied_price]`, String(aPrice));
@@ -222,12 +224,15 @@ export const useCreateOrder = (existingDraftId = null) => {
     return formData;
   }, [customer, shippingUnit, shippingCode, generalNote, subtotal, total, products, recordedAudioFile, uploadedAudioFile, generalImages]);
 
+  // =================================================================
+  // LUỒNG XỬ LÝ KHỞI TẠO ĐƠN HÀNG MỚI
+  // =================================================================
   const handleCreateOrderSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!customer) return alert('Vui lòng tìm kiếm và lựa chọn khách hàng!');
+    if (!customer) return showToast('Vui lòng tìm kiếm và lựa chọn khách hàng!', 'warning');
     
     const validProducts = products.filter(p => p.productId || p.product_id);
-    if (validProducts.length === 0) return alert('Danh sách sản phẩm không được để trống!');
+    if (validProducts.length === 0) return showToast('Danh sách sản phẩm không được để trống!', 'warning');
 
     setIsSubmitting(true);
     try {
@@ -236,19 +241,28 @@ export const useCreateOrder = (existingDraftId = null) => {
 
       const payload = buildFormDataPayload('NEW', audioNoteId);
       const res = await orderService.createNew(payload);
-      if (res?.errorCode === 1) {
-        alert('Khởi tạo đơn hàng sản xuất thành công!');
-        navigate('/orders');
-      } else { alert(res?.message || 'Khởi tạo đơn thất bại.'); }
-    } catch (error) { alert('Lỗi kết nối máy chủ.'); } finally { setIsSubmitting(false); }
+      
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 || beData?.statusCode === 200) {
+        showToast('Khởi tạo đơn hàng sản xuất thành công! 📦', 'success');
+        setTimeout(() => navigate('/orders'), 50);
+      } else { 
+        showToast(beData?.message || 'Khởi tạo đơn thất bại.', 'error'); 
+      }
+    } catch (error) { 
+      showToast('Lỗi kết nối máy chủ.', 'error'); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   // =================================================================
-  // HÀM LƯU NHÁP ĐÃ ĐƯỢC NÂNG CẤP ĐỂ XỬ LÝ ẢNH
+  // LUỒNG XỬ LÝ LƯU BẢN NHÁP ĐƠN HÀNG
   // =================================================================
   const handleSaveDraft = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!customer) return alert('Vui lòng chọn khách hàng trước khi lưu bản nháp!');
+    if (!customer) return showToast('Vui lòng chọn khách hàng trước khi lưu bản nháp!', 'warning');
 
     const hasMeaningfulProduct = products.some(p =>
         (p.productId && String(p.productId).trim() !== '') ||
@@ -257,7 +271,7 @@ export const useCreateOrder = (existingDraftId = null) => {
     );
 
     if (!hasMeaningfulProduct) {
-        return alert('Để lưu nháp, vui lòng chọn ít nhất một sản phẩm, hoặc đính kèm ảnh/link Google Drive vào sản phẩm.');
+        return showToast('Để lưu nháp, vui lòng chọn ít nhất một sản phẩm, hoặc đính kèm ảnh/link Google Drive vào sản phẩm.', 'warning');
     }
 
     setIsSubmitting(true);
@@ -294,21 +308,27 @@ export const useCreateOrder = (existingDraftId = null) => {
           note: generalNote || null,
           audionote: audioNoteId,
           noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
-          linkgoogledrive: firstValidDriveLinkInDraft, // Đính kèm link vào payload chính
+          linkgoogledrive: firstValidDriveLinkInDraft, 
       };
 
       if (draftId) jsonPayload.id = draftId;
 
       const res = draftId ? await orderService.saveDraft(jsonPayload) : await orderService.createDraft(jsonPayload);
+      
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
-      if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
-         navigate('/orders');
-
-      } else { alert(res?.message || 'Không thể lưu bản nháp.'); }
+      if (beData?.errorCode === 1 || beData?.data?.errorCode === 1 || beData?.statusCode === 200) {
+          showToast('Lưu bản nháp đơn hàng thành công!', 'success');
+          setTimeout(() => navigate('/orders'), 50);
+      } else { 
+        showToast(beData?.message || 'Không thể lưu bản nháp.', 'error'); 
+      }
     } catch (error) {
       console.error('❌ Lỗi hệ thống khi lưu bản nháp:', error);
-      alert('Lỗi hệ thống khi lưu bản nháp'); 
-    } finally { setIsSubmitting(false); }
+      showToast('Lỗi hệ thống khi lưu bản nháp', 'error'); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const validateDuplicates = async (productsToCheck) => {
@@ -320,17 +340,28 @@ export const useCreateOrder = (existingDraftId = null) => {
     } catch (error) { return false; }
   };
 
+  // =================================================================
+  // LUỒNG XỬ LÝ KHỞI TẠO ĐƠN CHỜ DUYỆT (AWAIT)
+  // =================================================================
   const handleCreateAndAwait = async (e) => {
     if (e) e.preventDefault();
-    if (!customer) return alert('Vui lòng tìm kiếm và lựa chọn khách hàng!');
+    if (!customer) return showToast('Vui lòng tìm kiếm và lựa chọn khách hàng!', 'warning');
     
     const validProducts = products.filter(p => p.productId || p.product_id);
-    if (validProducts.length === 0) return alert('Danh sách sản phẩm không được để trống!');
+    if (validProducts.length === 0) return showToast('Danh sách sản phẩm không được để trống!', 'warning');
 
     setIsSubmitting(true);
     try {
       if (await validateDuplicates(products)) {
-        if (!window.confirm('⚠️ Có file trùng lặp trong hệ thống. Bạn vẫn muốn tiếp tục?')) return;
+        const isConfirmed = await confirm({
+          title: 'Phát hiện file trùng lặp',
+          message: 'Hệ thống phát hiện có file đính kèm trùng lặp. Bạn có chắc chắn vẫn muốn tiếp tục tiến trình không?',
+          confirmText: 'Vẫn tiếp tục',
+          cancelText: 'Hủy bỏ',
+          type: 'danger'
+        });
+        
+        if (!isConfirmed) return;
       }
 
       const audioFile = recordedAudioFile || uploadedAudioFile;
@@ -338,11 +369,20 @@ export const useCreateOrder = (existingDraftId = null) => {
 
       const payload = buildFormDataPayload('AWAIT', audioNoteId);
       const res = await orderService.createAwait(payload);
-      if (res?.errorCode === 1) {
-        alert('✅ Khởi tạo đơn hàng chờ duyệt thành công!');
-        navigate('/orders');
+      
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 || beData?.statusCode === 200) {
+        showToast('Khởi tạo đơn hàng chờ duyệt thành công! ⏳', 'success');
+        setTimeout(() => navigate('/orders'), 50);
+      } else {
+        showToast(beData?.message || 'Khởi tạo đơn chờ duyệt thất bại.', 'error');
       }
-    } catch (error) { alert('Lỗi kết nối.'); } finally { setIsSubmitting(false); }
+    } catch (error) { 
+      showToast('Lỗi kết nối hệ thống.', 'error'); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   return {

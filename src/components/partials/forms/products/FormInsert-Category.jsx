@@ -44,7 +44,7 @@ const FormInsertCategory = ({ initialData, onSave, onCancel, isSaving }) => {
           Huỷ
         </Button>
         <Button type="submit" disabled={isSaving} className={`px-10 ${isSaving ? 'bg-gray-400' : 'bg-[#0014FF]'}`}>
-          <span className="text-lg mr-2">💾</span> {isSaving ? 'Đang lưu...' : 'Lưu danh mục'}
+          {isSaving ? 'Đang lưu...' : 'Lưu danh mục'}
         </Button>
       </div>
     </form>

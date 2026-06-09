@@ -8,6 +8,10 @@ import FormInput from '../../components/skeleton/FormInput';
 import FormInsertProduct from '../../components/partials/forms/products/FormInsert-Product';
 import FormEditProduct from '../../components/partials/forms/products/FormEdit-Product';
 
+// --- IMPORT CÁC HOOK TOAST & CONFIRM DÙNG CHUNG ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const ProductManagementPage = () => {
   // Hook chính lấy dữ liệu sản phẩm và các hàm xử lý
   const { 
@@ -21,6 +25,10 @@ const ProductManagementPage = () => {
   
   // Lấy cả danh sách danh mục và hàm fetchCategories ở cùng 1 nơi
   const { categories, fetchCategories } = useCategories(); 
+  
+  // Khởi tạo các hàm điều khiển từ Context (Sử dụng Destructuring chuẩn)
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
   
   const [searchInput, setSearchInput] = useState(searchTerm);
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
@@ -48,18 +56,21 @@ const ProductManagementPage = () => {
       if (modal.type === 'edit') {
         const targetId = modal.data.id || modal.data.product_id;
         await updateProduct(targetId, formData);
-        alert("Cập nhật sản phẩm thành công!");
+        // Thay bằng Toast Success
+        showToast("Cập nhật sản phẩm thành công!", "success");
       } else {
         await addProduct(formData);
         
         // ÉP HỆ THỐNG CẬP NHẬT LẠI DANH MỤC MỚI NHẤT TRƯỚC KHI BẢNG RENDER
         await fetchCategories(); 
         
-        alert("Thêm sản phẩm mới thành công!");
+        // Thay bằng Toast Success
+        showToast("Thêm sản phẩm mới thành công!", "success");
       }
       handleClose();
     } catch (err) {
-      alert("Lỗi thao tác: " + (err.message || "Không thể kết nối máy chủ."));
+      // Thay bằng Toast Error
+      showToast("Lỗi thao tác: " + (err.message || "Không thể kết nối máy chủ."), "error");
     } finally {
       setIsSaving(false);
     }
@@ -112,7 +123,8 @@ const ProductManagementPage = () => {
       
       if (!targetId) {
         console.warn('⚠️ Không tìm thấy ID');
-        alert('Lỗi: Không tìm thấy ID sản phẩm');
+        // Thay bằng Toast Error
+        showToast('Lỗi: Không tìm thấy ID sản phẩm', 'error');
         return;
       }
 
@@ -122,7 +134,8 @@ const ProductManagementPage = () => {
       
       if (!detailData) {
         console.error('❌ detailData trống');
-        alert('Lỗi: Không lấy được dữ liệu sản phẩm từ server');
+        // Thay bằng Toast Error
+        showToast('Lỗi: Không lấy được dữ liệu sản phẩm từ server', 'error');
         return;
       }
       
@@ -140,7 +153,8 @@ const ProductManagementPage = () => {
       setModal({ isOpen: true, type: 'edit', data: mergedData });
     } catch (error) {
       console.error("❌ Lỗi lấy chi tiết:", error);
-      alert("Lỗi: " + (error.message || "Không thể lấy dữ liệu sản phẩm"));
+      // Thay bằng Toast Error
+      showToast("Lỗi: " + (error.message || "Không thể lấy dữ liệu sản phẩm"), "error");
     } finally {
       setIsGenerating(false);
     }
@@ -151,12 +165,23 @@ const ProductManagementPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if(window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này không?')) {
+    // Thay đổi hoàn toàn cơ chế window.confirm sang Promise Modal mượt mà
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa sản phẩm',
+      message: 'Bạn có chắc chắn muốn xóa sản phẩm này không? Thao tác này sẽ gỡ bỏ sản phẩm khỏi danh sách hiển thị hệ thống.',
+      confirmText: 'Đồng ý xóa',
+      cancelText: 'Hủy bỏ',
+      type: 'danger'
+    });
+
+    if (isConfirmed) {
       try {
         await deleteProduct(id);
-        alert("Đã xóa sản phẩm!");
+        // Thay bằng Toast Success
+        showToast("Đã xóa sản phẩm thành công!", "success");
       } catch(err) {
-        alert("Lỗi khi xóa: " + err.message);
+        // Thay bằng Toast Error
+        showToast("Lỗi khi xóa: " + err.message, "error");
       }
     }
   };
@@ -234,7 +259,9 @@ const ProductManagementPage = () => {
         {/* Table & Phân trang số hoàn chỉnh của AccountPage */}
         {!loading && !error && (
           <>
-            <ProductManagementTable data={products} categories={categories} onEdit={handleOpenEdit} onDelete={handleDelete} isLoading={isGenerating} />
+            <div className="w-full overflow-x-auto bg-white rounded-lg shadow-sm border border-gray-100">
+              <ProductManagementTable data={products} categories={categories} onEdit={handleOpenEdit} onDelete={handleDelete} isLoading={isGenerating} />
+            </div>
             
             {totalPages > 0 && (
               <div className="flex flex-col sm:flex-row justify-between items-center mt-6 px-2 gap-4">

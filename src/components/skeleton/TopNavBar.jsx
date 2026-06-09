@@ -22,20 +22,30 @@ const TopNavBar = () => {
   const socketContext = useSocket();
   const globalUnreadCount = socketContext?.globalUnreadCount || 0;
   
-  // State quản lý Dropdown
+  // State quản lý Dropdown & Mobile Menu
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const mobileNavRef = useRef(null);
 
-  // Logic: Đóng dropdown khi click ra ngoài vùng avatar/menu
+  // Logic: Đóng dropdown và mobile menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
       }
+      if (mobileNavRef.current && !mobileNavRef.current.contains(event.target)) {
+        setIsMobileMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Logic: Đóng mobile menu khi chuyển trang (thay đổi URL)
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout(); // Gọi logic logout từ useAuth (đã bao gồm xóa token và chuyển trang)
@@ -44,15 +54,56 @@ const TopNavBar = () => {
   return (
     <header className="sticky top-0 z-50 flex h-[56px] w-full items-center justify-between bg-[#0037B0] px-4 shadow-md border-b border-white/20">
       
-      {/* Left side: Title */}
-      <div className="flex items-center w-[122px]">
+      {/* Left side: Hamburger (Mobile) & Title */}
+      <div className="flex items-center gap-2">
+        {/* Hamburger Menu Icon - for mobile */}
+        {role !== 'customer' && (
+          <div className="lg:hidden" ref={mobileNavRef}>
+            <Button
+              variant="icon"
+              onClick={() => setIsMobileMenuOpen(prev => !prev)}
+              className="text-white"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+              </svg>
+            </Button>
+
+            {/* Mobile Menu Dropdown */}
+            {isMobileMenuOpen && (
+              <div className="absolute top-full left-0 w-full bg-[#002a80] shadow-lg lg:hidden animate-in fade-in slide-in-from-top-5 duration-300">
+                <ul className="flex flex-col p-4 gap-2">
+                  {NAV_LINKS.map((link) => {
+                    const isActive = location.pathname.includes(link.path);
+                    return (
+                      <li key={link.path}>
+                        <Link
+                          to={link.path}
+                          className={`block rounded-md px-4 py-2.5 text-sm font-semibold transition-colors
+                            ${isActive 
+                              ? 'bg-white/10 text-white' 
+                              : 'text-white/80 hover:bg-white/5 hover:text-white'
+                            }
+                          `}
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         <h1 className="text-[24px] font-bold leading-[32px] tracking-[-0.24px] text-white whitespace-nowrap">
           {HEADER_TITLE.TITLE}
         </h1>
       </div>
 
-      {/* Middle: Links */}
-      <nav className="flex flex-1 items-center justify-start pl-8">
+      {/* Middle: Links for Desktop */}
+      <nav className="hidden lg:flex flex-1 items-center justify-start pl-8">
         {role !== 'customer' && (
         <ul className="flex items-center gap-[24px]">
           {NAV_LINKS.map((link) => {

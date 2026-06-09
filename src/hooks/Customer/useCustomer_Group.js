@@ -1,12 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { customerService } from '../../services/customerService';
 
+// --- IMPORT HOOK THÔNG BÁO DÙNG CHUNG ---
+import { useNotification } from '../../context/NotificationContext';
+
 export const useCustomerGroups = () => {
   const [groups, setGroups] = useState([]);
   const [filteredGroups, setFilteredGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Kích hoạt hook thông báo hệ thống (Sử dụng Destructuring chuẩn)
+  const { showToast } = useNotification();
 
   // 1. Tải danh sách nhóm
   const fetchGroups = useCallback(async () => {
@@ -20,11 +26,12 @@ export const useCustomerGroups = () => {
       setFilteredGroups(arrayData);
     } catch (error) {
       console.error("[fetchGroups] Lỗi:", error);
+      showToast("Không thể tải danh sách nhóm khách hàng từ hệ thống", "error");
       setGroups([]); setFilteredGroups([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
@@ -44,7 +51,7 @@ export const useCustomerGroups = () => {
     }
   };
 
-  // 🌟 BỔ SUNG HIỆU ỨNG TỰ ĐỘNG: Kích hoạt tìm kiếm tức thời (Instant Search) giống AccountPage khi gõ phím
+  // 🌟 GIỮ NGUYÊN LOGIC GỐC: Kích hoạt tìm kiếm tức thời (Instant Search) khi gõ phím
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredGroups(groups);
@@ -66,6 +73,10 @@ export const useCustomerGroups = () => {
       const response = await customerService.addCategory(payload);
       if (response?.data?.errorCode === 0) throw new Error(response.data.message);
       await fetchGroups(); 
+      
+      // 🌟 BỔ SUNG: Thông báo Toast Success khi thêm mới nhóm thành công
+      showToast("Thêm nhóm khách hàng mới thành công!", "success");
+      
       return response;
     } catch (error) {
       throw error;
@@ -78,10 +89,14 @@ export const useCustomerGroups = () => {
   const handleEditGroup = async (id, payloadData) => {
     setIsSaving(true);
     try {
-      const payload = { id, ...payloadData }; // 🎯 BẮT BUỘC CÓ ID ĐỂ BACKEND NHẬN DIỆN
+      const payload = { id, ...payloadData }; 
       const response = await customerService.editCategory(payload);
       if (response?.data?.errorCode === 0) throw new Error(response.data.message);
       await fetchGroups();
+      
+      // 🌟 BỔ SUNG: Thông báo Toast Success khi cập nhật nhóm thành công
+      showToast("Cập nhật thông tin nhóm khách hàng thành công!", "success");
+      
       return response;
     } catch (error) {
       throw error;
@@ -92,13 +107,14 @@ export const useCustomerGroups = () => {
 
   // 4. Xóa nhóm
   const handleDeleteGroup = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa nhóm khách hàng này không?")) return;
+    // 🛠️ ĐÃ XÓA: Bỏ hoàn toàn dòng window.confirm trùng lặp tại đây theo yêu cầu
     try {
       const response = await customerService.deleteCategory(id); 
       if (response?.data?.errorCode === 0) throw new Error(response.data.message);
       await fetchGroups();
+      showToast("Đã xóa nhóm khách hàng thành công!", "success");
     } catch (error) {
-      alert(error.response?.data?.message || error.message || "Lỗi xóa nhóm.");
+      showToast(error.response?.data?.message || error.message || "Lỗi xóa nhóm.", "error");
     }
   };
 

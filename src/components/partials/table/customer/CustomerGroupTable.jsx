@@ -1,4 +1,27 @@
+import React from 'react';
+// --- IMPORT HOOK CONFIRM DÙNG CHUNG ---
+import { useConfirm } from '../../../../context/ConfirmContext';
+
 const CustomerGroupTable = ({ groups = [], onEdit, onDelete }) => {
+  // Sử dụng destructuring đúng cú pháp
+  const { confirm } = useConfirm();
+
+  // Hàm đánh chặn sự kiện xóa để yêu cầu xác nhận qua Promise Modal
+  const handleDeleteClick = async (id) => {
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa nhóm khách hàng',
+      message: 'Bạn có chắc chắn muốn xóa nhóm khách hàng này không? Hành động này có thể ảnh hưởng đến bộ lọc dữ liệu liên quan.',
+      confirmText: 'Đồng ý xóa',
+      cancelText: 'Hủy bỏ',
+      type: 'danger' // Chuyển nút bấm sang màu đỏ cảnh báo
+    });
+
+    // Nếu người dùng đồng ý mới kích hoạt hàm onDelete gốc từ component cha
+    if (isConfirmed) {
+      onDelete?.(id);
+    }
+  };
+
   return (
     <div className="w-full">
       <table className="w-full text-left border-collapse text-sm">
@@ -39,17 +62,18 @@ const CustomerGroupTable = ({ groups = [], onEdit, onDelete }) => {
                   <div className="flex items-center justify-center gap-2">
                     <button 
                       onClick={() => onEdit?.(group.id)}
-                      className="p-1.5 text-gray-500 hover:text-[#0037B0] hover:bg-blue-50 rounded-lg transition-colors"
+                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-1.5 py-1 rounded transition-all cursor-pointer"
                       title="Sửa"
                     >
-                      ✏️
+                      Sửa
                     </button>
+                    <span className="text-slate-200 select-none">|</span>
                     <button 
-                      onClick={() => onDelete?.(group.id)}
-                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      onClick={() => handleDeleteClick(group.id)} // Đổi từ onDelete sang handleDeleteClick
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50 px-1.5 py-1 rounded transition-all cursor-pointer"
                       title="Xóa"
                     >
-                      🗑️
+                      Xóa
                     </button>
                   </div>
                 </td>

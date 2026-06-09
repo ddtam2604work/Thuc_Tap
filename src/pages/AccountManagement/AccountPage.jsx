@@ -6,6 +6,11 @@ import { useAccounts } from '../../hooks/Account/useAccounts';
 import InsertAccount from './InsertAccount';
 import EditAccount from './EditAccount';
 import LockAccount from './LockAccount';
+import ResetPasswordModal from '../../context/ResetPasswordModal';
+
+// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG CHUẨN XÁC ---
+import { useNotification } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 
 const AccountPage = () => {
   const { 
@@ -18,6 +23,10 @@ const AccountPage = () => {
     totalPages, totalAccounts,
     addAccount, editAccount, toggleAccountStatus, setPassword, deleteAccount
   } = useAccounts();
+
+  // Khai báo kích hoạt các dịch vụ thông báo, hỏi xác nhận từ context toàn cục
+  const { showToast } = useNotification();
+  const { confirm } = useConfirm();
 
   // Quản lý trạng thái modal tập trung
   const [modal, setModal] = useState({ type: null, data: null, isOpen: false });
@@ -35,36 +44,33 @@ const AccountPage = () => {
   };
 
   // --- HANDLERS ---
-  // Các handler này giờ chủ yếu quản lý trạng thái UI (modals, thông báo)
-  // Logic nghiệp vụ cốt lõi nằm trong hook useAccounts.
   const handleAddSubmit = async (formData) => {
     try {
-      // Gọi hàm Thêm tài khoản từ Hook useAccounts
       await addAccount(formData);
-      
       closeModal(); // Đóng Modal Insert
-      alert("🎉 Thêm tài khoản mới thành công!");
+      // Thay thế bằng Toast Success
+      showToast("Thêm tài khoản mới thành công!", "success");
     } catch (error) {
       console.error("Add account failed:", error);
-      alert("Lỗi khi thêm: " + (error.message || "Không thể kết nối đến máy chủ."));
-      throw error; // Ném lỗi ngược lại để InsertAccount bắt và tắt trạng thái isSaving
+      // Thay thế bằng Toast Error
+      showToast("Lỗi khi thêm: " + (error.message || "Không thể kết nối đến máy chủ."), "error");
+      throw error; 
     }
   };
 
   const handleEditSubmit = async (formData) => {
     if (!formData.fullname) {
-      alert("Họ tên không được để trống!");
+      showToast("Họ tên không được để trống!", "warning");
       return;
     }
     try {
-      // ĐÃ SỬA: Chỉ truyền 1 biến duy nhất, không truyền thêm id rời ở ngoài
       await editAccount(formData);
-      
       closeModal();
-      alert("Cập nhật tài khoản thành công!");
+      // Thay thế bằng Toast Success
+      showToast("Cập nhật thông tin tài khoản thành công!", "success");
     } catch (error) {
       console.error("Edit account failed:", error);
-      alert("Lỗi cập nhật: " + error.message);
+      showToast("Lỗi cập nhật: " + error.message, "error");
     }
   };
 
@@ -75,41 +81,50 @@ const AccountPage = () => {
       await toggleAccountStatus(id, currentStatus);
       closeModal();
       const actionText = (currentStatus === 1 || currentStatus === true) ? "khóa" : "mở khóa";
-      alert(`Đã ${actionText} tài khoản thành công!`);
+      // Thay thế bằng Toast Success
+      showToast(`Đã ${actionText} tài khoản hệ thống thành công!`, "success");
     } catch (error) {
       console.error("Toggle account status failed:", error);
-      alert("Lỗi thay đổi trạng thái: " + error.message);
+      showToast("Lỗi thay đổi trạng thái: " + error.message, "error");
     }
   };
 
-  const handleResetPassword = async (account) => {
-    const newPass = window.prompt(`Nhập mật khẩu mới cho user [${account.username}]:`);
-    if (newPass) {
-      if (newPass.length < 6) {
-        alert("Mật khẩu phải từ 6 ký tự trở lên!");
-        return;
-      }
-      try {
-        await setPassword(account.id, newPass);
-        alert("Cập nhật mật khẩu thành công!");
-      } catch (error) {
-        alert("Lỗi reset mật khẩu: " + (error.message || "Lỗi máy chủ"));
-      }
+  // Thay đổi 1: Tại vị trí click ở Table, biến đổi hàm reset password thành lệnh mở Modal
+  const handleResetPassword = (account) => {
+    setModal({ type: 'resetPassword', data: account, isOpen: true });
+  };
+
+  // Thay đổi 2: Tạo thêm một handler xử lý submit mật khẩu mới từ form gửi về
+  const handleResetPasswordSubmit = async (userId, newPassword) => {
+    try {
+      await setPassword(userId, newPassword);
+      showToast("Cập nhật mật khẩu tài khoản thành công! 🔑", "success");
+    } catch (error) {
+      showToast("Lỗi reset mật khẩu: " + (error.message || "Lỗi máy chủ"), "error");
+      throw error; // Ném lỗi ngược về modal để giữ trạng thái form không bị đóng bừa bãi
     }
   };
   
   const handleDeleteAccount = async (account) => {
-    if (window.confirm(`Bạn có chắc chắn muốn xóa tài khoản [${account.username}] không? Hành động này không thể hoàn tác.`)) {
+    // Thay thế hoàn toàn lệnh window.confirm thủ công sang khối Promise-based modal mượt mà
+    const isConfirmed = await confirm({
+      title: 'Xác nhận xóa tài khoản',
+      message: `Bạn có chắc chắn muốn xóa tài khoản [${account.username}] không? Hành động này sẽ gỡ bỏ hoàn toàn tài khoản khỏi hệ thống và không thể hoàn tác.`,
+      confirmText: 'Đồng ý xóa',
+      cancelText: 'Hủy bỏ',
+      type: 'danger'
+    });
+
+    if (isConfirmed) {
       try {
         await deleteAccount(account.id);
-        alert('Xóa tài khoản thành công!');
+        showToast('Xóa tài khoản hệ thống thành công!', 'success');
       } catch (error) {
         console.error("Delete account failed:", error);
-        alert('Lỗi khi xóa: ' + error.message);
+        showToast('Lỗi khi xóa: ' + error.message, 'error');
       }
     }
   };
-
 
   return (
     <div className="flex flex-col">
@@ -152,7 +167,6 @@ const AccountPage = () => {
                 </option>
                 
                 {roles.map((role) => (
-                  // Gắn key là role.id, value (để lọc) là role.code, và text hiển thị là role.name
                   <option key={role.id} value={role.code}>
                     {role.name}
                   </option>
@@ -181,13 +195,14 @@ const AccountPage = () => {
         {error && !loading && <div className="text-center py-10 text-red-500">Lỗi: {error}</div>}
         
         {!loading && !error && (
-          <AccountTable 
-            accounts={accounts} 
-            onEdit={(acc) => setModal({ type: 'edit', data: acc, isOpen: true })} 
-            onLock={(acc) => setModal({ type: 'lock', data: acc, isOpen: true })} 
-            onResetPassword={handleResetPassword}
-            onDelete={handleDeleteAccount}
-          />
+          <div className="w-full overflow-x-auto bg-white rounded-lg shadow-sm border border-gray-100">
+            <AccountTable 
+              accounts={accounts} 
+              onEdit={(acc) => setModal({ type: 'edit', data: acc, isOpen: true })} 
+              onLock={(acc) => setModal({ type: 'lock', data: acc, isOpen: true })} 
+              onDelete={handleDeleteAccount}
+            />
+          </div>
         )}
 
         {/* Modals */}
@@ -204,6 +219,7 @@ const AccountPage = () => {
           onClose={closeModal} 
           accountData={modal.data} 
           onSave={handleEditSubmit}
+          onResetPassword={handleResetPassword}
           roles={roles}
         />
 
@@ -214,6 +230,14 @@ const AccountPage = () => {
           onConfirm={handleConfirmLock}
           accountName={modal.data?.fullname || modal.data?.username}
           isActive={modal.data?.isactive ?? modal.data?.isActive}
+        />
+
+        <ResetPasswordModal
+          key={`reset-${modal.data?.id || modal.data?.user_id || 'modal'}`}
+          isOpen={modal.isOpen && modal.type === 'resetPassword'}
+          onClose={closeModal}
+          accountData={modal.data}
+          onConfirm={handleResetPasswordSubmit}
         />
 
         {totalPages > 0 && (
@@ -228,7 +252,6 @@ const AccountPage = () => {
 
             {/* Các nút bấm phân trang bên phải */}
             <div className="flex gap-1.5">
-              {/* Nút Previous */}
               <Button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
@@ -241,7 +264,6 @@ const AccountPage = () => {
                 &lt;
               </Button>
 
-              {/* Danh sách các số trang */}
               {getPaginationGroup().map(page => (
                 <Button
                   key={page}
@@ -256,7 +278,6 @@ const AccountPage = () => {
                 </Button>
               ))}
 
-              {/* Nút Next */}
               <Button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}

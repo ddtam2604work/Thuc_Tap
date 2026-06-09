@@ -164,8 +164,8 @@ const OrderTable = ({ orders }) => {
                 )}
               </td>
               
-              {/* 6. Giá trị tổng đơn hàng - ĐÃ CĂN PHẢI THEO YÊU CẦU */}
-              <td className="py-2.5 px-3 font-bold text-[#1E293B] text-right">
+              {/* 6. Giá trị tổng đơn hàng */}
+              <td className="py-2.5 px-3 font-bold text-[#1E293B]">
                 {formatCurrency(totalprice)}
               </td>
               

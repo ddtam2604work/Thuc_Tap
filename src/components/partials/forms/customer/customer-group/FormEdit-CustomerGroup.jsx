@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import Button from '../../../../skeleton/Button';
 
+// --- IMPORT HOOK NOTIFICATION DÙNG CHUNG ---
+import { useNotification } from '../../../../../context/NotificationContext';
+
 const FormEditCustomerGroup = ({ initialData, onClose, onSubmit, isSaving }) => {
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [originalCode, setOriginalCode] = useState('');
   const [originalSort, setOriginalSort] = useState(0);
   const [errors, setErrors] = useState({});
+
+  // Kích hoạt hook thông báo
+  const { showToast } = useNotification();
 
   useEffect(() => {
     if (initialData) {
@@ -32,6 +38,8 @@ const FormEditCustomerGroup = ({ initialData, onClose, onSubmit, isSaving }) => 
 
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors);
+      // Bắn thông báo Toast Warning
+      showToast('Tên nhóm không được để trống!', 'warning');
       return;
     }
 
@@ -95,7 +103,7 @@ const FormEditCustomerGroup = ({ initialData, onClose, onSubmit, isSaving }) => 
           disabled={isSaving} 
           className="bg-[#0037B0] hover:bg-[#00267A] h-9 px-5 text-xs font-bold uppercase tracking-wider text-white rounded-xl shadow-xs transition-all"
         >
-          {isSaving ? '⏳ Đang cập nhật...' : '💾 Cập nhật'}
+          {isSaving ? '⏳ Đang cập nhật...' : 'Cập nhật nhóm khách hàng'}
         </Button>
       </div>
     </form>

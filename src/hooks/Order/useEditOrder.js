@@ -4,9 +4,13 @@ import { orderService } from '../../services/orderService';
 import { productService } from '../../services/productService';
 import axios from 'axios';
 
+// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG ---
+import { useConfirm } from '../../context/ConfirmContext';
+import { useNotification } from '../../context/NotificationContext';
+
 const MEDIA_URL = 'https://113.161.204.185:4010';
 
-// HELPER 1: Phân giải UUID thành đường dẫn URL tuyệt đối
+// HELPER 1: Phân giải UUID thành đường dẫn URL tuyệt đối (Giữ nguyên)
 const resolveAbsoluteUrl = (fileId) => {
   if (!fileId) return '';
   const idStr = String(fileId).trim();
@@ -22,7 +26,7 @@ const resolveAbsoluteUrl = (fileId) => {
   return `${MEDIA_URL}${cleanPath}`;
 };
 
-// HELPER 2: Bộ giải mã chuỗi danh sách ảnh đính kèm từ DB
+// HELPER 2: Bộ giải mã chuỗi danh sách ảnh đính kèm từ DB (Giữ nguyên)
 const safeParseAttachments = (data) => {
   if (!data) return [];
   if (Array.isArray(data)) return data;
@@ -58,20 +62,28 @@ export const useEditOrder = () => {
   const [orderStatus, setOrderStatus] = useState('');
   const [products, setProducts] = useState([]);
 
-  // Tải chi tiết đơn hàng cũ và map lên Form chỉnh sửa
+  // Kích hoạt các công cụ điều khiển thông báo và xác nhận từ Context toàn cục
+  const { confirm } = useConfirm();
+  const { showToast } = useNotification();
+
+  // Tải chi tiết đơn hàng cũ và map lên Form chỉnh sửa (Giữ nguyên logic unwrap, đổi alert sang showToast)
   useEffect(() => {
     const fetchOrderData = async () => {
       try {
         setIsLoading(true);
         const res = await orderService.getDetail(id);
-        if (res?.errorCode === 1 && res?.data) {
-          const raw = res.data;
+        
+        // Unwrap Response phòng thủ đồng bộ hệ thống
+        const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+        if (beData?.errorCode === 1 && beData?.data) {
+          const raw = beData.data;
           
           setCustomer(raw.customer_id || ''); 
           setGeneralNote(raw.note || '');
           setOrderStatus(raw.orderstatus_code || 'NEW'); 
 
-          // 🌟 XỬ LÝ ĐỒNG BỘ FILE GHI ÂM CŨ: Đổ dữ liệu vào state để giao diện AdditionalInfoCard nhận diện hiển thị
+          // XỬ LÝ ĐỒNG BỘ FILE GHI ÂM CŨ
           if (raw.audionote && raw.audionote !== 'null') {
             const absoluteAudioUrl = resolveAbsoluteUrl(raw.audionote);
             setExistingAudioNoteId(raw.audionote);
@@ -83,7 +95,7 @@ export const useEditOrder = () => {
             });
           }
 
-          // 🌟 XỬ LÝ ĐỒNG BỘ BỘ ẢNH CHUNG TỔNG ĐƠN: Đổ dữ liệu ảnh chung lên form sửa
+          // XỬ LÝ ĐỒNG BỘ BỘ ẢNH CHUNG TỔNG ĐƠN
           const orderAttachments = safeParseAttachments(raw.attachments || raw.files || raw.general_attachments || raw.images);
           setGeneralImages(orderAttachments.map((img, i) => {
             const fId = typeof img === 'string' ? img : (img.id || img.fileId || '');
@@ -92,7 +104,7 @@ export const useEditOrder = () => {
               id: fId,
               name: typeof img === 'object' ? (img.filename || img.name) : `Anh_Chung_${i + 1}`,
               previewUrl: absolutePath,
-              file: null // Đánh dấu file cũ trên server
+              file: null 
             };
           }));
 
@@ -138,20 +150,20 @@ export const useEditOrder = () => {
             );
           }
         } else {
-          alert(res?.message || 'Không thể tải dữ liệu đơn hàng.');
+          showToast(beData?.message || 'Không thể tải dữ liệu đơn hàng.', 'error');
           navigate('/orders');
         }
       } catch (error) {
         console.error('❌ Lỗi tải chi tiết đơn hàng lên form sửa:', error);
-      } finally {
+      } fileSystem: {
         setIsLoading(false);
       }
     };
 
     if (id) fetchOrderData();
-  }, [id, navigate]);
+  }, [id, navigate, showToast]);
 
-  // Tải danh mục sản phẩm hệ thống phục vụ tra cứu nhanh trên dòng
+  // Tải danh mục sản phẩm hệ thống phục vụ tra cứu nhanh trên dòng (Giữ nguyên)
   useEffect(() => {
     const fetchCatalogData = async () => {
       setIsLoadingCatalog(true);
@@ -210,7 +222,7 @@ export const useEditOrder = () => {
   const vat = useMemo(() => 0, []); 
   const total = useMemo(() => subtotal, [subtotal]);
 
-  // Luồng upload ảnh thiết kế đa tệp sang Media Server
+  // Luồng upload ảnh thiết kế đa tệp sang Media Server (Giữ nguyên)
   const uploadDraftImages = useCallback(async (productImages) => {
     if (!productImages || productImages.length === 0) return null;
 
@@ -247,7 +259,6 @@ export const useEditOrder = () => {
 
   const uploadAudioNote = useCallback(async (file) => {
     if (!file) return null;
-    // Nếu tệp truyền vào không phải là đối tượng File thực tế (là Object thông tin ảnh cũ từ server), giữ nguyên ID cũ
     if (!(file instanceof File) && file.id) return file.id;
 
     const formData = new FormData();
@@ -267,7 +278,7 @@ export const useEditOrder = () => {
     }
   }, []);
 
-  // Xây dựng JSON payload gửi lên Backend chỉnh sửa
+  // Xây dựng JSON payload gửi lên Backend chỉnh sửa (Giữ nguyên)
   const buildJsonPayload = useCallback(async (audioId) => {
     const validProducts = products.filter(p => {
       const pId = p.productId || p.product_id;
@@ -292,44 +303,43 @@ export const useEditOrder = () => {
       };
     }));
 
-    // Xử lý song song cụm upload ảnh đính kèm chung tổng đơn hàng
     let finalGeneralAttachments = null;
     if (generalImages && generalImages.length > 0) {
       finalGeneralAttachments = await uploadDraftImages(generalImages);
     }
 
-     const firstValidDriveLink = products.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
+    const firstValidDriveLink = products.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
 
     return {
       id: id, 
       items: itemsPayload,
-      attachments: finalGeneralAttachments, // Cập nhật danh sách tệp đính kèm chung tổng đơn
+      attachments: finalGeneralAttachments, 
       note: generalNote || null,
       audionote: audioId,
       noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
-      linkgoogledrive: firstValidDriveLink, // Đính kèm link vào payload chính
+      linkgoogledrive: firstValidDriveLink, 
     };
   }, [id, products, generalImages, generalNote, shippingUnit, shippingCode, uploadDraftImages]);
 
-  // Thực thi lưu cập nhật thông tin đơn hàng tổng quát
+  // =================================================================
+  // LUỒNG XỬ LÝ LƯU CẬP NHẬT THÔNG TIN ĐƠN HÀNG TỔNG QUÁT
+  // =================================================================
   const handleUpdateOrderSubmit = async (e) => {
     if (e) e.preventDefault();
     
     const hasValidProduct = products.some(p => p.productId && String(p.productId).trim() !== '');
-    if (!hasValidProduct) return alert('Danh sách sản phẩm không được để trống!');
+    // 🛠️ ĐIỀU CHỈNH: Đổi alert thành Toast Warning
+    if (!hasValidProduct) return showToast('Danh sách sản phẩm không được để trống!', 'warning');
 
     setIsSubmitting(true);
     try {
-      // Xác định trạng thái của file âm thanh chỉ dẫn hiện tại
       const currentAudioFile = recordedAudioFile || uploadedAudioFile;
       let finalAudioId = null;
 
       if (currentAudioFile) {
         if (currentAudioFile instanceof File || currentAudioFile.file) {
-          // Là file mới ghi âm hoặc file mới tải lên từ máy tính
           finalAudioId = await uploadAudioNote(currentAudioFile instanceof File ? currentAudioFile : currentAudioFile.file);
         } else {
-          // Là file ghi âm cũ được lấy về từ server (Giữ nguyên cấu trúc)
           finalAudioId = currentAudioFile.id || existingAudioNoteId;
         }
       }
@@ -338,7 +348,7 @@ export const useEditOrder = () => {
       let res;
       const isDraft = orderStatus?.toUpperCase() === 'DRAFT';
       
-       if (isDraft) {
+      if (isDraft) {
         res = await orderService.saveDraft(jsonPayload);
       } else {
         res = await orderService.updateOrder(jsonPayload);
@@ -347,23 +357,30 @@ export const useEditOrder = () => {
         }
       }
 
-      if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
-        alert('✅ Đã cập nhật thông tin đơn hàng thành công!');
+      // Unwrap Response đồng bộ hệ thống chống lỗi lệch key
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 || beData?.statusCode === 200) {
+        // 🛠️ ĐIỀU CHỈNH: Áp dụng showToast dạng success thay thế alert()
+        showToast('Đã cập nhật thông tin đơn hàng thành công!', 'success');
         
-        // Điều hướng dựa trên trạng thái: Về danh sách nếu là nháp, về chi tiết nếu là đơn thường
-        if (isDraft) navigate('/orders');
-        else navigate(`/orders/${id}`);
+        // 🛠️ GIẢI QUYẾT RACE CONDITION: Tạo khoảng trễ nhỏ (50ms) cho State kịp hiển thị Toast trước khi Unmount điều hướng
+        if (isDraft) setTimeout(() => navigate('/orders'), 50);
+        else setTimeout(() => navigate(`/orders/${id}`), 50);
       } else {
-        alert(res?.message || 'Cập nhật thất bại từ hệ thống.');
+        showToast(beData?.message || 'Cập nhật thất bại từ hệ thống.', 'error');
       }
     } catch (error) {
       console.error(error);
-      alert('Lỗi kết nối máy chủ chỉnh sửa.');
+      showToast('Lỗi kết nối máy chủ chỉnh sửa.', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // =================================================================
+  // LUỒNG XỬ LÝ CẬP NHẬT DỮ LIỆU BẢN NHÁP
+  // =================================================================
   const handleSaveDraft = async () => {
     setIsSubmitting(true);
     try {
@@ -380,15 +397,19 @@ export const useEditOrder = () => {
 
       const jsonPayload = await buildJsonPayload(finalAudioId);
       const res = await orderService.saveDraft(jsonPayload);
-       if (res?.errorCode === 1 || res?.data?.errorCode === 1) {
-        alert('✅ Đã cập nhật dữ liệu vào bản nháp thành công!');
-        // Yêu cầu: Sau khi lưu nháp thành công, quay về trang danh sách
-        navigate('/orders');
+      
+      const beData = res?.errorCode !== undefined ? res : (res?.data || res);
+
+      if (beData?.errorCode === 1 || beData?.statusCode === 200) {
+        // 🛠️ ĐIỀU CHỈNH: Áp dụng showToast dạng success thay thế alert() theo yêu cầu đặc tả đơn hàng mẫu
+        showToast('Đã cập nhật dữ liệu vào bản nháp thành công! 📝', 'success');
+        setTimeout(() => navigate('/orders'), 50);
       } else {
-        alert(res?.message || 'Không thể lưu bản nháp.');
+        showToast(beData?.message || 'Không thể lưu bản nháp.', 'error');
       }
     } catch (error) {
       console.error(error);
+      showToast('Lỗi kết nối máy chủ khi lưu bản nháp.', 'error');
     } finally {
       setIsSubmitting(false);
     }

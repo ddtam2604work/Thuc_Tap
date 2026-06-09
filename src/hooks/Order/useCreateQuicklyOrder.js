@@ -8,17 +8,16 @@ export const useCreateQuicklyOrder = () => {
     email: '',
     address: '',
     group: '',
-    notes: '',
-    createPortal: false
+    notes: ''
   });
 
   const [errors, setErrors] = useState({});
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: value
     }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
@@ -58,9 +57,7 @@ export const useCreateQuicklyOrder = () => {
 
   return {
     formData,
-    setFormData,
     errors,
-    setErrors,
     handleInputChange,
     handleFormSubmit
   };

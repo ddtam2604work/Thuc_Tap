@@ -112,7 +112,7 @@ const FormInsertProduct = ({ initialData, onSave, onCancel, isSaving, categories
           Huỷ
         </Button>
         <Button type="submit" disabled={isSaving} className={`px-10 ${isSaving ? 'bg-gray-400' : 'bg-[#0014FF]'}`}>
-          {isSaving ? 'Đang lưu...' : '💾 Lưu sản phẩm'}
+          {isSaving ? 'Đang lưu...' : 'Lưu sản phẩm'}
         </Button>
       </div>
     </form>
