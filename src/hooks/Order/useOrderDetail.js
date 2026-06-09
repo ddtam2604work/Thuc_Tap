@@ -90,13 +90,28 @@ export const useOrderDetail = () => {
           totalFiles += itemAtts.length;
         });
 
+        // 🌟 LẤY ĐỊA CHỈ KHÁCH HÀNG TỪ API CHI TIẾT KHÁCH HÀNG
+        let finalCustomerAddress = raw.customer_address;
+        if (raw.customer_id) {
+          try {
+            const { customerService } = await import('../../services/customerService');
+            const custRes = await customerService.getDetail(raw.customer_id);
+            const custData = custRes?.data?.data || custRes?.data;
+            if (custData && custData.address) {
+              finalCustomerAddress = custData.address;
+            }
+          } catch (e) {
+            console.error('Không thể lấy địa chỉ khách hàng:', e);
+          }
+        }
+
         setOrderData({
           customer: {
             name: raw.customer_fullname || 'Khách hàng lẻ',
             phone: raw.customer_phone || '---',
             createdAt: formattedDate,
             employee: raw.createuser_fullname || 'Hệ thống',
-            address: raw.customer_address || raw.noteshipping || 'Nhận tại cửa hàng'
+            address: finalCustomerAddress || 'Nhận tại cửa hàng'
           },
           // 🌟 ÁNH XẠ ATTACHMENTS TỔNG ĐƠN (Sửa lỗi khuyết key truyền sang component con)
           attachments: orderAttachments.map((img, i) => {

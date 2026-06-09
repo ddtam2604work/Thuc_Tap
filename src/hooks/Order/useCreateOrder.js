@@ -154,7 +154,7 @@ export const useCreateOrder = (existingDraftId = null) => {
 
 
   // Xây dựng cấu trúc FormData Payload gửi lên Backend dạng Đa phần (Multipart)
-  const buildFormDataPayload = useCallback((statusMode = 'NEW') => {
+  const buildFormDataPayload = useCallback((statusMode = 'NEW', audioNoteId = null) => {
     const formData = new FormData();
     formData.append('customer_id', customer);
     formData.append('shipping_unit', (shippingUnit || '').trim());
@@ -171,6 +171,7 @@ export const useCreateOrder = (existingDraftId = null) => {
 
     if (recordedAudioFile) formData.append('recorded_audio', recordedAudioFile);
     if (uploadedAudioFile) formData.append('uploaded_audio', uploadedAudioFile);
+    if (audioNoteId) formData.append('audionote', audioNoteId);
     if (generalImages?.length > 0) generalImages.forEach(img => formData.append('general_attachments', img.file));
 
     // 🌟 KHẮC PHỤC LỖI 2: Chỉ lấy sản phẩm có ID thực sự hợp lệ trước khi đẩy lên payload
@@ -230,7 +231,10 @@ export const useCreateOrder = (existingDraftId = null) => {
 
     setIsSubmitting(true);
     try {
-      const payload = buildFormDataPayload('NEW');
+      const audioFile = recordedAudioFile || uploadedAudioFile;
+      const audioNoteId = await uploadAudioNote(audioFile);
+
+      const payload = buildFormDataPayload('NEW', audioNoteId);
       const res = await orderService.createNew(payload);
       if (res?.errorCode === 1) {
         alert('Khởi tạo đơn hàng sản xuất thành công!');
@@ -328,7 +332,11 @@ export const useCreateOrder = (existingDraftId = null) => {
       if (await validateDuplicates(products)) {
         if (!window.confirm('⚠️ Có file trùng lặp trong hệ thống. Bạn vẫn muốn tiếp tục?')) return;
       }
-      const payload = buildFormDataPayload('AWAIT');
+
+      const audioFile = recordedAudioFile || uploadedAudioFile;
+      const audioNoteId = await uploadAudioNote(audioFile);
+
+      const payload = buildFormDataPayload('AWAIT', audioNoteId);
       const res = await orderService.createAwait(payload);
       if (res?.errorCode === 1) {
         alert('✅ Khởi tạo đơn hàng chờ duyệt thành công!');

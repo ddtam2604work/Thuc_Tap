@@ -17,7 +17,23 @@ export default defineConfig({
         target: 'https://113.161.204.185:4000',
         changeOrigin: true,
         secure: false,
-        
+      },
+      // Chuyển hướng WebSocket /socket.io sang BE_URL
+      '/socket.io': {
+        target: 'https://113.161.204.185:4000',
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+        // 🔥 BỔ SUNG: Kháng lỗi sập kết nối khi reload hoặc hết hạn timeout
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            // Chặn đứng và bỏ qua các lỗi ngắt kết nối tầng mạng thường gặp khi dev
+            if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED') {
+              return; 
+            }
+            console.error('Vite Proxy Error (Mã lỗi khác):', err.message);
+          });
+        }
       }
     }
   }

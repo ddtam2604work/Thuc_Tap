@@ -134,6 +134,7 @@ const CreateOrder = () => {
               shippingCode={shippingCode}
               generalNote={generalNote}
               generalImages={generalImages}
+              audioFile={audioFile}
               onSaveDraft={handleSaveDraft}
               onCreateAndAwait={handleCreateAndAwait}
               isSubmitting={isSubmitting}

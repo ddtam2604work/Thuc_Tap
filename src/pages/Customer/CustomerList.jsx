@@ -6,28 +6,35 @@ import FormInsertCustomerList from '../../components/partials/forms/customer/cus
 import FormEditCustomerList from '../../components/partials/forms/customer/customer-list/FormEdit-CustomerList';
 import Modal from '../../components/skeleton/Modal';
 import Button from '../../components/skeleton/Button';
+import FormInput from '../../components/skeleton/FormInput';
 import CustomerDetail from './CustomerDetail';
 
 const CustomerList = () => {
   const {
-    customers, loading, isSaving, customerSearch, setCustomerSearch, // Giữ lại setCustomerSearch để hook hoạt động
+    customers, loading, isSaving, customerSearch, setCustomerSearch,
     portalFilter, setPortalFilter, statusFilter, setStatusFilter,
     currentPage, setCurrentPage, totalPages, fetchCustomers,
     handleAddCustomer, handleEditCustomer, handleDeleteCustomer,
-    getCustomerDetail, detailConfig, handleViewDetail, handleCloseDetail // 🎯 BƯỚC 1: LẤY HÀM NÀY TỪ HOOK RA ĐỂ SỬ DỤNG
+    getCustomerDetail, detailConfig, handleViewDetail, handleCloseDetail
   } = useCustomerList();
 
   const { filteredGroups, fetchGroups } = useCustomerGroups();
-
   const [modalConfig, setModalConfig] = useState({ isOpen: false, mode: 'add', data: null });
-
-  // State cục bộ cho ô tìm kiếm để kiểm soát khi nào thực sự trigger search
   const [localSearch, setLocalSearch] = useState(customerSearch || '');
 
-  // Hàm trigger tìm kiếm, được bọc trong useCallback để tối ưu
+  // Logic UI cho phân trang số hoàn chỉnh kế thừa từ AccountPage
+  const getPaginationGroup = () => {
+    let start = Math.max(currentPage - 2, 1);
+    let end = Math.min(start + 4, totalPages);
+    if (end - start < 4) {
+      start = Math.max(end - 4, 1);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  };
+
   const handleSearch = useCallback(() => {
     setCustomerSearch(localSearch);
-    setCurrentPage(1); // Reset về trang 1 khi tìm kiếm
+    setCurrentPage(1);
   }, [localSearch, setCustomerSearch, setCurrentPage]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
@@ -37,18 +44,13 @@ const CustomerList = () => {
     setModalConfig({ isOpen: true, mode: 'add', data: null });
   };
 
-  // 🎯 BƯỚC 2: CHUYỂN HÀM NÀY THÀNH ASYNC ĐỂ GỌI API THEO ID
   const handleOpenEditModal = async (row) => {
     try {
-      if (typeof fetchGroups === 'function') fetchGroups(); // Tải danh sách nhóm (phục vụ cho select box)
+      if (typeof fetchGroups === 'function') fetchGroups();
       
-      // 1. Gọi API lấy thông tin chi tiết nhất của khách hàng từ ID
       const fullDetail = await getCustomerDetail(row.id);
-      
-      // 2. Fallback: Nếu API detail lỗi/trống, dùng tạm dữ liệu của row trên bảng
       const data = fullDetail || row; 
 
-      // 3. Đổ dữ liệu Full lên Form
       setModalConfig({
         isOpen: true,
         mode: 'edit',
@@ -59,7 +61,6 @@ const CustomerList = () => {
           phone: data.phone || data.customer_user_phone || '',
           email: data.email || data.customer_user_email || '',
           address: data.address || data.customer_address || '',
-          // Đảm bảo lấy đúng ID nhóm
           customercategories_id: data.customercategories_id || data.category_id || '',
           description: data.description || '',
           isportal: data.isportal === 1 || data.isportal === true,
@@ -67,7 +68,7 @@ const CustomerList = () => {
         }
       });
     } catch (error) {
-      console.error("Lỗi lấy thông tin chi tiết:", error);
+      console.error("❌ [Component/CustomerList] Lỗi lấy thông tin chi tiết:", error);
       alert("Không thể lấy thông tin chi tiết khách hàng. Vui lòng thử lại!");
     }
   };
@@ -79,14 +80,23 @@ const CustomerList = () => {
   const handleFormSubmit = async (payload) => {
     try {
       if (modalConfig.mode === 'add') {
-        // BƯỚC 1: Chuẩn hóa payload trước khi gửi đi để đảm bảo đúng định dạng API yêu cầu
         const finalPayload = {
           ...payload,
-          // Ép kiểu isactive và isportal về dạng số (1/0) mà backend thường yêu cầu
+          fullname: payload.fullname?.trim(),
+          phone: payload.phone?.trim(),
+          email: payload.email?.trim(),
+          username: payload.phone?.trim(), 
           isactive: (payload.isactive === true || payload.isactive === 1 || String(payload.isactive) === '1') ? 1 : 0,
           isportal: (payload.isportal === true || payload.isportal === 1 || String(payload.isportal) === '1') ? 1 : 0,
         };
+
         await handleAddCustomer(finalPayload);
+        
+        setCurrentPage(1);
+        setCustomerSearch('');
+        setLocalSearch('');
+        setPortalFilter('all');
+        setStatusFilter('all');
       } else {
         await handleEditCustomer(modalConfig.data.id, payload);
       }
@@ -98,96 +108,135 @@ const CustomerList = () => {
   };
 
   return (
-    <div className="p-6 font-inter bg-gray-50 min-h-screen text-[#191C1D]">
-      
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Danh sách khách hàng</h1>
-          <p className="text-xs text-gray-500 mt-1">Quản lý thông tin và phân loại khách hàng trong hệ thống</p>
+    <div className="flex flex-col">
+      <main className="p-6 flex-1">
+        {/* Banner thông báo hệ thống */}
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 flex items-start gap-3 rounded-r-lg">
+          <span className="text-blue-500 mt-0.5">ⓘ</span>
+          <p className="text-[13px] text-blue-800">
+            Quản lý danh sách khách hàng: Đảm bảo tính hợp lệ của số điện thoại và email khi phân loại danh mục.
+          </p>
         </div>
-        <Button 
-          variant="primary" 
-          onClick={handleOpenAddModal}
-          className="bg-[#0037B0] hover:bg-[#00267A] text-white px-4 h-10 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all"
-        >
-          <span>➕</span> Thêm khách hàng
-        </Button>
-      </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-3xs mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-[300px] w-full sm:w-auto">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 text-sm">🔍</span>
-            <input
-              type="text"
-              placeholder="Tìm theo tên, số điện thoại, email..."
+        {/* Toolbar & Filter bộ lọc hợp nhất */}
+        <div className="flex flex-row items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-wrap md:flex-nowrap">
+          
+          {/* Ô tìm kiếm Instant Search truyền trực tiếp về Hook */}
+          <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex-1 min-w-[280px] max-w-md relative">
+            <FormInput 
               value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="w-full h-10 pl-9 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#0037B0] transition-colors bg-gray-50/50"
+              placeholder="Tìm theo tên, số điện thoại, email..." 
+              onChange={(e) => {
+                setLocalSearch(e.target.value);
+                setCustomerSearch(e.target.value); // Chức năng Instant Search tự kích hoạt Paging API công tâm
+              }}
+              className="bg-gray-50/50 border-gray-200 h-10 pr-10 focus:bg-white transition-all w-full"
             />
-          </div>
-           <Button type="submit" variant="primary" className="h-10 px-6 text-xs font-semibold rounded-xl shadow-xs bg-slate-800 text-white hover:bg-slate-900 transition-all">
-            Tìm kiếm
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <select
-            value={portalFilter}
-            onChange={(e) => { setPortalFilter(e.target.value); setCurrentPage(1); }}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-xs font-medium bg-white focus:outline-none cursor-pointer"
-          >
-            <option value="all">Tất cả tài khoản</option>
-            <option value="portal">Có tài khoản Portal</option>
-            <option value="non-portal">Chưa tạo tài khoản</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="h-10 px-3 border border-gray-200 rounded-xl text-xs font-medium bg-white focus:outline-none cursor-pointer"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="inactive">Ngừng hoạt động</option>
-          </select>
-        </div>
-      </form>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-3xs overflow-hidden transition-all">
-        <CustomerListTable 
-          customers={customers} 
-          isLoading={loading} 
-          onViewDetail={handleViewDetail}
-          onEdit={handleOpenEditModal} 
-          onDelete={handleDeleteCustomer} 
-        />
-
-        {totalPages > 1 && (
-          <div className="px-4 py-3 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
-            <div className="text-xs text-gray-500 font-medium">
-              Trang <span className="text-gray-800 font-bold">{currentPage}</span> / {totalPages}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                disabled={currentPage === 1 || loading}
+          </form>
+
+          {/* Cụm bộ chọn Dropdown & Nút thêm mới */}
+          <div className="flex items-center gap-3 ml-auto flex-wrap sm:flex-nowrap justify-end w-full md:w-auto">
+            <div className="flex gap-2 shrink-0">
+              <select
+                value={portalFilter}
+                onChange={(e) => { setPortalFilter(e.target.value); setCurrentPage(1); }}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
+              >
+                <option value="all">Tất cả tài khoản</option>
+                <option value="portal">Có tài khoản Portal</option>
+                <option value="non-portal">Chưa tạo tài khoản</option>
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Ngừng hoạt động</option>
+              </select>
+            </div>
+
+            <Button 
+              onClick={handleOpenAddModal} 
+              className="w-fit px-12 h-10 shadow-md shrink-0 whitespace-nowrap"
+            >
+              <span className="text-xl font-light mr-2">+</span> Thêm khách hàng
+            </Button>
+          </div>
+        </div>
+
+        {/* Bảng dữ liệu */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden transition-all">
+          <CustomerListTable 
+            customers={customers} 
+            isLoading={loading} 
+            onViewDetail={handleViewDetail}
+            onEdit={handleOpenEditModal} 
+            onDelete={handleDeleteCustomer} 
+          />
+        </div>
+
+        {/* Hệ thống Phân trang số trực quan đồng bộ AccountPage */}
+        {!loading && totalPages > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center mt-6 px-2 gap-4">
+            <div className="text-sm text-gray-500">
+              Hiển thị trang <span className="font-semibold text-gray-900">{currentPage}</span> trong tổng số <span className="font-semibold text-gray-900">{totalPages}</span> trang khách hàng
+            </div>
+
+            <div className="flex gap-1.5">
+              {/* Nút Trước */}
+              <Button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                className="h-8 px-3 rounded-lg border border-gray-200 text-xs font-semibold bg-white hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                disabled={currentPage === 1}
+                className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
+                  currentPage === 1 
+                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
               >
-                Trước
-              </button>
-              <button
-                disabled={currentPage === totalPages || loading}
+                &lt;
+              </Button>
+
+              {/* Danh sách các số trang */}
+              {getPaginationGroup().map(page => (
+                <Button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 ${
+                    page === currentPage 
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </Button>
+              ))}
+
+              {/* Nút Sau */}
+              <Button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                className="h-8 px-3 rounded-lg border border-gray-200 text-xs font-semibold bg-white hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                disabled={currentPage === totalPages}
+                className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
+                  currentPage === totalPages 
+                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                }`}
               >
-                Sau
-              </button>
+                &gt;
+              </Button>
             </div>
           </div>
         )}
-      </div>
+      </main>
 
+      {/* Quản lý Modals ở cuối thành phần */}
       <Modal isOpen={modalConfig.isOpen} onClose={handleCloseModal} title={modalConfig.mode === 'add' ? "Thêm mới khách hàng" : "Cập nhật thông tin khách hàng"}>
         {modalConfig.mode === 'add' ? (
           <FormInsertCustomerList

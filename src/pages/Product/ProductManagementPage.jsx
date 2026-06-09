@@ -4,6 +4,7 @@ import useCategories from '../../hooks/Product/useCategories';
 import ProductManagementTable from '../../components/partials/table/product/ProductManagementTable';
 import Button from '../../components/skeleton/Button';
 import Modal from '../../components/skeleton/Modal';
+import FormInput from '../../components/skeleton/FormInput';
 import FormInsertProduct from '../../components/partials/forms/products/FormInsert-Product';
 import FormEditProduct from '../../components/partials/forms/products/FormEdit-Product';
 
@@ -18,7 +19,7 @@ const ProductManagementPage = () => {
     generateProductCode, getProductDetail, addProduct, updateProduct, deleteProduct 
   } = useProducts();
   
-  // 🌟 GỘP CHUNG HOOK: Lấy cả danh sách danh mục và hàm fetchCategories ở cùng 1 nơi
+  // Lấy cả danh sách danh mục và hàm fetchCategories ở cùng 1 nơi
   const { categories, fetchCategories } = useCategories(); 
   
   const [searchInput, setSearchInput] = useState(searchTerm);
@@ -26,7 +27,17 @@ const ProductManagementPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false); 
 
-  // Xử lý Tìm kiếm
+  // Logic UI cho phân trang (Đồng bộ cấu trúc từ AccountPage)
+  const getPaginationGroup = () => {
+    let start = Math.max(currentPage - 2, 1);
+    let end = Math.min(start + 4, totalPages);
+    if (end - start < 4) {
+      start = Math.max(end - 4, 1);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  };
+
+  // Xử lý Tìm kiếm (Giữ logic gốc để tránh mất mát code, đồng thời gộp cơ chế Instant)
   const handleTriggerSearch = () => setSearchTerm(searchInput);
   const handleKeyDown = (e) => { if (e.key === 'Enter') handleTriggerSearch(); };
 
@@ -41,7 +52,7 @@ const ProductManagementPage = () => {
       } else {
         await addProduct(formData);
         
-        // 🌟 ÉP HỆ THỐNG CẬP NHẬT LẠI DANH MỤC MỚI NHẤT TRƯỚC KHI BẢNG RENDER
+        // ÉP HỆ THỐNG CẬP NHẬT LẠI DANH MỤC MỚI NHẤT TRƯỚC KHI BẢNG RENDER
         await fetchCategories(); 
         
         alert("Thêm sản phẩm mới thành công!");
@@ -105,7 +116,7 @@ const ProductManagementPage = () => {
         return;
       }
 
-      // 🌟 FETCH DỮ LIỆU CHI TIẾT ĐẦY ĐỦ TỪ SERVER
+      // FETCH DỮ LIỆU CHI TIẾT ĐẦY ĐỦ TỪ SERVER
       let detailData = await getProductDetail(targetId);
       console.log('🔧 detailData từ API:', detailData);
       
@@ -115,13 +126,10 @@ const ProductManagementPage = () => {
         return;
       }
       
-      // 🌟 FALLBACK: Merge table data + API detail
-      // Table row sẽ có những field đã format (như price)
-      // API sẽ có những field chi tiết (description)
+      // FALLBACK: Merge table data + API detail
       const mergedData = {
         ...item,  // Giữ những field từ bảng (code, category_name, etc.)
         ...detailData,  // Override/thêm field chi tiết từ API
-        // Explicit fallback cho fields quan trọng
         name: detailData.name || item.name || '',
         code: detailData.code || item.code || '',
         price: detailData.price || item.price || '',
@@ -154,67 +162,137 @@ const ProductManagementPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in duration-500">
-      {/* Banner */}
-      <div className="bg-[#E0F2FE] border-l-4 border-[#0037B0] p-4 flex gap-3 rounded shadow-sm">
-        <span className="text-[#0037B0] font-bold">ⓘ</span>
-        <p className="text-sm font-bold text-[#0037B0] leading-5">
-          Quản lý sản phẩm hệ thống. Hệ thống tự động áp dụng giá gốc (Standard Price) khi tạo đơn.
-        </p>
-      </div>
+    <div className="flex flex-col">
+      <main className="p-6 flex-1">
+        {/* Banner thông báo */}
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 flex items-start gap-3 rounded-r-lg">
+          <span className="text-blue-500 mt-0.5">ⓘ</span>
+          <p className="text-[13px] text-blue-800">
+            Quản lý sản phẩm hệ thống. Hệ thống tự động áp dụng giá gốc (Standard Price) khi tạo đơn.
+          </p>
+        </div>
 
-      {/* Toolbar & Filter */}
-      <div className="bg-white border border-[#C4C5D7] rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-[#C4C5D7] flex justify-between items-center bg-white gap-4 flex-wrap">
-          <div className="flex flex-1 min-w-[300px] max-w-[700px] gap-2">
-            <input 
-              type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={handleKeyDown}
-              placeholder="Tìm kiếm theo mã sản phẩm hoặc tên sản phẩm..." 
-              className="h-10 flex-1 border border-[#C4C5D7] px-4 rounded-md text-sm outline-none focus:border-[#0037B0] transition-all" 
-            />
-            <Button variant="search" onClick={handleTriggerSearch}>TÌM KIẾM</Button>
-          </div>
+        {/* Toolbar */}
+        <div className="flex flex-row items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-wrap md:flex-nowrap">
           
-          <div className="flex gap-3 flex-wrap">
-             <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="border border-[#C4C5D7] px-4 h-10 rounded-md text-sm bg-white cursor-pointer">
+          {/* Tìm kiếm tức thời kết hợp đồng bộ hóa state cũ */}
+          <div className="flex-1 min-w-[280px] max-w-md relative">
+            <FormInput 
+              value={searchTerm}
+              placeholder="Tìm kiếm theo mã sản phẩm hoặc tên sản phẩm..." 
+              onChange={(e) => {
+                setSearchInput(e.target.value); // Giữ đồng bộ cho state gốc
+                setSearchTerm(e.target.value); // Kích hoạt Tìm kiếm tức thời của AccountPage
+              }}
+              onKeyDown={handleKeyDown}
+              className="bg-gray-50/50 border-gray-200 h-10 pr-10 focus:bg-white transition-all w-full"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Bộ lọc Dropdowns và Button thêm */}
+          <div className="flex items-center gap-3 ml-auto flex-wrap sm:flex-nowrap justify-end w-full md:w-auto">
+            <div className="flex gap-2 shrink-0">
+              <select 
+                value={filterCategory} 
+                onChange={(e) => setFilterCategory(e.target.value)} 
+                className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
+              >
                 <option value="all">Tất cả danh mục</option>
                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-             </select>
+              </select>
 
-             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="border border-[#C4C5D7] px-4 h-10 rounded-md text-sm bg-white cursor-pointer">
+              <select 
+                value={filterStatus} 
+                onChange={(e) => setFilterStatus(e.target.value)} 
+                className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
+              >
                 <option value="all">Tất cả trạng thái</option>
                 <option value="1">Hoạt động</option>
                 <option value="0">Ngừng kinh doanh</option>
-             </select>
+              </select>
+            </div>
 
-             <Button onClick={handleOpenInsert} disabled={isGenerating} className={`!bg-[#1D4ED8] ${isGenerating ? 'opacity-70' : ''}`}>
-               {isGenerating ? '⏳ ĐANG XỬ LÝ...' : '+ THÊM SẢN PHẨM'}
-             </Button>
+            <Button 
+              onClick={handleOpenInsert} 
+              disabled={isGenerating} 
+              className={`w-fit px-12 h-10 shadow-md shrink-0 whitespace-nowrap ${isGenerating ? 'opacity-70' : ''}`}
+            >
+              {isGenerating ? '⏳ ĐANG XỬ LÝ...' : <><span className="text-xl font-light mr-2">+</span> Thêm sản phẩm</>}
+            </Button>
           </div>
         </div>
-        
-        {/* Table & Pagination */}
-        {loading ? (
-           <div className="p-10 text-center text-gray-500">Đang tải...</div>
-        ) : error ? (
-           <div className="p-10 text-center text-red-500">{error}</div>
-        ) : (
-           <>
-             <ProductManagementTable data={products} categories={categories} onEdit={handleOpenEdit} onDelete={handleDelete} isLoading={isGenerating} />
-             {totalPages > 1 && (
-               <div className="p-4 border-t flex items-center justify-between bg-gray-50">
-                 <span className="text-sm text-gray-600">Trang <strong>{currentPage}</strong> / <strong>{totalPages}</strong></span>
-                 <div className="flex gap-2">
-                   <Button variant="secondary" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Trước</Button>
-                   <Button variant="secondary" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Sau</Button>
-                 </div>
-               </div>
-             )}
-           </>
-        )}
-      </div>
 
-      {/* Modal */}
+        {/* Trạng thái Loading và Error */}
+        {loading && <div className="text-center py-10 text-gray-500">Đang tải dữ liệu sản phẩm...</div>}
+        {error && !loading && <div className="text-center py-10 text-red-500">Lỗi: {error}</div>}
+        
+        {/* Table & Phân trang số hoàn chỉnh của AccountPage */}
+        {!loading && !error && (
+          <>
+            <ProductManagementTable data={products} categories={categories} onEdit={handleOpenEdit} onDelete={handleDelete} isLoading={isGenerating} />
+            
+            {totalPages > 0 && (
+              <div className="flex flex-col sm:flex-row justify-between items-center mt-6 px-2 gap-4">
+                {/* Bộ đếm thống kê bên trái */}
+                <div className="text-sm text-gray-500">
+                  Hiển thị trang <span className="font-semibold text-gray-900">{currentPage}</span> trong tổng số <span className="font-semibold text-gray-900">{totalPages}</span> trang sản phẩm
+                </div>
+
+                {/* Các nút phân trang số dạng nút bấm chuẩn xác */}
+                <div className="flex gap-1.5">
+                  {/* Nút Trước */}
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
+                      currentPage === 1 
+                      ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    &lt;
+                  </Button>
+
+                  {/* Vòng lặp xuất dãy số trang */}
+                  {getPaginationGroup().map(page => (
+                    <Button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 ${
+                        page === currentPage 
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+
+                  {/* Nút Tiếp Theo */}
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
+                      currentPage === totalPages 
+                      ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    &gt;
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Cấu trúc Modals */}
       <Modal isOpen={modal.isOpen} onClose={handleClose} title={modal.type === 'insert' ? "Thêm sản phẩm" : "Chỉnh sửa sản phẩm"}>
         {modal.type === 'insert' ? (
           <FormInsertProduct key={`insert_${modal.data?.code}`} categories={categories} units={units} initialData={modal.data} onSave={handleSave} onCancel={handleClose} isSaving={isSaving} />

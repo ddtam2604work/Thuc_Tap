@@ -148,6 +148,7 @@ const CustomerInfoSection = ({ customer, setCustomer, onOpenCreateModal, refresh
                           {c.fullname}
                         </div>
                         {c.phone && <div className="text-[10px] text-gray-400 mt-0.5">{c.phone}</div>}
+                        {c.address && <div className="text-[10px] text-gray-500 mt-0.5 truncate max-w-[200px]" title={c.address}>📍 {c.address}</div>}
                       </div>
                       
                       {isCurrentActive && (

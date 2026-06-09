@@ -3,7 +3,7 @@ import { useCreateQuicklyOrder } from '../../../../hooks/Order/useCreateQuicklyO
 import Button from '../../../skeleton/Button';
 
 const FormInsertOrder = ({ onClose, onSubmit }) => {
-  const { formData, errors, handleInputChange, handleFormSubmit } = useCreateQuicklyOrder();
+  const { formData, setFormData, errors, setErrors, handleInputChange, handleFormSubmit } = useCreateQuicklyOrder();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;

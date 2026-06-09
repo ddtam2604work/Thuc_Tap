@@ -41,7 +41,6 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
     if (!formData.fullname.trim()) return setErrors({ fullname: 'Tên khách hàng không được để trống' });
 
     const payload = {
-      customercategories_id: formData.customercategories_id || null, 
       username: formData.phone.trim(), 
       fullname: formData.fullname.trim(),
       phone: formData.phone.trim(),
@@ -52,6 +51,9 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
       isportal: formData.isportal ? 1 : 0,
       isactive: formData.isactive
     };
+    if (formData.customercategories_id) {
+      payload.customercategories_id = formData.customercategories_id;
+    }
     onSubmit(payload);
   };
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export const useAdditionalInfoCard = ({ 
   recordedAudioFile, setRecordedAudioFile, // 🌟 Tuyến dữ liệu 1: Ghi âm trực tiếp
@@ -14,6 +14,19 @@ export const useAdditionalInfoCard = ({
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  // Đồng bộ preview URL từ file truyền từ ngoài vào (Ví dụ: EditOrder có sẵn file ghi âm)
+  useEffect(() => {
+    if (uploadedAudioFile && uploadedAudioFile.previewUrl) {
+      setUploadedPreviewUrl(uploadedAudioFile.previewUrl);
+      setActiveTab('AUDIO_FILE');
+    } else if (uploadedAudioFile && uploadedAudioFile instanceof File) {
+      // Bỏ qua tạo URL nếu là file upload trực tiếp từ component này vì đã xử lý ở handleAudioUpload
+    } else if (!uploadedAudioFile) {
+      // Đặt lại state nếu file bị xoá
+      setUploadedPreviewUrl('');
+    }
+  }, [uploadedAudioFile]);
 
   // 🎙️ LUỒNG GHI ÂM TRỰC TIẾP (Microphone Stream Pipeline)
   const startRecording = useCallback(async () => {

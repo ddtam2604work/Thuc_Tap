@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
-// Lấy VITE_SOCKET_URL để chạy Local Mock Server, nếu không có thì mới fallback về BE_URL
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL;
+// Đảm bảo không lỗi nếu biến môi trường chưa load kịp
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://113.161.204.185:4000';
 
 const SocketContext = createContext();
 export const useSocket = () => useContext(SocketContext);
@@ -11,8 +12,17 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState(null);
   const pollingIntervalRef = useRef(null);
   const location = useLocation();
+  
+  // Lấy token từ Redux (đóng vai trò là accessToken)
+  const token = useSelector((state) => state.auth.token);
+
+  const showToast = (message, sender) => {
+     setToastMessage({ message, sender });
+     setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const startFallbackPolling = () => {
     if (pollingIntervalRef.current) return;
@@ -33,52 +43,85 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
-  // Tách riêng logic kết nối Socket chỉ chạy 1 lần khi có Token
+  // Logic kết nối Socket chính xác theo Gateway Backend
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    
     if (!token || token.length < 30) {
       return;
     }
 
-    // Ép cứng giao thức http thuần túy nếu url chứa chữ localhost
-  const targetUrl = SOCKET_URL.includes('localhost') 
-    ? SOCKET_URL.replace('https://', 'http://') 
-    : SOCKET_URL;
+    // Chuẩn hóa URL an toàn, tránh lỗi crash chuỗi
+    const safeSocketUrl = String(SOCKET_URL);
+    const targetUrl = safeSocketUrl.includes('localhost') 
+      ? safeSocketUrl.replace('https://', 'http://') 
+      : safeSocketUrl;
 
-  const socketInstance = io(targetUrl, {
-    transports: ['polling', 'websocket'],
-    reconnectionAttempts: 5,
-    reconnectionDelay: 2000,
-    withCredentials: true,
-    rejectUnauthorized: false, // Bỏ qua xác thực chứng chỉ nếu chạy môi trường dev
-    auth: { token: token }
-  });
+    // Lấy thêm refresh token dự phòng từ Storage (nếu có) để phục vụ cơ chế Re-auth của Server
+    const localRefreshToken = localStorage.getItem('refreshToken') || '';
+
+    // SỬA LỖI CHÍNH: Thay đổi cấu trúc auth object khớp 100% với Backend
+    const socketInstance = io(targetUrl, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'], // Ưu tiên websocket trước theo chuẩn Vite
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      withCredentials: true,
+      rejectUnauthorized: false, // Vượt lỗi chứng chỉ SSL Self-signed của IP thực tế
+      auth: { 
+        accessToken: token.replace(/^Bearer\s+/i, '').trim(), 
+        refreshToken: localRefreshToken 
+      }
+    });
 
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
-      console.log('🟢 Kết nối Socket thành công:', SOCKET_URL);
+      console.log('🟢 Kết nối Socket thành công đến:', targetUrl);
       stopFallbackPolling(); 
     });
 
     socketInstance.on('connect_error', (err) => {
-      // console.error('🔴 Lỗi kết nối mạng Socket:', err.message);
+      console.error('🔴 Lỗi kết nối Socket:', err.message);
       startFallbackPolling();
     });
 
-    socketInstance.on('receive_message', () => {
-      setGlobalUnreadCount(prev => prev + 1);
+    // LẮNG NGHE EVENT THỰC TẾ 1: Tin nhắn real-time trong phòng trò chuyện
+    socketInstance.on('chat:message', (data) => {
+      // Nếu người dùng KHÔNG ở trang chat thì mới hiển thị Toast thông báo toàn cục
+      if (location.pathname !== '/chat') {
+        setGlobalUnreadCount(prev => prev + 1);
+        if (data?.content) {
+          showToast(data.content, data.sender_name || 'Khách hàng');
+        }
+      }
     });
 
-    // Cleanup khi component bị unmount
+    // LẮNG NGHE EVENT THỰC TẾ 2: Cảnh báo tin nhắn mới từ phòng chat khác (Dành cho cả Khách và Staff khi ẩn màn hình)
+    socketInstance.on('chat:new_message', (data) => {
+      if (location.pathname !== '/chat') {
+        setGlobalUnreadCount(prev => prev + 1);
+        if (data?.content) {
+          showToast(data.content, data.sender_name || 'Tin nhắn mới');
+        }
+      }
+    });
+
+    // LẮNG NGHE EVENT THỰC TẾ 3: Tự động cập nhật Access Token mới khi được Server cấp lại qua Socket
+    socketInstance.on('chat:access_token_refreshed', (data) => {
+      if (data?.accessToken) {
+        console.log('🔄 Đã tự động cập nhật Access Token mới từ Socket.');
+        localStorage.setItem('accessToken', data.accessToken);
+        // Lưu ý: Nếu dự án của bạn lưu token trong Redux, hãy dispatch hành động cập nhật token tại đây:
+        // dispatch(updateTokenAction(data.accessToken));
+      }
+    });
+
     return () => {
       socketInstance.disconnect();
       stopFallbackPolling();
     };
-  }, []); // Bỏ location.pathname ra khỏi mảng này để không bị reconnect khi đổi trang
+  }, [token, location.pathname]); // Lắng nghe thêm cả pathname để xử lý bật/tắt toast động
 
-  // Lắng nghe việc đăng xuất (chuyển về trang login) để ngắt kết nối thủ công
+  // Lắng nghe việc đăng xuất để hủy kết nối
   useEffect(() => {
     if (location.pathname === '/login' && socket) {
       socket.disconnect();
@@ -88,8 +131,21 @@ export const SocketProvider = ({ children }) => {
   }, [location.pathname, socket]);
 
   return (
-    <SocketContext.Provider value={{ socket, globalUnreadCount, setGlobalUnreadCount }}>
+    <SocketContext.Provider value={{ socket, globalUnreadCount, setGlobalUnreadCount, showToast }}>
       {children}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 z-50 bg-white border border-blue-200 shadow-xl rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 cursor-pointer hover:bg-gray-50 transition-colors"
+             onClick={() => window.location.href = '/chat'}>
+           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+               {(toastMessage.sender[0] || 'N').toUpperCase()}
+           </div>
+           <div className="flex-1 min-w-0 pr-2">
+               <h4 className="text-sm font-bold text-gray-800 truncate">{toastMessage.sender}</h4>
+               <p className="text-xs text-gray-600 truncate mt-0.5">{toastMessage.message}</p>
+           </div>
+           <div className="w-2 h-2 rounded-full bg-blue-500 self-start mt-1"></div>
+        </div>
+      )}
     </SocketContext.Provider>
   );
 };

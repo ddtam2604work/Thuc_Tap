@@ -22,7 +22,7 @@ const Tooltip = ({ content, children, className = "" }) => {
   );
 };
 
-const OrderTable = ({ orders, handleDeleteOrder }) => {
+const OrderTable = ({ orders }) => {
   const navigate = useNavigate();
   
   // Định dạng tiền tệ chuẩn: 120000 -> 120.000 đ
@@ -164,8 +164,8 @@ const OrderTable = ({ orders, handleDeleteOrder }) => {
                 )}
               </td>
               
-              {/* 6. Giá trị tổng đơn hàng */}
-              <td className="py-2.5 px-3 font-bold text-[#1E293B]">
+              {/* 6. Giá trị tổng đơn hàng - ĐÃ CĂN PHẢI THEO YÊU CẦU */}
+              <td className="py-2.5 px-3 font-bold text-[#1E293B] text-right">
                 {formatCurrency(totalprice)}
               </td>
               
@@ -195,15 +195,6 @@ const OrderTable = ({ orders, handleDeleteOrder }) => {
                     className="p-0 h-auto font-bold text-blue-600 hover:underline text-[12px]"
                   >
                     Chi tiết
-                  </Button>
-                  
-                  {/* 🌟 VÁ LỖI LOGIC: Đổi nhãn chữ nút Đỏ về đúng bản chất hành động là "Xóa đơn" */}
-                  <Button 
-                    variant="text" 
-                    onClick={() => handleDeleteOrder(id)}
-                    className="p-0 h-auto font-bold text-red-500 hover:text-red-600 text-[12px]"
-                  >
-                    Xóa đơn
                   </Button>
                 </div>
               </td>

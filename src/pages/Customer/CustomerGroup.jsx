@@ -5,6 +5,7 @@ import Modal from '../../components/skeleton/Modal';
 import FormInsertCustomerGroup from '../../components/partials/forms/customer/customer-group/FormInsert-CustomerGroup';
 import FormEditCustomerGroup from '../../components/partials/forms/customer/customer-group/FormEdit-CustomerGroup';
 import Button from '../../components/skeleton/Button';
+import FormInput from '../../components/skeleton/FormInput';
 
 const CustomerGroup = () => {
   const {
@@ -58,60 +59,67 @@ const CustomerGroup = () => {
   const activeInitialData = filteredGroups.find(g => g.id === modalConfig.targetId);
 
   return (
-    <div className="flex flex-col gap-5 w-full text-[#191C1D] animate-fade-in">
-      
-      {/* Thanh Action: Tìm kiếm & Nút thêm mới - Đồng bộ UI phẳng */}
-      <form 
-        onSubmit={onSearchClick} 
-        className="flex flex-col lg:flex-row justify-between items-start lg:items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] gap-4"
-      >
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div className="relative w-full sm:w-80 h-10">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm select-none">🔍</span>
-            <input
-              type="text"
-              placeholder="Tìm kiếm theo tên hoặc mã nhóm..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-full pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-[#0037B0] transition-colors shadow-2xs"
-            />
-          </div>
-          
-          <Button 
-            type="submit" 
-            variant="primary" 
-            className="h-10 px-6 text-xs font-semibold rounded-xl shadow-xs bg-slate-800 text-white hover:bg-slate-900 transition-all"
-          >
-            Tìm kiếm
-          </Button>
+    <div className="flex flex-col">
+      <main className="p-6 flex-1">
+        {/* Banner thông báo - Đồng bộ thiết kế chuẩn AccountPage */}
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 flex items-start gap-3 rounded-r-lg">
+          <span className="text-blue-500 mt-0.5">ⓘ</span>
+          <p className="text-[13px] text-blue-800">
+            Quy tắc quản lý: Phân loại nhóm khách hàng chuẩn xác giúp tối ưu hóa hệ thống chính sách giá, ưu đãi và phân khúc quản trị dữ liệu.
+          </p>
         </div>
 
-        <Button 
-          type="button" 
-          variant="primary"
-          onClick={handleOpenAddModal}
-          className="bg-[#0037B0] hover:bg-[#00267A] h-10 px-5 text-xs font-bold uppercase tracking-wider rounded-xl shadow-sm transition-all text-white flex items-center gap-2" 
-        >
-          <span>➕</span> Thêm nhóm
-        </Button>
-      </form>
+        {/* Toolbar hành động & Bộ lọc - Đồng bộ cấu trúc phẳng AccountPage */}
+        <div className="flex flex-row items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-wrap md:flex-nowrap">
+          
+          {/* Form tìm kiếm tích hợp FormInput chuẩn */}
+          <form onSubmit={onSearchClick} className="flex-1 min-w-[280px] max-w-md relative">
+            <FormInput 
+              value={searchQuery}
+              placeholder="Tìm kiếm theo tên hoặc mã nhóm..." 
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-gray-50/50 border-gray-200 h-10 pr-10 focus:bg-white transition-all w-full"
+            />
+            {/* Icon kính lúp định vị tuyệt đối */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </form>
 
-      {/* Bảng hiển thị dữ liệu */}
-      <div className="w-full bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] overflow-hidden transition-all">
-        {loading ? (
-          <div className="p-10 text-center text-slate-400 text-xs animate-pulse">
+          {/* Nút thêm mới thiết kế theo khuôn mẫu AccountPage */}
+          <div className="flex items-center gap-3 ml-auto flex-wrap sm:flex-nowrap justify-end w-full md:w-auto">
+            <Button 
+              type="button" 
+              onClick={handleOpenAddModal} 
+              className="w-fit px-12 h-10 shadow-md shrink-0 whitespace-nowrap"
+            >
+              <span className="text-xl font-light mr-2">+</span> Thêm nhóm
+            </Button>
+          </div>
+        </div>
+
+        {/* Trạng thái Loading dữ liệu từ máy chủ */}
+        {loading && (
+          <div className="text-center py-10 text-gray-500">
             ⏳ Đang đồng bộ danh mục nhóm từ máy chủ...
           </div>
-        ) : (
-          <CustomerGroupTable 
-            groups={filteredGroups} 
-            onEdit={handleOpenEditModal} 
-            onDelete={handleDeleteGroup} 
-          />
         )}
-      </div>
+        
+        {/* ĐÃ ĐIỀU CHỈNH: Thêm container bọc ngoài Table giúp đồng bộ layout bo góc trắng đổ bóng mượt mà giống image_a7a606.png */}
+        {!loading && (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden transition-all">
+            <CustomerGroupTable 
+              groups={filteredGroups} 
+              onEdit={handleOpenEditModal} 
+              onDelete={handleDeleteGroup} 
+            />
+          </div>
+        )}
+      </main>
 
-      {/* Modal Form Thêm / Sửa nhóm */}
+      {/* Cấu trúc Modal Form Thêm / Sửa nhóm */}
       <Modal 
         isOpen={modalConfig.isOpen} 
         onClose={handleCloseModal} 

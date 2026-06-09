@@ -24,17 +24,26 @@ export const useCustomerList = () => {
         pagesize: itemsPerPage
       };
 
+      console.log("🔌 [Hook/useCustomerList] -> Gọi fetchCustomers() với Payload:", payload);
+
       const response = await customerService.getPaging(payload);
+      console.log("📩 [Hook/useCustomerList] -> Phản hồi từ API Paging:", response);
+
       const apiResult = response?.data?.data || response?.data || response;
+      console.log("🔍 [Hook/useCustomerList] -> Dữ liệu bóc tách được (apiResult):", apiResult);
 
       if (apiResult && apiResult.items) {
         setCustomers(apiResult.items);
         setTotalPages(Math.ceil((apiResult.total || 0) / itemsPerPage) || 1);
       } else {
-        setCustomers([]); setTotalPages(1);
+        console.warn("⚠️ [Hook/useCustomerList] -> API không trả về thuộc tính '.items'.");
+        setCustomers([]); 
+        setTotalPages(1);
       }
     } catch (error) {
-      setCustomers([]); setTotalPages(1);
+      console.error("❌ [Hook/useCustomerList] -> Xảy ra lỗi nghiêm trọng khi tải danh sách:", error);
+      setCustomers([]); 
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -42,9 +51,15 @@ export const useCustomerList = () => {
 
   const handleAddCustomer = async (payload) => {
     setIsSaving(true);
+    console.log("🚀 [Hook/useCustomerList] -> Bắt đầu gọi API addCustomer với tham số:", payload);
     try {
       const response = await customerService.addCustomer(payload);
-      if (response?.data?.errorCode === 0) throw new Error(response.data.message);
+      const resBody = response?.data?.errorCode !== undefined ? response.data : response;
+      
+      if (resBody?.errorCode !== undefined && resBody?.errorCode !== 1) {
+        throw new Error(resBody.message || 'Thêm khách hàng không thành công');
+      }
+      
       await fetchCustomers();
       return response;
     } catch (error) {
@@ -57,12 +72,14 @@ export const useCustomerList = () => {
   const handleEditCustomer = async (id, updatedPayload) => {
     setIsSaving(true);
     try {
-      // 1. Gọi API Sửa thông tin cơ bản & Portal
       const payload = { id, ...updatedPayload };
       const response = await customerService.editCustomer(payload);
-      if (response?.data?.errorCode === 0) throw new Error(response.data.message);
+      const resBody = response?.data?.errorCode !== undefined ? response.data : response;
 
-      // 🎯 2. GỌI API SET-ACTIVE THEO ĐÚNG YÊU CẦU ĐỂ CẬP NHẬT TRẠNG THÁI
+      if (resBody?.errorCode !== undefined && resBody?.errorCode !== 1) {
+        throw new Error(resBody.message || 'Cập nhật khách hàng không thành công');
+      }
+
       if (updatedPayload.isactive !== undefined) {
         await customerService.setActive(id, updatedPayload.isactive);
       }
@@ -80,20 +97,22 @@ export const useCustomerList = () => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa khách hàng "${customerName || 'này'}" không?`)) return;
     try {
       const response = await customerService.deleteCustomer(id);
-      if (response?.data?.errorCode === 0) throw new Error(response.data.message);
+      const resBody = response?.data?.errorCode !== undefined ? response.data : response;
+
+      if (resBody?.errorCode !== undefined && resBody?.errorCode !== 1) {
+        throw new Error(resBody.message || "Lỗi xóa khách hàng.");
+      }
       await fetchCustomers();
     } catch (error) {
       alert(error.response?.data?.message || error.message || "Lỗi xóa khách hàng.");
     }
   };
 
-  // 🎯 BỔ SUNG: Hàm lấy thông tin chi tiết khách hàng từ ID
   const getCustomerDetail = async (id) => {
     try {
       const response = await customerService.getDetail(id);
       return response?.data?.data || response?.data;
     } catch (error) {
-      console.error("[useCustomerList/getCustomerDetail] Lỗi:", error);
       throw error;
     }
   };
@@ -125,7 +144,6 @@ export const useCustomerList = () => {
     customerSearch, setCustomerSearch, portalFilter, setPortalFilter,
     statusFilter, setStatusFilter, currentPage, setCurrentPage, totalPages,
     fetchCustomers, handleAddCustomer, handleEditCustomer, handleDeleteCustomer,
-    getCustomerDetail, // 🎯 Export hàm này ra để Component CustomerList sử dụng
-    detailConfig, handleViewDetail, handleCloseDetail
+    getCustomerDetail, detailConfig, handleViewDetail, handleCloseDetail
   };
 };

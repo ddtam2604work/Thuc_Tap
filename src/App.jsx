@@ -1,8 +1,9 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux'; // 👉 Bọc Provider Redux quản lý State toàn cục
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Provider } from 'react-redux'; 
 import { store } from './redux/store';  
-import { SocketProvider } from './context/SocketContext'; // 👉 Nhà cung cấp kết nối Realtime Socket
+import { SocketProvider } from './context/SocketContext'; 
+import { getUserRoleFromToken } from './utils/auth';
 
 // Chuyển nhóm các trang chức năng (Pages)
 import LoginPage from './pages/Auth/LoginPage';
@@ -17,7 +18,7 @@ import ChatPage from './pages/Chat/ChatPage';
 // Phân hệ quản lý Đơn hàng (Orders System Components)
 import OrderPage from './pages/Order/OrderPage';
 import CreateOrder from './pages/Order/CreateOrder';
-import EditOrder from './pages/Order/EditOrder'; // 🌟 Cân cả 2 luồng: Sửa đơn thường & Sửa bản nháp
+import EditOrder from './pages/Order/EditOrder'; 
 import CreateQuickly from './pages/Order/CreateOrder/CreateQuickly';
 import OrderDetail from './pages/Order/OrderDetail';
 
@@ -25,23 +26,33 @@ import OrderDetail from './pages/Order/OrderDetail';
 import MainLayout from './layout/MainLayout';
 
 // Component bảo vệ Route: Đảm bảo an ninh và phân quyền truy cập thông qua Access Token
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem("accessToken");
-  return token ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = getUserRoleFromToken();
+
+  // Khách hàng mặc định bị điều hướng thẳng vào trang chat nếu cố truy cập các trang khác
+  if (role === 'customer' && location.pathname !== '/chat') {
+    return <Navigate to="/chat" replace />;
+  }
+
+  return children;
 };
 
 function App() {
   return (
-    // Bước 1: Khởi tạo Redux Store ra ngoài cùng hệ thống
     <Provider store={store}>
       <Router>
-        {/* Bước 2: Kích hoạt Socket Pipeline phục vụ cổng chat và thông báo biến động đơn hàng realtime */}
         <SocketProvider>
           <Routes>
             {/* ================= PUBLIC ROUTES ================= */}
             <Route path="/login" element={<LoginPage />} />
             
-            {/* Root path: Tự động điều hướng thông minh dựa vào trạng thái phiên làm việc */}
             <Route path="/" element={<Navigate to="/home" replace />} />
             
             {/* ================= PROTECTED ROUTES (Bọc trong Layout & Security Guard) ================= */}
@@ -119,7 +130,7 @@ function App() {
               } 
             />
 
-            {/* 🌟 NÂNG CẤP HỢP NHẤT LUỒNG: Tuyến đường Chỉnh sửa duy nhất cho cả đơn chính thức và đơn nháp */}
+            {/* Tuyến đường Chỉnh sửa duy nhất cho cả đơn chính thức và đơn nháp */}
             <Route 
               path="/orders/edit/:id" 
               element={
@@ -160,7 +171,6 @@ function App() {
             />
 
             {/* ================= FALLBACK ROUTE ================= */}
-            {/* Bảo vệ ứng dụng khỏi các lỗi gõ sai URL từ phía người dùng */}
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </SocketProvider>

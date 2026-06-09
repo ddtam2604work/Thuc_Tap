@@ -117,21 +117,17 @@ export const useOrders = () => {
       if (errorCode === 1 && innerData) {
         const { items, total, status_totals } = innerData;
 
-        // 🌟 NÂNG CẤP CHUẨN SENIOR: Quét đồng bộ hóa đa kênh toàn bộ aliases trường dữ liệu từ Backend
+        // Quét đồng bộ hóa đa kênh toàn bộ aliases trường dữ liệu từ Backend
         const normalizedOrders = (items || []).map((item) => {
-          
-          // 1. Quét tìm danh sách sản phẩm con thông qua mọi bí danh khả dĩ
           const childProducts = item.items || item.products || item.order_items || [];
           let childFilesCount = 0;
           let childDriveLink = '';
 
           if (Array.isArray(childProducts)) {
             childProducts.forEach(product => {
-              // Đếm số lượng file ảnh từ sản phẩm con
               const attachments = safeParseAttachments(product.attachments || product.images || product.files);
               childFilesCount += attachments.length;
 
-              // 🎙️ Dò tìm link Drive ẩn trong sản phẩm con qua mọi aliases cấu hình khả dĩ
               if (!childDriveLink) {
                 const pLink = product.linkgoogledrive || product.drive_link || product.link_google_drive || product.googledrive_link;
                 if (pLink && pLink !== 'linkgoogledrive' && pLink !== 'null' && String(pLink).trim() !== '') {
@@ -141,11 +137,9 @@ export const useOrders = () => {
             });
           }
 
-          // Quyết định số lượng file hiển thị
           const rootFilesCount = Number(item.totalfile || item.total_file || 0);
           const displayTotalFiles = rootFilesCount > 0 ? rootFilesCount : childFilesCount;
 
-          // 2. Dò tìm link Drive ở cấp độ tổng đơn thông qua mọi aliases hệ thống khả dĩ
           let parentDriveLink = '';
           const potentialParentLinks = [item.linkgoogledrive, item.drive_link, item.googledrive_link, item.link_google_drive];
           
@@ -156,7 +150,6 @@ export const useOrders = () => {
             }
           }
 
-          // 🌟 QUYẾT ĐỊNH ĐƯỜNG LINK CUỐI CÙNG: Ưu tiên cấp cha, nếu trống tự động dùng link fallback từ con
           const rawDriveLink = parentDriveLink || childDriveLink;
           const finalDriveLink = formatAbsoluteDriveLink(rawDriveLink);
 
@@ -164,7 +157,7 @@ export const useOrders = () => {
             ...item,
             totalfile: displayTotalFiles, 
             totalFiles: displayTotalFiles, 
-            linkgoogledrive: finalDriveLink, // Ghi đè chính xác trường gốc phục vụ OrderTable hiển thị biểu tượng 📁
+            linkgoogledrive: finalDriveLink, 
             cleanDriveLink: finalDriveLink, 
             totalAmountNumber: Number(item.totalamount || item.totalprice || 0)
           };
@@ -198,6 +191,12 @@ export const useOrders = () => {
     }
   }, [currentPage, pageSize, appliedSearch, activeTab, statusFilter, statusMapIds, calculateDateFilters]);
 
+  // 🌟 ĐÃ BỔ SUNG LOGIC INSTANT SEARCH: Lọc dữ liệu tự động ngay khi gõ phím chuẩn AccountPage
+  useEffect(() => {
+    setAppliedSearch(searchKey);
+    setCurrentPage(1);
+  }, [searchKey]);
+
   useEffect(() => {
     if (Object.keys(statusMapIds).length > 0) {
       loadPagingOrders();
@@ -227,13 +226,6 @@ export const useOrders = () => {
         const res = await orderService.exportFullPdf(orderId);
         window.open(URL.createObjectURL(new Blob([res.data || res], { type: 'application/pdf' })), '_blank');
       } catch (err) { alert('Lỗi xuất file PDF.'); }
-    },
-    handleDeleteOrder: async (id) => {
-      if (!window.confirm('Xóa đơn hàng này?')) return;
-      try {
-        const res = await orderService.deleteOrder(id);
-        if (res?.errorCode === 1 || res?.data?.errorCode === 1) loadPagingOrders();
-      } catch (err) { alert('Lỗi xóa đơn.'); }
     },
     handleCancelOrder: async (id) => {
       if (!window.confirm('Hủy đơn hàng này?')) return;

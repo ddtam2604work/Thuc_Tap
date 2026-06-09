@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { loginSuccess, logout as logoutAction } from '../../redux/slices/authSlice';
+import { getUserRoleFromToken } from '../../utils/auth';
 
 export const useAuth = () => {
     const dispatch = useDispatch();
@@ -69,7 +70,12 @@ export const useAuth = () => {
 
             // Delay nhẹ 1 giây tại đây để người dùng kịp trải nghiệm UI thông báo xanh lá mượt mà
             setTimeout(() => {
-                navigate('/home', { replace: true }); 
+                const role = getUserRoleFromToken();
+                if (role === 'customer') {
+                    navigate('/chat', { replace: true });
+                } else {
+                    navigate('/home', { replace: true });
+                }
             }, 1000);
 
             return true;

@@ -2,7 +2,7 @@ import Button from '../../../components/skeleton/Button';
 import { useOrderSummaryCard } from '../../../hooks/Order/useOrderSummaryCard';
 
 const OrderSummaryCard = ({ 
-  products, subtotal, vat, total, customer, shippingUnit, shippingCode, generalNote, generalImages, onSaveDraft, onCreateAndAwait, onSubmit, submitLabel, isSubmitting: parentSubmitting 
+  products, subtotal, vat, total, customer, shippingUnit, shippingCode, generalNote, generalImages, audioFile, onSaveDraft, onCreateAndAwait, onSubmit, submitLabel, isSubmitting: parentSubmitting 
 }) => {
   const formatCurrency = (value) => new Intl.NumberFormat('vi-VN').format(value || 0);
 
@@ -13,7 +13,8 @@ const OrderSummaryCard = ({
     shippingUnit,
     shippingCode,
     generalNote,
-    generalImages
+    generalImages,
+    audioFile
   });
 
   const activeSubmitting = parentSubmitting || isSubmitting;

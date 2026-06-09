@@ -28,6 +28,7 @@ export const useCustomerGroups = () => {
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
 
+  // 🌟 GIỮ NGUYÊN LOGIC GỐC: Hàm xử lý tìm kiếm khi click nút submit
   const handleSearchSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!searchQuery.trim()) {
@@ -42,6 +43,21 @@ export const useCustomerGroups = () => {
       );
     }
   };
+
+  // 🌟 BỔ SUNG HIỆU ỨNG TỰ ĐỘNG: Kích hoạt tìm kiếm tức thời (Instant Search) giống AccountPage khi gõ phím
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredGroups(groups);
+    } else {
+      const matchText = searchQuery.toLowerCase().trim();
+      setFilteredGroups(
+        groups.filter(g => 
+          (g.name && g.name.toLowerCase().includes(matchText)) || 
+          (g.code && g.code.toLowerCase().includes(matchText))
+        )
+      );
+    }
+  }, [searchQuery, groups]);
 
   // 2. Thêm mới nhóm (Payload trực tiếp)
   const handleAddGroup = async (payload) => {
@@ -78,7 +94,6 @@ export const useCustomerGroups = () => {
   const handleDeleteGroup = async (id) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa nhóm khách hàng này không?")) return;
     try {
-      // customerService.deleteCategory đã bọc sẵn { id } ở cấu hình của bạn
       const response = await customerService.deleteCategory(id); 
       if (response?.data?.errorCode === 0) throw new Error(response.data.message);
       await fetchGroups();

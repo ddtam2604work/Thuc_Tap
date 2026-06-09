@@ -71,8 +71,10 @@ const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, 
             {/* Cột 3: Tên Danh mục (Đã qua hàm xử lý UUID) */}
             <td className="p-4 text-center text-[#585F67]">{getCategoryName(row)}</td>
             
-            {/* Cột 4: Giá bán */}
-            <td className="p-4 text-center text-[#191C1D] font-semibold">{row.price}đ</td>
+            {/* Cột 4: Giá bán - ĐÃ CĂN PHẢI VÀ ĐỊNH DẠNG ĐẸP */}
+            <td className="p-4 text-right text-[#191C1D] font-semibold">
+              {(Number(row.price) || 0).toLocaleString('vi-VN')} đ
+            </td>
             
             {/* Cột 5: Mô tả */}
             <td className="p-4 text-center text-[#747686]">{row.desc || row.description}</td>
