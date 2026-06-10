@@ -15,7 +15,7 @@ export const customerService = {
   editCustomer: (data) => apiBackend.post('/customer/edit', data),
   deleteCustomer: (id) => apiBackend.post('/customer/delete', { id }),
   setActive: (id, isActive) => apiBackend.post('/customer/set-active', { id, isActive }),
-  setPassword: (id, newPassword) => apiBackend.post('/customer/set-password', { id, newPassword }),
+  setPassword: (id, password) => apiBackend.post('/customer/set-password', { id, password }),
   // SỬA LỖI: API lấy chi tiết khách hàng phải là /customer/get-detail theo tài liệu.
   getDetail: (id) => apiBackend.post('/customer/get-detail', { id }),
 };

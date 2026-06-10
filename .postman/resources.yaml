@@ -6,3 +6,7 @@ localResources:
   docs:
     - ..\PROJECT_ANALYSIS.md
     - ..\README.md
+
+cloudResources:
+  collections:
+    ..\postman\collections\Hệ thống Quản lý (v1): f265bc45-7ce5-491f-9308-c40c0fa20129

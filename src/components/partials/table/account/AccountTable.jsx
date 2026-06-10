@@ -1,8 +1,7 @@
-import React from 'react'; // Bổ sung import React để đảm bảo tính tương thích
-import Table from '../../../skeleton/Table'; // SỬA LỖI ĐƯỜNG DẪN: Lùi 2 cấp để vào đúng thư mục skeleton
-import Button from '../../../skeleton/Button'; // SỬA LỖI ĐƯỜNG DẪN
+import React from 'react'; 
+import Table from '../../../skeleton/Table'; 
+import Button from '../../../skeleton/Button'; 
 
-// SỬA LỖI CHÍ MẠNG: Gán giá trị mặc định accounts = [] để tránh crash ứng dụng khi API chưa tải xong
 const AccountTable = ({ accounts = [], onEdit, onLock, onDelete }) => {
   const headers = ['STT', 'Họ tên', 'Username', 'Email', 'Số điện thoại', 'Nhóm quyền', 'Trạng thái', 'Đăng nhập gần nhất', 'Thao tác'];
 
@@ -17,7 +16,6 @@ const AccountTable = ({ accounts = [], onEdit, onLock, onDelete }) => {
     }
   };
 
-  // Hàm chuẩn hóa dữ liệu Role "bất tử" - Giữ nguyên logic bọc lót của bạn
   const getSafeRoles = (acc) => {
     if (Array.isArray(acc.roles) && acc.roles.length > 0) {
       return acc.roles.map(r => typeof r === 'string' ? { name: r, code: r } : r);
@@ -34,22 +32,19 @@ const AccountTable = ({ accounts = [], onEdit, onLock, onDelete }) => {
   return (
     <Table headers={headers}>
       {accounts.map((acc, index) => {
-        // Logic kiểm tra trạng thái hoạt động
         const isUserActive = String(acc.isactive) === "1" || acc.isactive === true;
-        
-        // BỌC LÓT KEY: Đã giữ nguyên cơ chế chống sập khi Backend trả về 2 user trùng ID
         const targetId = acc.id || acc.user_id;
         const rowKey = targetId ? `row-${targetId}-${index}` : `fallback-${index}`;
         
         return (
           <tr key={rowKey} className="hover:bg-blue-50/20 transition-all duration-200 border-b border-gray-100 last:border-none">
-            <td className="p-4 text-gray-400 text-center font-medium">{index + 1}</td>
-            <td className="p-4 text-center font-semibold text-[#1e293b]">{acc.fullname || acc.username || '—'}</td>
-            <td className="p-4 text-center text-[#64748b] font-mono text-[13px]">{acc.username}</td>
-            <td className="p-4 text-center text-[#64748b] text-[13px]">{acc.email || '—'}</td>
-            <td className="p-4 text-center text-[#64748b] text-[13px]">{acc.phone || '—'}</td>
+            <td className="py-3 px-1.5 text-gray-400 text-center font-medium w-10">{index + 1}</td>
+            <td className="py-3 px-2 text-center font-semibold text-[#1e293b] max-w-[120px] break-words">{acc.fullname || acc.username || '—'}</td>
+            <td className="py-3 px-2 text-center text-[#64748b] font-mono text-[13px] max-w-[100px] break-all">{acc.username}</td>
+            <td className="py-3 px-2 text-center text-[#64748b] text-[13px] max-w-[140px] break-all">{acc.email || '—'}</td>
+            <td className="py-3 px-2 text-center text-[#64748b] text-[13px] whitespace-nowrap">{acc.phone || '—'}</td>
             
-            <td className="p-4 text-center">
+            <td className="py-3 px-2 text-center max-w-[120px]">
               <div className="flex flex-wrap justify-center gap-1">
                 {getSafeRoles(acc).map((role, rIndex) => {
                   const safeId = role.id || role.code || role.roleCode || `r-${rIndex}`;
@@ -58,7 +53,7 @@ const AccountTable = ({ accounts = [], onEdit, onLock, onDelete }) => {
                   return (
                     <span 
                       key={`role-${safeId}-${rIndex}`} 
-                      className="inline-block px-2.5 py-1 text-[10px] font-bold uppercase tracking-tight rounded-md text-white shadow-sm" 
+                      className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-tight rounded-md text-white shadow-sm" 
                       style={{ backgroundColor: role.color || '#64748b' }}
                     >
                       {safeName}
@@ -68,25 +63,41 @@ const AccountTable = ({ accounts = [], onEdit, onLock, onDelete }) => {
               </div>
             </td>
             
-            <td className="p-4 text-center">
-              <span className={`whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-bold ${isUserActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            <td className="py-3 px-2 text-center">
+              <span className={`whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-bold ${isUserActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                 {isUserActive ? 'Hoạt động' : 'Đã khóa'}
               </span>
             </td>
 
-            <td className="p-4 text-center text-[#64748b] text-[12px] whitespace-nowrap">
+            <td className="py-3 px-2 text-center text-[#64748b] text-[12px] max-w-[90px]">
               {formatLastLogin(acc.lastlogin)}
             </td>
             
-            <td className="p-4 text-center">
-              <div className="flex items-center justify-center gap-2">
-                <Button variant="text" className="text-blue-600 font-medium px-2 hover:bg-blue-50" onClick={() => onEdit(acc)}>Sửa</Button>
+            <td className="py-3 px-2 text-center w-[150px] max-w-[150px]">
+              <div className="flex items-center justify-center gap-x-1 mx-auto">
+                {/* 1. Nút Sửa */}
+                <Button variant="text" className="text-blue-600 font-medium px-1 py-0.5 text-[13px] hover:bg-blue-50" onClick={() => onEdit(acc)}>Sửa</Button>
                 
-                <Button variant={isUserActive ? "text-danger" : "text"} className="font-medium px-2 hover:bg-gray-50" onClick={() => onLock(acc)}>
-                  {isUserActive ? 'Khoá' : 'Mở Khoá'}
+                {/* Thanh | thứ nhất */}
+                <span className="text-gray-300 text-[12px] select-none">|</span>
+                
+                {/* 2. Nút Khóa / Mở Khóa */}
+                <Button variant={isUserActive ? "text-danger" : "text"} className="font-medium px-1 py-0.5 text-[13px] hover:bg-gray-50" onClick={() => onLock(acc)}>
+                  {isUserActive ? (
+                    'Khoá'
+                  ) : (
+                    <span className="flex flex-col items-center justify-center leading-[14px]">
+                      <span>Mở</span>
+                      <span>Khóa</span>
+                    </span>
+                  )}
                 </Button>
+                
+                {/* Thanh | thứ hai (Mới bổ sung đồng bộ) */}
+                <span className="text-gray-300 text-[12px] select-none">|</span>
                                 
-                <Button variant="text-danger" className="font-medium px-2 hover:bg-red-50 border-l border-gray-200" onClick={() => onDelete(acc)}>
+                {/* 3. Nút Xóa (Đã loại bỏ border-l cũ) */}
+                <Button variant="text-danger" className="font-medium px-1.5 py-0.5 text-[13px] hover:bg-red-50" onClick={() => onDelete(acc)}>
                   Xóa
                 </Button>
               </div>

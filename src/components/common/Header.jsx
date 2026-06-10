@@ -1,3 +1,4 @@
+// src/components/layout/Header.jsx
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Link, NavLink } from 'react-router-dom';
@@ -7,30 +8,36 @@ import { useSocket } from '../../context/SocketContext';
 import { getUserRoleFromToken } from '../../utils/auth'; 
 import Button from '../skeleton/Button'; 
 import ActiveWrapper from '../skeleton/ActiveWrapper'; 
-import NotificationDropdown from '../common/NotificationDropdown'; // Import component vừa tạo
+import NotificationDropdown from '../common/NotificationDropdown';
 
 // ==========================================
-// 1. COMPONENT LOGO (GIỮ NGUYÊN LOGIC)
+// 1. COMPONENT LOGO (ĐIỀU CHỈNH ROUTE ĐỘNG)
 // ==========================================
-const Logo = () => (
-  <Link to="/home" className="flex items-center gap-2" title="Trang chủ">
-    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-        <path d="M13 21H3a2 2 0 01-2-2V5a2 2 0 012-2h8l4 4v2" />
-        <path d="M3 21v-2a4 4 0 014-4h7" />
-        <path d="M18.88 19.12l-3.76-3.76" />
-        <path d="M21 14l-1.5 1.5" />
-    </svg>
-    <span className="text-xl font-bold text-white tracking-tight">QuanLy</span>
-  </Link>
-);
+const Logo = () => {
+  const role = getUserRoleFromToken();
+  // Khách hàng click Logo sẽ về /products, Admin/Staff sẽ về /home
+  const targetPath = role === 'customer' ? "/products" : "/home";
+
+  return (
+    <Link to={targetPath} className="flex items-center gap-2" title="Trang chủ">
+      <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+          <path d="M13 21H3a2 2 0 01-2-2V5a2 2 0 012-2h8l4 4v2" />
+          <path d="M3 21v-2a4 4 0 014-4h7" />
+          <path d="M18.88 19.12l-3.76-3.76" />
+          <path d="M21 14l-1.5 1.5" />
+      </svg>
+      <span className="text-xl font-bold text-white tracking-tight">QuanLy</span>
+    </Link>
+  );
+};
 
 // ==========================================
-// 2. NAVIGATION LINKS (GIỮ NGUYÊN LOGIC)
+// 2. NAVIGATION LINKS (ĐIỀU CHỈNH LỌC THEO QUYỀN)
 // ==========================================
-const NavigationLinks = () => {
+const NavigationLinks = ({ filteredLinks }) => {
   return (
     <nav className="hidden md:flex items-center gap-[16px] pl-8 flex-1 justify-start">
-      {NAV_LINKS.map((link) => (
+      {filteredLinks.map((link) => (
         <NavLink
           key={link.path}
           to={link.path}
@@ -90,7 +97,7 @@ const UserMenu = () => {
 };
 
 // ==========================================
-// 4. MAIN HEADER COMPONENT (GIỮ NGUYÊN LOGIC)
+// 4. MAIN HEADER COMPONENT (MỞ KHÓA CHO CUSTOMER)
 // ==========================================
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -98,42 +105,52 @@ const Header = () => {
   const globalUnreadCount = socketContext?.globalUnreadCount || 0; 
   const role = getUserRoleFromToken(); 
 
+  // HÀM LỌC MENU: Chỉ hiển thị các route mà Role hiện tại được phép dùng
+  const filteredLinks = NAV_LINKS.filter(link => {
+    // Cách 1: Nếu file constants/navigation.js của bạn có cấu hình mảng allowedRoles
+    if (link.allowedRoles) return link.allowedRoles.includes(role);
+    
+    // Cách 2: Nếu chưa cấu hình, ta lọc thủ công bằng code dựa trên yêu cầu mới của bạn
+    if (role === 'customer') {
+      const customerPaths = ['/products', '/orders', '/chat', '/notifications', '/profile'];
+      // Chỉ giữ lại những path bắt đầu bằng các tuyến đường trên
+      return customerPaths.some(p => link.path.startsWith(p));
+    }
+    return true; // Admin/Staff xem được hết
+  });
+
   return (
     <header className="w-full bg-[#0037B0] border-b border-white/20 sticky top-0 z-40 shadow-md h-[56px] flex items-center">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center flex-1">
             <Logo />
-            <NavigationLinks />
+            <NavigationLinks filteredLinks={filteredLinks} />
           </div>
           
           <div className="flex items-center gap-4"> 
             {/* Desktop-only icons (Notification and Chat) */}
             <div className="hidden md:flex items-center gap-4">
-              {role !== 'customer' && ( 
-                <>
-                  {/* GỌI ĐẾN COMPONENT THÔNG BÁO ĐÃ BIẾN ĐỔI CHUYÊN NGHIỆP */}
-                  <NotificationDropdown />
-                  
-                  {/* Chat Icon */}
-                  <Link to="/chat" className="relative flex items-center justify-center" title="Tin nhắn">
-                    <Button 
-                      variant="icon" 
-                      className="h-9 w-9 p-0 flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                    </Button>
-                    
-                    {globalUnreadCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
-                        {globalUnreadCount > 99 ? '99+' : globalUnreadCount}
-                      </span>
-                    )}
-                  </Link>
-                </>
-              )}
+              {/* ĐÃ BỎ CHẶN role !== 'customer' -> Khách hàng giờ đã thấy Thông báo và Chat */}
+              <NotificationDropdown />
+              
+              {/* Chat Icon */}
+              <Link to="/chat" className="relative flex items-center justify-center" title="Tin nhắn">
+                <Button 
+                  variant="icon" 
+                  className="h-9 w-9 p-0 flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </Button>
+                
+                {globalUnreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
+                    {globalUnreadCount > 99 ? '99+' : globalUnreadCount}
+                  </span>
+                )}
+              </Link>
             </div>
             
             {/* UserMenu luôn hiển thị trên desktop */}
@@ -164,7 +181,8 @@ const Header = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-[#0037B0] absolute top-[56px] left-0 w-full shadow-lg z-50">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {NAV_LINKS.map(link => (
+            {/* Render các menu mobile đã được lọc quyền */}
+            {filteredLinks.map(link => (
               <NavLink 
                 key={`mobile-${link.path}`} 
                 to={link.path} 
@@ -183,7 +201,8 @@ const Header = () => {
               </NavLink>
             ))}
             
-            {role !== 'customer' && globalUnreadCount > 0 && (
+            {/* Hiển thị đếm tin nhắn cho mọi đối tượng (Kể cả customer) */}
+            {globalUnreadCount > 0 && (
               <Link to="/chat" className="block px-3 py-2 rounded-md text-base font-medium text-white/80 hover:bg-white/10 hover:text-white" onClick={() => setIsMobileMenuOpen(false)}>
                 Tin nhắn <span className="ml-2 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs">{globalUnreadCount > 99 ? '99+' : globalUnreadCount}</span>
               </Link>

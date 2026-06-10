@@ -6,7 +6,6 @@ import { LOGIN_TEXT } from '../../constants/login';
 import Background_Login from '../../assets/images/background_login.png';
 
 const LoginPage = () => {
-  // Lấy toàn bộ trạng thái dữ liệu đầu vào chuẩn hóa từ useAuth
   const { 
     username, 
     password, 
@@ -40,19 +39,18 @@ const LoginPage = () => {
           </p>
         </header>
 
-        {/* Form kích hoạt hàm đăng nhập tự động binding dữ liệu */}
         <form onSubmit={handleLogin} className="flex flex-col items-start gap-6 w-full pb-4">
           
           {/* Thông báo lỗi đỏ */}
           {errorMessage && (
-            <div className="w-full p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
+            <div className="w-full p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg animate-in fade-in duration-200">
               {errorMessage}
             </div>
           )}
 
           {/* Thông báo thành công xanh */}
           {successMessage && (
-            <div className="w-full p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg font-medium">
+            <div className="w-full p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg font-medium animate-in fade-in duration-200">
               {successMessage}
             </div>
           )}
@@ -62,7 +60,6 @@ const LoginPage = () => {
               type="text"
               placeholder={LOGIN_TEXT.USERNAME_PLACEHOLDER}
               value={username}
-              // Ép nhận dữ liệu trực tiếp từ thuộc tính e.target.value
               onChange={(e) => handleUsernameChange(e)} 
               disabled={loading}
             />
@@ -70,7 +67,6 @@ const LoginPage = () => {
               type="password"
               placeholder={LOGIN_TEXT.PASSWORD_PLACEHOLDER}
               value={password}
-              // Ép nhận dữ liệu trực tiếp từ thuộc tính e.target.value
               onChange={(e) => handlePasswordChange(e)} 
               disabled={loading}
             />
@@ -83,8 +79,11 @@ const LoginPage = () => {
           </div>
 
           <div className="w-full pt-2">
+            {/* 🛠️ SỬA LỖI UI KÍCH HOẠT: Đính kèm trực tiếp hàm handleLogin vào onClick 
+                để bảo vệ luồng submit phòng trường hợp nút Button không nhận type="submit" */}
             <Button 
               type="submit" 
+              onClick={handleLogin}
               disabled={loading}
               className={`w-full ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >

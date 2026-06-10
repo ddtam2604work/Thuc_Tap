@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import Button from '../../components/skeleton/Button';
-import saveIcon from '../../assets/images/icon_luu.png';
 import AccountFormInput from '../../components/partials/forms/accounts/FormInsert-Account'; 
 
 const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
   const [formData, setFormData] = useState({
-    fullname: '', username: '', password: '', phone: '', email: '', address: '', gender: 1, role: '', isactive: '1'
+    fullname: '', 
+    username: '', 
+    password: '', 
+    phone: '', 
+    email: '', 
+    address: '', 
+    gender: 1, 
+    role: '', 
+    isactive: '1'
   });
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
@@ -22,42 +29,28 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
   }, [isOpen, roles]);
 
   const handleChange = (field, value) => {
-    if (field === 'username') {
-      value = value.replace(/\s+/g, '_');
-    }
     setFormData(prev => ({ ...prev, [field]: value }));
     if (validationErrors[field]) {
       setValidationErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
+  // 🛠️ ĐIỀU CHỈNH LOGIC VALIDATE: Tập trung vào 5 trường hiển thị, bỏ ràng buộc password/username thủ công
   const validateForm = () => {
     const errors = {};
     
     if (!formData.fullname?.trim()) errors.fullname = 'Họ tên không được để trống';
-    if (!formData.username?.trim()) {
-      errors.username = 'Tên đăng nhập không được để trống';
-    } else if (formData.username.length < 6) {
-      errors.username = 'Tên đăng nhập phải từ 6 ký tự trở lên';
-    } else if (formData.username.length > 20) {
-      errors.username = 'Tên đăng nhập không vượt quá 20 ký tự';
+    
+    if (!formData.phone?.trim()) {
+      errors.phone = 'Số điện thoại không được để trống';
+    } else if (!/^0\d{9}$/.test(formData.phone)) {
+      errors.phone = 'Số điện thoại phải có định dạng 0XXXXXXXXX';
     }
     
-    if (!formData.password) {
-      errors.password = 'Mật khẩu không được để trống';
-    } else if (formData.password.length < 8) {
-      errors.password = 'Mật khẩu phải từ 8 ký tự trở lên';
-    } else if (!/[A-Z]/.test(formData.password)) {
-      errors.password = 'Mật khẩu phải chứa ít nhất 1 chữ cái hoa';
-    } else if (!/[a-z]/.test(formData.password)) {
-      errors.password = 'Mật khẩu phải chứa ít nhất 1 chữ cái thường';
-    } else if (!/\d/.test(formData.password)) {
-      errors.password = 'Mật khẩu phải chứa ít nhất 1 chữ số';
-    } else if (!/[!@#$%^&*()_+=[\] {};':"\\|,.<>/?-]/.test(formData.password)) {
-      errors.password = 'Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt';
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Email không hợp lệ';
     }
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Email không hợp lệ';
-    if (formData.phone && !/^0\d{9}$/.test(formData.phone)) errors.phone = 'Số điện thoại phải có định dạng 0XXXXXXXXX';
+    
     if (!formData.role) errors.role = 'Nhóm quyền không được để trống';
     
     setValidationErrors(errors);
@@ -66,24 +59,27 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      alert('Vui lòng sửa những lỗi trong form trước khi lưu');
       return;
     }
     
     try {
       setIsSaving(true);
+      
+      // 🛠️ ĐỒNG BỘ PAYLOAD ĐĂNG KÝ: username lấy giá trị từ phone, ép kiểu dữ liệu chuẩn backend
       const payload = {
-        username: formData.username.trim(),
-        password: formData.password,
+        username: formData.phone.trim(), // Số điện thoại làm username
         fullname: formData.fullname.trim(),
-        phone: formData.phone.trim(),
-        address: formData.address.trim(),
-        gender: Number(formData.gender),      
-        role: String(formData.role),          
-        isactive: String(formData.isactive)    
+        role: String(formData.role),
+        address: formData.address?.trim() || "",
+        email: formData.email.trim(),
+        gender: Number(formData.gender ?? 1),      
+        isactive: Number(formData.isactive), // Chuyển sang số (1 hoặc 0) khớp payload mẫu
+        phone: formData.phone.trim()
       };
 
       await onSave(payload); 
+      
+      // Reset form sạch sẽ sau khi thêm thành công
       setFormData({
         fullname: '', username: '', password: '', phone: '', email: '', address: '', gender: 1, role: roles[0]?.code || '', isactive: '1'
       });
@@ -103,11 +99,9 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
       onClick={!isSaving ? onClose : undefined}
     >
       <div 
-        // 🛠️ ĐỒNG BỘ UI: Mở rộng max-w-2xl, bo tròn mượt rounded-2xl đồng bộ hoàn toàn form khách hàng mẫu
         className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col max-h-[85vh] font-inter text-[#191C1D]"
         onClick={e => e.stopPropagation()}
       >
-        
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100">
           <h2 className="font-semibold text-lg text-[#191C1D]">Thêm tài khoản mới</h2>
@@ -118,87 +112,37 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
           </button>
         </div>
 
-        {/* Body */}
-        {/* 🛠️ ĐỒNG BỘ UI: Sử dụng lưới cấu trúc chuẩn tự động co giãn, hợp nhất các dòng rời rạc cũ */}
+        {/* Body Form chuẩn 5 trường điều chỉnh */}
         <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
-          {/* Row 1 */}
+          {/* Hàng 1: Họ tên & Số điện thoại */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="w-full">
               <AccountFormInput 
-                label="Họ tên" placeholder="Nguyễn Văn A" required disabled={isSaving}
+                label="Họ tên" placeholder="Ví dụ: Nguyễn Văn A" required disabled={isSaving}
                 value={formData.fullname} onChange={(e) => handleChange('fullname', e.target.value)} 
               />
               {validationErrors.fullname && <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.fullname}</span>}
             </div>
             <div className="w-full">
               <AccountFormInput 
-                label="Username" placeholder="Ví dụ: thanh_binh" required disabled={isSaving}
-                value={formData.username} onChange={(e) => handleChange('username', e.target.value)} 
-              />
-              {validationErrors.username ? (
-                <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.username}</span>
-              ) : (
-                <span className="text-[11px] text-gray-400 mt-1 block leading-normal">Tự động đổi khoảng trắng thành "_". Từ 6-20 ký tự.</span>
-              )}
-            </div>
-          </div>
-          
-          {/* Row 2 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="w-full">
-              <AccountFormInput 
-                label="Mật khẩu" type="password" placeholder="Nhập mật khẩu an toàn..." required disabled={isSaving}
-                value={formData.password} onChange={(e) => handleChange('password', e.target.value)} 
-              />
-              {validationErrors.password ? (
-                <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.password}</span>
-              ) : (
-                <span className="text-[11px] text-gray-400 mt-1 block leading-normal">Mật khẩu gồm 8+ ký tự (1 hoa, 1 thường, 1 số, 1 đặc biệt).</span>
-              )}
-            </div>
-            <div className="w-full">
-              <AccountFormInput 
-                label="Email" type="email" placeholder="example@email.com" disabled={isSaving}
-                value={formData.email} onChange={(e) => handleChange('email', e.target.value)} 
-              />
-              {validationErrors.email && <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.email}</span>}
-            </div>
-          </div>
-
-          {/* Row 3 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="w-full">
-              <AccountFormInput 
-                label="Số điện thoại" placeholder="0901234567" disabled={isSaving}
+                label="Số điện thoại (Tên đăng nhập)" placeholder="Ví dụ: 0837257268" required disabled={isSaving}
                 value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} 
               />
               {validationErrors.phone && <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.phone}</span>}
             </div>
+          </div>
+          
+          {/* Hàng 2: Email & Nhóm quyền */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="w-full">
               <AccountFormInput 
-                label="Địa chỉ" placeholder="Nhập địa chỉ cư trú..." disabled={isSaving}
-                value={formData.address} onChange={(e) => handleChange('address', e.target.value)} 
+                label="Email" type="email" placeholder="example@email.com" required disabled={isSaving}
+                value={formData.email} onChange={(e) => handleChange('email', e.target.value)} 
               />
+              {validationErrors.email && <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.email}</span>}
             </div>
-          </div>
-
-          {/* Row 4: Select boxes */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-700">Giới tính</label>
-              <select 
-                disabled={isSaving}
-                value={formData.gender} 
-                onChange={(e) => handleChange('gender', Number(e.target.value))} 
-                className="h-10 px-3.5 border border-gray-200 rounded-xl text-sm bg-gray-50/30 outline-none focus:border-[#0037B0] focus:bg-white transition-all shadow-3xs cursor-pointer"
-              >
-                <option value={1}>Nam</option>
-                <option value={0}>Nữ</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-700">Nhóm quyền</label>
+              <label className="text-xs font-semibold text-gray-700">Nhóm quyền *</label>
               <select 
                 disabled={isSaving}
                 value={formData.role} 
@@ -206,17 +150,16 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
                 className={`h-10 px-3.5 border rounded-xl text-sm bg-gray-50/30 outline-none focus:border-[#0037B0] focus:bg-white transition-all shadow-3xs cursor-pointer ${validationErrors.role ? 'border-red-400 bg-red-50/10' : 'border border-gray-200'}`}
               >
                 <option value="">-- Chọn quyền --</option>
-                {roles.length > 0 ? (
-                  roles.map(role => <option key={role.id} value={role.code}>{role.name}</option>)
-                ) : (
-                  <option value="MANAGER">Đang tải quyền...</option>
-                )}
+                {roles.map(role => <option key={role.id} value={role.code}>{role.name}</option>)}
               </select>
               {validationErrors.role && <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.role}</span>}
             </div>
-            
+          </div>
+
+          {/* Hàng 3: Trạng thái hệ thống */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-700">Trạng thái</label>
+              <label className="text-xs font-semibold text-gray-700">Trạng thái *</label>
               <select 
                 disabled={isSaving}
                 value={formData.isactive} 
@@ -231,7 +174,6 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
         </div>
 
         {/* Footer */}
-        {/* 🛠专 ĐỒNG BỘ UI: Chuyển đổi footer về cấu trúc thanh mẫu bg-gray-50/60, border-t, nút bo tròn h-9 rounded-xl */}
         <div className="flex justify-end items-center gap-2.5 px-6 py-4 bg-gray-50/60 border-t border-gray-100 rounded-b-2xl shrink-0">
           <Button variant="outline" onClick={onClose} disabled={isSaving} className="h-9 px-4 text-xs font-bold border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-100 transition-colors">
             Huỷ bỏ

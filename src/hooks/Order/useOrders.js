@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { orderService } from '../../services/orderService';
 
-// 🌟 HELPER 1: Bộ giải mã chuỗi linh hoạt (Xử lý an toàn chuỗi JSON array hoặc chuỗi ngăn cách dấu phẩy từ DB)
+// 🌟 HELPER 1: Bộ giải mã chuỗi linh hoạt
 const safeParseAttachments = (data) => {
   if (!data) return [];
   if (Array.isArray(data)) return data;
@@ -38,6 +38,16 @@ export const useOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20); 
 
+  // 🌟 KHỞI TẠO 2 TRƯỜNG TỪ NGÀY - ĐẾN NGÀY (Mặc định giữ giá trị của tháng hiện tại)
+  const [fromDate, setFromDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [toDate, setToDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  });
+
   const [orders, setOrders] = useState([]);
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
   const [statusCounts, setStatusCounts] = useState({});
@@ -69,25 +79,28 @@ export const useOrders = () => {
     const now = new Date();
     const format = (d) => d.toISOString().split('T')[0];
 
-    let fromDate = new Date();
-    let toDate = new Date();
+    let fDate = new Date();
+    let tDate = new Date();
 
     if (dateFilter === 'today') {
-      fromDate = now;
-      toDate = now;
+      fDate = now;
+      tDate = now;
     } else if (dateFilter === 'month') {
-      fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      toDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      // Thay thế tìm kiếm cố định tháng này bằng việc đọc dữ liệu từ hai biến động Từ ngày - Đến ngày
+      return {
+        from_createdate: fromDate,
+        to_createdate: toDate
+      };
     } else if (dateFilter === 'year') {
-      fromDate = new Date(now.getFullYear(), 0, 1);
-      toDate = new Date(now.getFullYear(), 12, 0);
+      fDate = new Date(now.getFullYear(), 0, 1);
+      tDate = new Date(now.getFullYear(), 12, 0);
     }
 
     return {
-      from_createdate: format(fromDate),
-      to_createdate: format(toDate)
+      from_createdate: format(fDate),
+      to_createdate: format(tDate)
     };
-  }, [dateFilter]);
+  }, [dateFilter, fromDate, toDate]);
 
   // Hàm nạp dữ liệu chính phân trang đơn hàng
   const loadPagingOrders = useCallback(async () => {
@@ -117,7 +130,6 @@ export const useOrders = () => {
       if (errorCode === 1 && innerData) {
         const { items, total, status_totals } = innerData;
 
-        // Quét đồng bộ hóa đa kênh toàn bộ aliases trường dữ liệu từ Backend
         const normalizedOrders = (items || []).map((item) => {
           const childProducts = item.items || item.products || item.order_items || [];
           let childFilesCount = 0;
@@ -191,7 +203,7 @@ export const useOrders = () => {
     }
   }, [currentPage, pageSize, appliedSearch, activeTab, statusFilter, statusMapIds, calculateDateFilters]);
 
-  // 🌟 ĐÃ BỔ SUNG LOGIC INSTANT SEARCH: Lọc dữ liệu tự động ngay khi gõ phím chuẩn AccountPage
+  // Logic instant search
   useEffect(() => {
     setAppliedSearch(searchKey);
     setCurrentPage(1);
@@ -210,6 +222,11 @@ export const useOrders = () => {
     setSearchKey,
     dateFilter,
     setDateFilter: (val) => { setDateFilter(val); setCurrentPage(1); },
+    // Xuất ra ngoài cho giao diện sử dụng và cập nhật trang hiện tại về 1 khi lọc thay đổi
+    fromDate,
+    setFromDate: (val) => { setFromDate(val); setCurrentPage(1); },
+    toDate,
+    setToDate: (val) => { setToDate(val); setCurrentPage(1); },
     statusFilter,
     setStatusFilter: (val) => { setStatusFilter(val); setCurrentPage(1); },
     orders,

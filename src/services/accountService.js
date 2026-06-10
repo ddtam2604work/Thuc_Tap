@@ -8,6 +8,6 @@ export const userService = {
   editUser: (data) => apiBackend.post('/user/edit', data),
   deleteUser: (id) => apiBackend.post('/user/delete', { id }),
   setActive: (id, isactive) => apiBackend.post('/user/set-active', { id, isactive }),
-  setPassword: (id, newPassword) => apiBackend.post('/user/set-password', { id, newPassword }),
+  setPassword: (id, password) => apiBackend.post('/user/set-password', { id, password }),
   getDetail: (id) => apiBackend.post('/user/get-detail', { id }),
 };

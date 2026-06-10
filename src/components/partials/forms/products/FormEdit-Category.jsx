@@ -7,15 +7,14 @@ const FormEditCategory = ({ initialData, onSave, onCancel, isSaving }) => {
     name: '', 
     code: '', 
     desc: '',
-    isactive: 1 // 🎯 Đã đổi thành isactive với giá trị số nguyên
+    isactive: 1 
   });
 
-  // Khởi tạo dữ liệu ban đầu khi mở form
+  // Khởi tạo dữ liệu ban đầu khi mở form (GIỮ NGUYÊN)
   useEffect(() => {
     if (initialData) {
       let currentActive = 1;
       
-      // Lấy chính xác dữ liệu isactive (hoặc ép từ status cũ nếu lỡ data bị lệch)
       if (initialData.isactive !== undefined) {
         currentActive = Number(initialData.isactive);
       } else if (initialData.status !== undefined) {
@@ -31,9 +30,9 @@ const FormEditCategory = ({ initialData, onSave, onCancel, isSaving }) => {
     }
   }, [initialData]);
 
+  // Hàm xử lý thay đổi dữ liệu (GIỮ NGUYÊN)
   const handleChange = (e) => {
     const { id, value } = e.target;
-    // Tự động ép kiểu Number cho trường isactive
     setFormData(prev => ({ 
       ...prev, 
       [id]: id === 'isactive' ? Number(value) : value 
@@ -66,22 +65,19 @@ const FormEditCategory = ({ initialData, onSave, onCancel, isSaving }) => {
         />
 
         {/* Phần Trạng thái */}
-        <div className="w-full flex flex-col items-start gap-[6px]">
-          <label className="font-inter font-semibold text-[12px] leading-[16px] text-[#434655] tracking-[0.6px] uppercase">
-            Trạng thái <span className="text-red-500">*</span>
-          </label>
-          <select
-            id="isactive" // 🎯 Đổi ID thành isactive để handleChange nhận dạng
-            value={formData.isactive}
-            onChange={handleChange}
-            disabled={isSaving}
-            className="w-full h-[42px] px-3 bg-white border border-[#747686] rounded-[4px] text-[14px] text-[#191C1D] outline-none focus:border-[#1D4ED8] focus:ring-1 focus:ring-[#1D4ED8]/20 transition-all cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            {/* 🎯 Gán cứng lựa chọn theo chuẩn Database */}
-            <option value={1}>Hoạt động</option>
-            <option value={0}>Khoá</option>
-          </select>
-        </div>
+        <CategoryFormInput 
+          id="isactive" 
+          label="Trạng thái" 
+          required
+          isSelect
+          options={[
+            { value: 1, label: 'Hoạt động' },
+            { value: 0, label: 'Khoá' }
+          ]}
+          value={formData.isactive}
+          onChange={handleChange}
+          disabled={isSaving}
+        />
       </div>
 
       {/* Mô tả */}

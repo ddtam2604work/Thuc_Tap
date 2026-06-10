@@ -62,14 +62,14 @@ const FormInsertProduct = ({ initialData, onSave, onCancel, isSaving, categories
           <label className="font-inter font-semibold text-[12px] text-[#434655] tracking-[0.6px] uppercase">
             Danh mục <span className="text-red-500">*</span>
           </label>
-          {/* Đã gỡ dòng text comment thừa ở đây và chỉnh lại onChange */}
+          {/* Đã đồng bộ h-[46px], rounded-xl, border-gray-200 */}
           <select 
             id="productcategory_id"
             required
             disabled={isSaving}
             value={formData.productcategory_id}
             onChange={handleChange}
-            className="h-[42px] px-3 bg-white border border-[#747686] rounded-[4px] text-[14px] outline-none focus:border-[#1D4ED8] focus:ring-1 focus:ring-[#1D4ED8]/20 transition-all cursor-pointer disabled:bg-gray-100"
+            className="h-[56px] px-5 bg-white border border-gray-200 rounded-xl text-[14px] text-[#191C1D] outline-none focus:border-[#1D4ED8] focus:ring-1 focus:ring-[#1D4ED8]/20 transition-all cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed"
           >
             <option value="" disabled>-- Chọn danh mục --</option>
             {categories.map((cat) => (
@@ -87,13 +87,14 @@ const FormInsertProduct = ({ initialData, onSave, onCancel, isSaving, categories
             label="Giá cơ bản" id="price" required placeholder="Ví dụ: 350000"
             value={formData.price} onChange={handleChange} disabled={isSaving}
           />
-          <span className="absolute right-3 bottom-[11px] text-xs font-semibold text-gray-500">VNĐ</span>
+          <span className="absolute right-3 bottom-[14px] text-xs font-semibold text-gray-500">VNĐ</span>
         </div>
         <div className="flex flex-col gap-2">
           <label className="font-inter font-semibold text-[12px] text-[#434655] tracking-[0.6px] uppercase">Trạng thái</label>
+          {/* Đã đồng bộ h-[46px], rounded-xl, border-gray-200 */}
           <select 
             id="status" disabled={isSaving}
-            className="h-[42px] px-3 bg-white border border-[#747686] rounded-[4px] text-[14px] outline-none focus:border-[#1D4ED8] transition-all cursor-pointer disabled:bg-gray-100"
+            className="h-[56px] px-4 bg-white border border-gray-200 rounded-xl text-[14px] text-[#191C1D] outline-none focus:border-[#1D4ED8] focus:ring-1 focus:ring-[#1D4ED8]/20 transition-all cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed"
             value={formData.status} onChange={handleChange}
           >
             <option value={1}>Hoạt động</option>

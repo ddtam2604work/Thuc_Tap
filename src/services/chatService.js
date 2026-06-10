@@ -98,19 +98,5 @@ export const chatService = {
       console.error('[chatService] uploadAudioBase64 error:', error);
       throw error;
     }
-  },
-
-  recallMessageApi: async (messageId) => {
-    try {
-      const res = await fetch(`${BASE_URL}/api/v1/chat/conversations/messages/recall`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ message_id: messageId }),
-      });
-      return res.ok;
-    } catch (error) {
-      console.error('[chatService] recallMessageApi error:', error);
-      return false;
-    }
   }
 };

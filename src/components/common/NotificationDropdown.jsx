@@ -45,7 +45,34 @@ const NotificationDropdown = () => {
     }
   };
 
-  // 🌟 XỬ LÝ CLICK: ĐỌC API DETAIL VÀ CHUYỂN THẲNG ĐẾN TRANG ĐÍCH (VÍ DỤ: /orders/[id])
+  // HÀM XỬ LÝ ĐỌC TẤT CẢ THÔNG BÁO CHƯA ĐỌC
+  const handleMarkAllAsRead = async () => {
+    if (!authToken || unreadCount === 0) return;
+
+    // 1. Lọc tìm các thông báo chưa đọc hiện có trong danh sách hiển thị
+    const unreadNotifications = notifications.filter(n => !n.is_read && n.status !== 'read');
+
+    // 2. Thực hiện cập nhật UI Đột biến lập tức (Optimistic Update) giúp ứng dụng mượt mà không bị khựng
+    setNotifications(prev => 
+      prev.map(n => ({ ...n, is_read: true, status: 'read' }))
+    );
+    setUnreadCount(0);
+
+    try {
+      // 3. Sử dụng Promise.all kích hoạt đồng thời các request detail lên Server để đồng bộ trạng thái lưu trữ
+      await Promise.all(
+        unreadNotifications.map(noti => 
+          notificationService.getPersonalDetail(authToken, noti.id)
+        )
+      );
+    } catch (error) {
+      console.error("Lỗi đồng bộ trạng thái đọc tất cả lên Server:", error);
+      // Phương án phòng thủ dự phòng: Nếu mạng lỗi thì kéo lại danh sách chuẩn từ DB
+      loadNotifications();
+    }
+  };
+
+  // XỬ LÝ CLICK: ĐỌC API DETAIL VÀ CHUYỂN THẲNG ĐẾN TRANG ĐÍCH (VÍ DỤ: /orders/[id])
   const handleItemClick = async (noti) => {
     if (!authToken) return;
     try {
@@ -158,14 +185,23 @@ const NotificationDropdown = () => {
 
       {/* Giao diện danh sách thông báo xổ xuống */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50 text-gray-800 animate-in fade-in slide-in-from-top-3 duration-200">
+        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50 text-gray-800 animate-in fade-in slide-in-from-top-3 duration-200 flex flex-col">
           <div className="px-4 py-2.5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-lg">
             <span className="font-bold text-sm text-[#191C1D]">Thông báo</span>
-            {unreadCount > 0 && (
-              <span className="text-[11px] bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">
-                {unreadCount} mới
-              </span>
-            )}
+            
+            <div className="flex items-center gap-2.5">
+              <button 
+                onClick={handleMarkAllAsRead}
+                className="text-xs text-blue-600 hover:text-[#0037B0] font-semibold hover:underline transition-colors"
+              >
+                Đọc tất cả
+              </button>
+              {unreadCount > 0 && (
+                <span className="text-[11px] bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">
+                  {unreadCount} mới
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
@@ -206,6 +242,18 @@ const NotificationDropdown = () => {
               })
             )}
           </div>
+
+          {/* 🌟 BỔ SUNG THÊM NÚT THỨ HAI (FOOTER BUTTON): Tự động xuất hiện dưới đáy danh sách khi có thông báo chưa đọc */}
+          {unreadCount > 0 && (
+            <div className="border-t border-gray-100 p-2 text-center bg-gray-50/30 rounded-b-lg">
+              <button 
+                onClick={handleMarkAllAsRead}
+                className="text-xs text-blue-600 font-semibold hover:text-[#0037B0] hover:underline transition-colors w-full block py-1.5"
+              >
+                Đánh dấu tất cả đã đọc ✔️
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

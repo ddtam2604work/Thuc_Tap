@@ -32,11 +32,11 @@ const OrderTable = ({ orders }) => {
     return amount.toLocaleString('vi-VN') + ' đ';
   };
 
-  // Định dạng hiển thị ngày tháng
+  // Định dạng hiển thị ngày tháng dạng dd/mm/yyyy chuẩn tiếng Việt
   const formatDateDisplay = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
-    return date.toLocaleDateString('vi-VN');
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   // 🌟 NÂNG CẤP ĐỘNG: Hàm phân phối màu sắc thông minh theo từng trạng thái nghiệp vụ
@@ -101,10 +101,8 @@ const OrderTable = ({ orders }) => {
             orderstatus_name,
             orderdate,
             createuser_fullname,
-            // Lấy thêm linkgoogledrive và mảng items để kiểm tra toàn diện
             linkgoogledrive
           } = order;
-
 
            const driveUrl = getValidDriveLink(linkgoogledrive);
 
@@ -164,19 +162,19 @@ const OrderTable = ({ orders }) => {
                 )}
               </td>
               
-              {/* 6. Giá trị tổng đơn hàng */}
-              <td className="py-2.5 px-3 font-bold text-[#1E293B]">
+              {/* 6. Giá trị tổng đơn hàng (Đã căn phải để tối ưu hiển thị tiền tệ) */}
+              <td className="py-2.5 px-3 font-bold text-[#1E293B] text-right">
                 {formatCurrency(totalprice)}
               </td>
               
-              {/* 7. Trạng thái đơn hàng (Đã được áp lớp màu Dynamic sinh động) */}
+              {/* 7. Trạng thái đơn hàng */}
               <td className="py-2.5 px-3">
                 <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide border ${getStatusBadgeClass(orderstatus_name)}`}>
                   {orderstatus_name || '-'}
                 </span>
               </td>
               
-              {/* 8. Ngày tạo đơn */}
+              {/* 8. Ngày tạo đơn (Định dạng dd/mm/yyyy) */}
               <td className="py-2.5 px-3 text-gray-500">
                 {formatDateDisplay(orderdate)}
               </td>

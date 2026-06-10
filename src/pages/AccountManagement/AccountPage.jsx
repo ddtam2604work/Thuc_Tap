@@ -7,33 +7,25 @@ import InsertAccount from './InsertAccount';
 import EditAccount from './EditAccount';
 import LockAccount from './LockAccount';
 import ResetPasswordModal from '../../context/ResetPasswordModal';
-
-// --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG CHUẨN XÁC ---
+import { userService } from '../../services/accountService';
 import { useNotification } from '../../context/NotificationContext';
 import { useConfirm } from '../../context/ConfirmContext';
 
 const AccountPage = () => {
   const { 
-    accounts, loading, error,
-    roles, rolesLoading,
-    searchTerm, setSearchTerm, 
-    filterRole, setFilterRole, 
-    filterStatus, setFilterStatus,
-    currentPage, setCurrentPage, 
-    totalPages, totalAccounts,
-    addAccount, editAccount, toggleAccountStatus, setPassword, deleteAccount
+    accounts, loading, error, roles, rolesLoading, searchTerm, setSearchTerm, 
+    filterRole, setFilterRole, filterStatus, setFilterStatus, currentPage, setCurrentPage, 
+    totalPages, totalAccounts, addAccount, editAccount, toggleAccountStatus, deleteAccount
   } = useAccounts();
 
-  // Khai báo kích hoạt các dịch vụ thông báo, hỏi xác nhận từ context toàn cục
   const { showToast } = useNotification();
   const { confirm } = useConfirm();
 
-  // Quản lý trạng thái modal tập trung
+  // Quản lý trạng thái modal tập trung của AccountPage (Rất tối ưu)
   const [modal, setModal] = useState({ type: null, data: null, isOpen: false });
 
   const closeModal = () => setModal({ type: null, data: null, isOpen: false });
 
-  // Logic UI cho phân trang
   const getPaginationGroup = () => {
     let start = Math.max(currentPage - 2, 1);
     let end = Math.min(start + 4, totalPages);
@@ -43,18 +35,14 @@ const AccountPage = () => {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i);
   };
 
-  // --- HANDLERS ---
   const handleAddSubmit = async (formData) => {
     try {
       await addAccount(formData);
-      closeModal(); // Đóng Modal Insert
-      // Thay thế bằng Toast Success
+      closeModal();
       showToast("Thêm tài khoản mới thành công!", "success");
     } catch (error) {
       console.error("Add account failed:", error);
-      // Thay thế bằng Toast Error
       showToast("Lỗi khi thêm: " + (error.message || "Không thể kết nối đến máy chủ."), "error");
-      throw error; 
     }
   };
 
@@ -66,7 +54,6 @@ const AccountPage = () => {
     try {
       await editAccount(formData);
       closeModal();
-      // Thay thế bằng Toast Success
       showToast("Cập nhật thông tin tài khoản thành công!", "success");
     } catch (error) {
       console.error("Edit account failed:", error);
@@ -81,7 +68,6 @@ const AccountPage = () => {
       await toggleAccountStatus(id, currentStatus);
       closeModal();
       const actionText = (currentStatus === 1 || currentStatus === true) ? "khóa" : "mở khóa";
-      // Thay thế bằng Toast Success
       showToast(`Đã ${actionText} tài khoản hệ thống thành công!`, "success");
     } catch (error) {
       console.error("Toggle account status failed:", error);
@@ -89,24 +75,25 @@ const AccountPage = () => {
     }
   };
 
-  // Thay đổi 1: Tại vị trí click ở Table, biến đổi hàm reset password thành lệnh mở Modal
+  // Mở modal đặt lại mật khẩu theo cấu trúc object chung
   const handleResetPassword = (account) => {
     setModal({ type: 'resetPassword', data: account, isOpen: true });
   };
 
-  // Thay đổi 2: Tạo thêm một handler xử lý submit mật khẩu mới từ form gửi về
-  const handleResetPasswordSubmit = async (userId, newPassword) => {
+  // Luồng xử lý Admin lưu mật khẩu mới của nhân viên
+  const handleSetPasswordByAdmin = async (payload) => {
     try {
-      await setPassword(userId, newPassword);
-      showToast("Cập nhật mật khẩu tài khoản thành công! 🔑", "success");
+      // payload mang cấu trúc: { id, password }
+      await userService.setPassword(payload.id, payload.password);
+      showToast('Đặt lại mật khẩu người dùng thành công! 🎉', 'success');
+      closeModal();
     } catch (error) {
-      showToast("Lỗi reset mật khẩu: " + (error.message || "Lỗi máy chủ"), "error");
-      throw error; // Ném lỗi ngược về modal để giữ trạng thái form không bị đóng bừa bãi
+      console.error("Admin reset password failed:", error);
+      showToast(error?.message || 'Lỗi hệ thống khi đặt lại mật khẩu!', 'error');
     }
   };
   
   const handleDeleteAccount = async (account) => {
-    // Thay thế hoàn toàn lệnh window.confirm thủ công sang khối Promise-based modal mượt mà
     const isConfirmed = await confirm({
       title: 'Xác nhận xóa tài khoản',
       message: `Bạn có chắc chắn muốn xóa tài khoản [${account.username}] không? Hành động này sẽ gỡ bỏ hoàn toàn tài khoản khỏi hệ thống và không thể hoàn tác.`,
@@ -139,7 +126,6 @@ const AccountPage = () => {
 
         {/* Toolbar */}
         <div className="flex flex-row items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-wrap md:flex-nowrap">
-          
           <div className="flex-1 min-w-[280px] max-w-md relative">
             <FormInput 
               value={searchTerm}
@@ -162,14 +148,9 @@ const AccountPage = () => {
                 className="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:ring-2 focus:ring-blue-500/20 h-10 min-w-[140px] cursor-pointer"
                 disabled={rolesLoading}
               >
-                <option value="all">
-                  {rolesLoading ? "Đang tải..." : "Tất cả vai trò"}
-                </option>
-                
+                <option value="all">{rolesLoading ? "Đang tải..." : "Tất cả vai trò"}</option>
                 {roles.map((role) => (
-                  <option key={role.id} value={role.code}>
-                    {role.name}
-                  </option>
+                  <option key={role.id} value={role.code}>{role.name}</option>
                 ))}
               </select>
               
@@ -190,7 +171,7 @@ const AccountPage = () => {
           </div>
         </div>
 
-        {/* Trạng thái Loading và Error */}
+        {/* Table Render */}
         {loading && <div className="text-center py-10 text-gray-500">Đang tải dữ liệu...</div>}
         {error && !loading && <div className="text-center py-10 text-red-500">Lỗi: {error}</div>}
         
@@ -205,26 +186,21 @@ const AccountPage = () => {
           </div>
         )}
 
-        {/* Modals */}
-        <InsertAccount 
-          isOpen={modal.isOpen && modal.type === 'insert'} 
-          onClose={closeModal} 
-          onSave={handleAddSubmit}
-          roles={roles}
-        />
-
+        {/* --- KHỐI RENDER MODALS ĐỒNG BỘ --- */}
+        <InsertAccount isOpen={modal.isOpen && modal.type === 'insert'} onClose={closeModal} onSave={handleAddSubmit} roles={roles} />
+        
         <EditAccount 
-          key={`edit-${modal.data?.id || modal.data?.user_id || 'modal'}`}
+          key={`edit-${modal.data?.id || 'modal'}`}
           isOpen={modal.isOpen && modal.type === 'edit'} 
           onClose={closeModal} 
           accountData={modal.data} 
           onSave={handleEditSubmit}
-          onResetPassword={handleResetPassword}
+          onResetPassword={handleResetPassword} // Kích hoạt luồng mở ResetPasswordModal
           roles={roles}
         />
 
         <LockAccount
-          key={`lock-${modal.data?.id || modal.data?.user_id || 'modal'}`}
+          key={`lock-${modal.data?.id || 'modal'}`}
           isOpen={modal.isOpen && modal.type === 'lock'} 
           onClose={closeModal} 
           onConfirm={handleConfirmLock}
@@ -232,63 +208,27 @@ const AccountPage = () => {
           isActive={modal.data?.isactive ?? modal.data?.isActive}
         />
 
-        <ResetPasswordModal
-          key={`reset-${modal.data?.id || modal.data?.user_id || 'modal'}`}
+        {/* MODAL RESET PASSWORD TRONG QUẢN TRỊ VIÊN */}
+        <ResetPasswordModal 
           isOpen={modal.isOpen && modal.type === 'resetPassword'}
           onClose={closeModal}
           accountData={modal.data}
-          onConfirm={handleResetPasswordSubmit}
+          mode="set" 
+          onConfirm={handleSetPasswordByAdmin}
         />
 
+        {/* Phân trang (Giữ nguyên) */}
         {totalPages > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center mt-6 px-2 gap-4">
-            {/* Bộ đếm thống kê bên trái */}
             <div className="text-sm text-gray-500">
-              Hiển thị <span className="font-semibold text-gray-900">{Math.min((currentPage - 1) * 10 + 1, totalAccounts)}</span>
-              {' '}đến <span className="font-semibold text-gray-900">{Math.min(currentPage * 10, totalAccounts)}</span>
-              {' '}trong tổng số <span className="font-semibold text-gray-900">{totalAccounts}</span>
-              {' '}tài khoản
+              Hiển thị <span className="font-semibold text-gray-900">{Math.min((currentPage - 1) * 10 + 1, totalAccounts)}</span> đến <span className="font-semibold text-gray-900">{Math.min(currentPage * 10, totalAccounts)}</span> trong tổng số <span className="font-semibold text-gray-900">{totalAccounts}</span> tài khoản
             </div>
-
-            {/* Các nút bấm phân trang bên phải */}
             <div className="flex gap-1.5">
-              <Button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
-                  currentPage === 1 
-                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                &lt;
-              </Button>
-
+              <Button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`w-9 h-9 rounded-md border text-sm p-0 flex items-center justify-center ${currentPage === 1 ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'}`}>&lt;</Button>
               {getPaginationGroup().map(page => (
-                <Button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 ${
-                    page === currentPage 
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
-                  }`}
-                >
-                  {page}
-                </Button>
+                <Button key={page} onClick={() => setCurrentPage(page)} className={`w-9 h-9 rounded-md border text-sm font-medium p-0 ${page === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'}`}>{page}</Button>
               ))}
-
-              <Button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className={`w-9 h-9 rounded-md border text-sm font-medium transition-all p-0 flex items-center justify-center ${
-                  currentPage === totalPages 
-                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                &gt;
-              </Button>
+              <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className={`w-9 h-9 rounded-md border text-sm p-0 flex items-center justify-center ${currentPage === totalPages ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'}`}>&gt;</Button>
             </div>
           </div>
         )}
