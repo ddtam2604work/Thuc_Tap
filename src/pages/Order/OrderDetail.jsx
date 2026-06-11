@@ -5,8 +5,6 @@ import ProductOrderList from './OrderDetail/ProductOrderList';
 import OrderTimeline from './OrderDetail/OrderTimeline';
 import OrderActionCard from './OrderDetail/OrderActionCard';
 import OrderFinancialSummary from './OrderDetail/OrderFinancialSummary';
-import LogsView from './OrderDetail/LogsView';
-import HistoryView from './OrderDetail/HistoryView';
 import { useState, useEffect } from 'react';
 
 const OrderDetail = () => {
