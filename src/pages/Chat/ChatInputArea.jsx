@@ -6,9 +6,11 @@ const ChatInputArea = ({
   inputMessage, setInputMessage, isRecording, isListening,
   showStickerPicker, setShowStickerPicker, myStickers, storeStickers,
   handleSendMessage, handleSendImage, handleStartRecording, handleStopRecording,
-  handleToggleSpeechToText, handleSendSticker, handleDownloadStickerPack
+  handleToggleSpeechToText, handleSendSticker, handleDownloadStickerPack,
+  handleUploadSticker // 🌟 BỔ SUNG: Nhận hàm upload sticker từ props
 }) => {
   const fileInputRef = useRef(null);
+  const stickerInputRef = useRef(null); // 🌟 BỔ SUNG: Ref riêng cho việc chọn file sticker
   const [stickerTab, setStickerTab] = useState('mine');
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -62,9 +64,21 @@ const ChatInputArea = ({
           </div>
           <div className="flex-1 p-3 overflow-y-auto grid grid-cols-4 gap-3 content-start bg-white scrollbar-thin">
             {stickerTab === 'mine' ? (
-              myStickers.length > 0 ? myStickers.map((stkUrl, idx) => (
-                <img key={idx} src={stkUrl} alt="Sticker" onClick={() => handleSendSticker(stkUrl)} className="w-full h-14 object-contain rounded-lg hover:bg-gray-100 p-1 cursor-pointer transition-transform hover:scale-110" />
-              )) : <p className="col-span-4 text-center text-xs text-gray-400 mt-8">Chưa có nhãn dán khả dụng.</p>
+              <>
+                {/* 🌟 BỔ SUNG: Nút upload sticker custom ghép vào đầu danh sách lưới */}
+                <div 
+                  onClick={() => stickerInputRef.current?.click()} 
+                  className="w-full h-14 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-slate-50 hover:border-blue-400 hover:bg-blue-50 transition-all"
+                  title="Tải sticker từ thiết bị"
+                >
+                  <span className="text-gray-400 text-lg leading-none">+</span>
+                  <span className="text-[9px] text-gray-500 font-medium mt-1">Tải lên</span>
+                </div>
+
+                {myStickers.length > 0 ? myStickers.map((stkUrl, idx) => (
+                  <img key={idx} src={stkUrl} alt="Sticker" onClick={() => handleSendSticker(stkUrl)} className="w-full h-14 object-contain rounded-lg hover:bg-gray-100 p-1 cursor-pointer transition-transform hover:scale-110" />
+                )) : null}
+              </>
             ) : (
               storeStickers.length > 0 ? storeStickers.map((stkUrl, idx) => (
                 <div key={idx} className="relative group aspect-square flex items-center justify-center border border-gray-100 rounded-lg cursor-pointer bg-slate-50 hover:border-blue-400 transition-all overflow-hidden" onClick={() => handleDownloadStickerPack(stkUrl)}>
@@ -80,6 +94,8 @@ const ChatInputArea = ({
       <form onSubmit={handleLocalSendMessage} className="flex items-end gap-2">
         <div className="flex gap-1 bg-gray-50 rounded-xl p-1 border border-gray-100">
           <button type="button" onClick={() => setShowStickerPicker(!showStickerPicker)} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${showStickerPicker ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-200'}`} title="Nhãn dán">💝</button>
+          
+          {/* Input file gốc dùng cho Hình ảnh thông thường */}
           <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
@@ -87,6 +103,16 @@ const ChatInputArea = ({
                 e.target.value = ''; 
               }
             }} />
+          
+          {/* 🌟 BỔ SUNG: Input file ẩn dùng riêng cho Sticker */}
+          <input type="file" accept="image/*" ref={stickerInputRef} className="hidden" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file && handleUploadSticker) {
+                handleUploadSticker(file);
+                e.target.value = ''; 
+              }
+            }} />
+
           <button type="button" onClick={() => fileInputRef.current?.click()} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-lg text-lg" title="Hình ảnh">📷</button>
           <button type="button" onClick={isRecording ? handleStopRecording : handleStartRecording} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-500 hover:bg-gray-200'}`} title="Ghi âm">🎙️</button>
           <button type="button" onClick={handleToggleSpeechToText} className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-all ${isListening ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-200'}`} title="Chuyển giọng nói">🗣️</button>

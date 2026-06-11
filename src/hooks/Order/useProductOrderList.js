@@ -7,14 +7,14 @@ export const useProductOrderList = () => {
   const getAbsoluteUrl = useCallback((fileId) => {
     if (!fileId) return '';
     const idStr = String(fileId).trim();
-    
-    if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:')) {
+
+    if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:') || idStr.startsWith('data:')) {
       return idStr;
     }
     if (!idStr.includes('/') && !idStr.includes('.')) {
       return `${MEDIA_URL}/api/get/public/${idStr}`;
     }
-    
+
     const cleanPath = idStr.startsWith('/') ? idStr : `/${idStr}`;
     return `${MEDIA_URL}${cleanPath}`;
   }, []);

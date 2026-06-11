@@ -188,20 +188,6 @@ const NotificationDropdown = () => {
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50 text-gray-800 animate-in fade-in slide-in-from-top-3 duration-200 flex flex-col">
           <div className="px-4 py-2.5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-lg">
             <span className="font-bold text-sm text-[#191C1D]">Thông báo</span>
-            
-            <div className="flex items-center gap-2.5">
-              <button 
-                onClick={handleMarkAllAsRead}
-                className="text-xs text-blue-600 hover:text-[#0037B0] font-semibold hover:underline transition-colors"
-              >
-                Đọc tất cả
-              </button>
-              {unreadCount > 0 && (
-                <span className="text-[11px] bg-blue-50 text-blue-600 font-semibold px-2 py-0.5 rounded-full">
-                  {unreadCount} mới
-                </span>
-              )}
-            </div>
           </div>
 
           <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
@@ -250,7 +236,7 @@ const NotificationDropdown = () => {
                 onClick={handleMarkAllAsRead}
                 className="text-xs text-blue-600 font-semibold hover:text-[#0037B0] hover:underline transition-colors w-full block py-1.5"
               >
-                Đánh dấu tất cả đã đọc ✔️
+                Đánh dấu tất cả đã đọc
               </button>
             </div>
           )}

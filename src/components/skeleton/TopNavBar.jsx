@@ -188,13 +188,6 @@ const TopNavBar = () => {
                 >
                   Thông tin cá nhân
                 </Link>
-                <Link
-                  to="/settings"
-                  className="block px-4 py-2 text-[13px] font-medium text-gray-700 hover:bg-[#F0F5FF] hover:text-[#0037B0] transition-colors"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  Cài đặt hệ thống
-                </Link>
               </div>
 
               {/* Logout Action */}

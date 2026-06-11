@@ -15,7 +15,7 @@ const resolveAbsoluteUrl = (fileId) => {
   if (!fileId) return '';
   const idStr = String(fileId).trim();
   
-  if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:')) {
+  if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:') || idStr.startsWith('data:')) {
     return idStr;
   }
   if (!idStr.includes('/') && !idStr.includes('.')) {
@@ -261,21 +261,23 @@ export const useEditOrder = () => {
     if (!file) return null;
     if (!(file instanceof File) && file.id) return file.id;
 
-    const formData = new FormData();
-    formData.append('files', file);
-    formData.append('ispublic', '1');
-    try {
-      const response = await axios.post(`${MEDIA_URL}/api/upload/image/multi-draft`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
-      if (response?.data?.errorCode === 1 && response?.data?.data?.success?.[0]?.id) {
-        return response.data.data.success[0].id;
-      }
-      return null;
-    } catch (error) {
-      console.error('❌ Lỗi tải file ghi âm lên Media Server:', error);
-      return null;
-    }
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        const base64Data = reader.result;
+        try {
+          const { chatService } = await import('../../services/chatService.js');
+          const response = await chatService.uploadAudioBase64(base64Data);
+          const finalUrl = response?.data?.filePath || response?.data?.fileUrl || response?.filePath || response?.fileUrl || base64Data;
+          resolve(finalUrl);
+        } catch (error) {
+          console.error('❌ Lỗi tải file ghi âm lên Media Server:', error);
+          resolve(base64Data);
+        }
+      };
+      reader.onerror = () => resolve(null);
+    });
   }, []);
 
   // Xây dựng JSON payload gửi lên Backend chỉnh sửa (Giữ nguyên)

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { chatService } from '../../services/chatService';
-import { mediaService } from '../../services/mediaService'; // BỔ SUNG: Import mediaService
+import { mediaService } from '../../services/mediaService'; 
 
 const COMPANY_ID = '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791';
 
@@ -71,21 +71,43 @@ export const useChat = () => {
         return new Date(dateStr).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     };
 
+    /**
+     * 🎯 ĐIỀU CHỈNH LOGIC PHÂN LOẠI MEDIA STORAGE:
+     */
     const mediaStorage = useMemo(() => {
         const images = [];
         const links = [];
-        const urlRegex = /(https?:\/\/[^\s]+)/gi;
 
         messages.forEach(msg => {
-            const content = msg.content || msg.text || '';
-            if (msg.msg_type === 'image') {
-                images.push({ ...msg, url: chatService.getMediaUrl(content) });
+            const content = (msg.content || msg.text || '').trim();
+            if (!content) return;
+
+            const isUUID = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/i.test(content);
+            const isImageFileName = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(content) && !content.includes(' ');
+            const isBase64OrBlob = /^blob:/i.test(content) || /^data:image\//i.test(content);
+            
+            const isStickerFallback = /api\.dicebear\.com/i.test(content);
+            const isActualSticker = msg.msg_type === 'sticker' || isStickerFallback;
+
+            const isPureUploadedImage = !isActualSticker && (msg.msg_type === 'image' || isBase64OrBlob || isUUID || (isImageFileName && !content.startsWith('http')));
+
+            if (isPureUploadedImage) {
+                let finalImageUrl = content;
+                if (!content.startsWith('http://') && !content.startsWith('https://') && !content.startsWith('blob:') && !content.startsWith('data:')) {
+                    finalImageUrl = mediaService.getViewUrl(content); 
+                }
+                images.push({ ...msg, url: finalImageUrl });
             } 
-            if (urlRegex.test(content) && msg.msg_type !== 'image') {
-                const foundLinks = content.match(urlRegex);
-                if (foundLinks) foundLinks.forEach(link => links.push({ ...msg, url: link }));
+            
+            // 🌟 SỬA LỖI Ở ĐÂY: Dùng trực tiếp match() thay vì test() để không bị dính trạng thái (lastIndex) của RegExp.
+            const foundLinks = content.match(/(https?:\/\/[^\s]+)/gi);
+            if (foundLinks && !isActualSticker && msg.msg_type !== 'audio' && msg.msg_type !== 'image') {
+                foundLinks.forEach(link => {
+                    links.push({ ...msg, url: link });
+                });
             }
         });
+
         return { images, links };
     }, [messages]);
 
@@ -243,36 +265,48 @@ export const useChat = () => {
         }, 1500);
     }, [socket, activeRoomId]);
 
-    // HOÀN THIỆN: Gửi file hình ảnh qua API mediaService
-    // HOÀN THIỆN: Gửi file hình ảnh qua API mediaService
     const handleSendImage = useCallback(async (file) => {
         if (!file || !socket || !activeRoomId) return;
         try {
             const formData = new FormData();
-            // FIX QUAN TRỌNG: Đổi 'files' về lại 'file' cho khớp với Backend của bạn
-            formData.append('file', file); 
+            formData.append('files', file); 
+            formData.append('ispublic', '1');
 
             const response = await mediaService.uploadMultiDraft(formData);
-            const uploadedData = response?.data?.data || response?.data;
-            
+            const uploadedData = response?.data || response;
             let fileId = '';
-            if (Array.isArray(uploadedData) && uploadedData.length > 0) {
-                fileId = uploadedData[0].id || uploadedData[0].filename || uploadedData[0].fileUrl;
-            } else {
-                fileId = uploadedData?.id || uploadedData?.filename || uploadedData?.fileUrl;
+
+            if (uploadedData?.success && Array.isArray(uploadedData.success) && uploadedData.success.length > 0) {
+                const targetFile = uploadedData.success[0];
+                fileId = targetFile?.id || targetFile?.filename || targetFile?.fileId || targetFile?.path || targetFile?.filePath || targetFile?.fileUrl;
+            } 
+            else if (Array.isArray(uploadedData) && uploadedData.length > 0) {
+                fileId = uploadedData[0].id || uploadedData[0].filename || uploadedData[0].fileUrl || uploadedData[0].filePath;
+            } 
+            else if (typeof uploadedData === 'object' && uploadedData !== null) {
+                fileId = uploadedData.id || uploadedData.filename || uploadedData.fileUrl || uploadedData.filePath || uploadedData.data?.[0]?.id;
+            } 
+            else if (typeof uploadedData === 'string') {
+                fileId = uploadedData;
             }
 
-            if (!fileId) throw new Error('Không nhận được ID từ Server');
+            if (!fileId) throw new Error('Cấu trúc JSON phản hồi từ Server không khớp với cấu trúc phân giải của Client.');
 
-            // Bắn ID thật lên Server
             socket.emit('chat:send', {
-                chatconversation_id: activeRoomId, company_id: COMPANY_ID,
-                content: fileId, msg_type: 'image'
+                chatconversation_id: activeRoomId, 
+                company_id: COMPANY_ID,
+                content: fileId, 
+                msg_type: 'image'
             });
+
         } catch (err) {
-            console.error('Lỗi upload ảnh:', err);
-            // KHÔNG GỬI BLOB LÊN SERVER NỮA ĐỂ TRÁNH LỖI HIỂN THỊ
-            alert("Upload ảnh thất bại, vui lòng thử lại!"); 
+            let detailError = '';
+            if (typeof err === 'object' && err !== null) {
+                detailError = err.message || err.error || JSON.stringify(err);
+            } else {
+                detailError = String(err);
+            }
+            alert(`Upload ảnh thất bại!\n\nChi tiết lỗi hệ thống:\n${detailError}`); 
         }
     }, [socket, activeRoomId]);
 
@@ -294,6 +328,42 @@ export const useChat = () => {
             content: stickerUrl, msg_type: 'sticker'
         });
         setShowStickerPicker(false);
+    }, [socket, activeRoomId]);
+
+    const handleUploadSticker = useCallback(async (file) => {
+        if (!file || !socket || !activeRoomId) return;
+        try {
+            const formData = new FormData();
+            formData.append('files', file); 
+            formData.append('ispublic', '1');
+
+            const response = await mediaService.uploadMultiDraft(formData);
+            const uploadedData = response?.data || response;
+            let fileId = '';
+
+            if (uploadedData?.success && Array.isArray(uploadedData.success) && uploadedData.success.length > 0) {
+                const targetFile = uploadedData.success[0];
+                fileId = targetFile?.id || targetFile?.filename || targetFile?.fileId || targetFile?.path || targetFile?.filePath || targetFile?.fileUrl;
+            } else if (Array.isArray(uploadedData) && uploadedData.length > 0) {
+                fileId = uploadedData[0].id || uploadedData[0].filename || uploadedData[0].fileUrl || uploadedData[0].filePath;
+            } else if (typeof uploadedData === 'object' && uploadedData !== null) {
+                fileId = uploadedData.id || uploadedData.filename || uploadedData.fileUrl || uploadedData.filePath || uploadedData.data?.[0]?.id;
+            } else if (typeof uploadedData === 'string') {
+                fileId = uploadedData;
+            }
+
+            if (fileId) {
+                socket.emit('chat:send', {
+                    chatconversation_id: activeRoomId, 
+                    company_id: COMPANY_ID,
+                    content: fileId, 
+                    msg_type: 'sticker'
+                });
+                setShowStickerPicker(false);
+            }
+        } catch (err) {
+            console.error('❌ [Upload Sticker Error]:', err);
+        }
     }, [socket, activeRoomId]);
 
     const handleDownloadStickerPack = useCallback((stickerUrl) => {
@@ -383,6 +453,6 @@ export const useChat = () => {
         setShowMediaSidebar, setInputMessage: handleInputChange, messagesEndRef, messagesContainerRef,
         handleSendMessage, handleRoomSelect, handleScroll,
         handleSendImage, handleStartRecording, handleStopRecording, handleToggleSpeechToText,
-        handleForwardMessage, handleSendSticker, handleDownloadStickerPack
+        handleForwardMessage, handleSendSticker, handleUploadSticker, handleDownloadStickerPack 
     };
 };

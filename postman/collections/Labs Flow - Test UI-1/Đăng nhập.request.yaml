@@ -8,9 +8,9 @@ body:
   type: json
   content: "{\r
 
-    \    \"username\": \"admin1\",\r
+    \    \"username\": \"test_login\",\r
 
-    \    \"password\": \"Matkhau@123456\"\r
+    \    \"password\": \"abcxyz123@A\"\r
 
     }"
 auth:

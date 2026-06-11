@@ -1,9 +1,9 @@
 import React from 'react';
 import { mediaService } from '../../services/mediaService'; 
 
-export const resolveAbsoluteUrl = (fileId) => {
-  if (!fileId) return '';
-  const idStr = String(fileId).trim();
+export const resolveAbsoluteUrl = (fileContent) => {
+  if (!fileContent) return '';
+  const idStr = String(fileContent).trim();
   
   if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:') || idStr.startsWith('data:')) {
     return idStr;
@@ -15,33 +15,56 @@ export const resolveAbsoluteUrl = (fileId) => {
 const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForward, setForwardModalOpen }) => {
   const dataContent = (msg.content || msg.text || '').trim();
 
+  const isUUID = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/i.test(dataContent);
+  const isImageFileName = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(dataContent) && !dataContent.includes(' ');
+
+  const isStickerFallback = /api\.dicebear\.com/i.test(dataContent);
+  const isSticker = msg.msg_type === 'sticker' || isStickerFallback;
+  
+  const isForcedImage = !isSticker && (msg.msg_type === 'image' || /^blob:/i.test(dataContent) || /^data:image\//i.test(dataContent) || isUUID || isImageFileName);
+  
+  const isMediaCard = isForcedImage || isSticker;
+
+  const handleContextMenu = (e) => {
+    e.preventDefault(); 
+    setSelectedMsgToForward(msg);
+    setForwardModalOpen(true);
+  };
+
   const renderBody = () => {
     // 1. Sticker
-    if (msg.msg_type === 'sticker') {
+    if (isSticker) {
       return (
         <div className="hover:scale-105 transition-transform duration-200 py-1">
-          <img src={resolveAbsoluteUrl(dataContent)} alt="Sticker" className="w-28 h-28 object-contain drop-shadow-md" />
+          <img 
+            src={resolveAbsoluteUrl(dataContent)} 
+            alt="Sticker" 
+            className="w-28 h-28 object-contain drop-shadow-md" 
+            referrerPolicy="no-referrer" /* 🌟 FIX 403 LỖI HOTLINK */
+            onError={(e) => { 
+              e.target.onerror = null; 
+              e.target.src = 'https://placehold.co/112x112/transparent/94a3b8?text=Sticker+Lỗi';
+            }} 
+          />
         </div>
       );
     }
 
-    // 2. Image (Bắt chết định dạng ảnh, ưu tiên cao nhất)
-    const isForcedImage = msg.msg_type === 'image' || /^blob:/i.test(dataContent) || /^data:image\//i.test(dataContent);
-    
+    // 2. Image
     if (isForcedImage) {
       const imageUrl = resolveAbsoluteUrl(dataContent);
       return (
-        <div className="relative overflow-hidden rounded-xl border border-gray-100 shadow-xs max-w-[260px] bg-gray-100 min-h-[100px] min-w-[100px] flex items-center justify-center">
+        <div className="relative overflow-hidden rounded-xl border border-gray-100 shadow-xs max-w-[260px] bg-gray-50 flex items-center justify-center min-h-[100px] min-w-[100px]">
           <img 
             src={imageUrl} 
             alt="Chat Media" 
             className="max-h-[320px] w-full object-cover cursor-zoom-in hover:brightness-95 transition-all" 
+            referrerPolicy="no-referrer" /* 🌟 FIX 403 LỖI HOTLINK */
             onClick={() => openLightbox(imageUrl)} 
             onError={(e) => { 
-              // Nếu link ảnh bị hỏng/chết, hiển thị thông báo lỗi thay vì ẩn mất tiêu
               e.target.onerror = null; 
-              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjY2NjIiBkPSJNMTIgMmMyLjIxIDAgNC4yMS44OSA1LjY2IDIuMzRMMi4MzQgMTcuNjZDMS4xMSAxNi4yMSAyIDE0LjIxIDIgMTJjMC01LjUyIDQuNDgtMTAgMTAtMTB6bTcuNjYgMi4zNEMyMS4xMSA1Ljc5IDIyIDcuNzkgMjIgMTJjMCA1LjUyLTQuNDggMTAtMTAgMTAtMi4yMSAwLTQuMjEtLjg5LTUuNjYtMi4zNGwxNS4zMi0xNS4zMnoiLz48L3N2Zz4=';
-              e.target.className = "w-12 h-12 opacity-50 p-2";
+              e.target.src = 'https://placehold.co/260x200/e2e8f0/94a3b8?text=Image+Not+Found';
+              e.target.className = "w-full h-full object-cover opacity-70 p-1 rounded-xl";
             }} 
           />
         </div>
@@ -58,11 +81,12 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
     }
 
     // 4. URL / Link Image / Video / Youtube
-    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    // 🌟 SỬA LỖI Ở ĐÂY: Dùng trực tiếp match thay vì Regex Stateful
+    const urlMatches = dataContent.match(/(https?:\/\/[^\s]+)/gi);
     
-    if (urlRegex.test(dataContent)) {
-      const matchedUrl = dataContent.match(urlRegex)[0];
-      let isImageUrl = false, isVideoUrl = false, isYouTube = false, youtubeId = '';
+    if (urlMatches && urlMatches.length > 0) {
+      const matchedUrl = urlMatches[0];
+      let isImgUrl = false, isVideoUrl = false, isYouTube = false, youtubeId = '';
       let finalImageUrl = matchedUrl;
       let domainName = 'Liên kết ngoài';
 
@@ -71,21 +95,21 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
         domainName = urlObj.hostname; 
         
         let cleanPath = urlObj.pathname.replace(/[.,;!?)]+$/, '');
-        isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(cleanPath);
+        isImgUrl = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(cleanPath);
         
         if (domainName.includes('bing.com') && urlObj.searchParams.has('mediaurl')) {
           finalImageUrl = decodeURIComponent(urlObj.searchParams.get('mediaurl'));
-          isImageUrl = true;
+          isImgUrl = true;
         } else if (domainName.includes('google.com') && urlObj.searchParams.has('imgurl')) {
           finalImageUrl = decodeURIComponent(urlObj.searchParams.get('imgurl'));
-          isImageUrl = true;
+          isImgUrl = true;
         }
         
-        if (!isImageUrl) {
+        if (!isImgUrl) {
           isVideoUrl = /\.(mp4|webm|ogg)$/i.test(cleanPath);
         }
         
-        if (!isImageUrl && !isVideoUrl) {
+        if (!isImgUrl && !isVideoUrl) {
           const ytMatch = matchedUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
           if (ytMatch && ytMatch[1]) {
             isYouTube = true;
@@ -105,8 +129,15 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
             {parts[1]}
           </div>
 
-          {isImageUrl ? (
-            <img src={finalImageUrl} alt="Preview" className="w-full max-h-[180px] rounded-lg cursor-zoom-in shadow-sm border border-black/5 object-cover bg-white" onClick={() => openLightbox(finalImageUrl)} onError={(e) => { e.target.style.display = 'none'; }} />
+          {isImgUrl ? (
+            <img 
+              src={finalImageUrl} 
+              alt="Preview" 
+              className="w-full max-h-[180px] rounded-lg cursor-zoom-in shadow-sm border border-black/5 object-cover bg-white" 
+              referrerPolicy="no-referrer" /* 🌟 FIX 403 LỖI HOTLINK CHO ẢNH NGOÀI */
+              onClick={() => openLightbox(finalImageUrl)} 
+              onError={(e) => { e.target.style.display = 'none'; }} 
+            />
           ) : isYouTube ? (
             <div className="relative w-full rounded-lg overflow-hidden bg-black shadow-sm" style={{ paddingBottom: '56.25%' }}>
               <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${youtubeId}`} title="YouTube" frameBorder="0" allowFullScreen></iframe>
@@ -131,12 +162,21 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
   };
 
   return (
-    <div className={`flex flex-col max-w-[75%] group relative ${isMine ? 'self-end items-end' : 'self-start items-start'}`}>
+    <div 
+      onContextMenu={handleContextMenu}
+      className={`flex flex-col max-w-[75%] group relative cursor-pointer select-none ${isMine ? 'self-end items-end' : 'self-start items-start'}`}
+    >
       <div className={`absolute top-1/2 -translate-y-1/2 hidden group-hover:flex items-center bg-white border border-gray-200 rounded-lg shadow-md p-1 gap-1 z-20 text-[11px] ${isMine ? '-left-12' : '-right-12'}`}>
         <button type="button" onClick={() => { setSelectedMsgToForward(msg); setForwardModalOpen(true); }} className="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-50" title="Chuyển tiếp">↩️</button>
       </div>
 
-      <div className={`px-3.5 py-2 text-[13px] leading-relaxed shadow-xs ${msg.msg_type === 'sticker' ? 'bg-transparent shadow-none p-0' : isMine ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' : 'bg-white text-gray-800 border border-gray-200/60 rounded-xl rounded-tl-none'}`}>
+      <div className={`px-3.5 py-2 text-[13px] leading-relaxed shadow-xs ${
+        isMediaCard 
+          ? 'bg-transparent shadow-none p-0' 
+          : isMine 
+            ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none' 
+            : 'bg-white text-gray-800 border border-gray-200/60 rounded-xl rounded-tl-none'
+      }`}>
         {renderBody()}
       </div>
       <span className="text-[10px] text-gray-400 mt-1 px-1 tracking-tight">{msgTime}</span>

@@ -66,18 +66,6 @@ const OrderDetail = () => {
               >
                 📋 Thông tin đơn
               </button>
-              <button 
-                onClick={() => setActiveDetailTab('LOGS')} 
-                className={`px-4 py-2 font-medium transition-all text-xs lg:text-sm ${activeDetailTab === 'LOGS' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-gray-600 hover:text-gray-900'}`}
-              >
-                📝 Nhật ký (Logs)
-              </button>
-              <button 
-                onClick={() => setActiveDetailTab('HISTORY')} 
-                className={`px-4 py-2 font-medium transition-all text-xs lg:text-sm ${activeDetailTab === 'HISTORY' ? 'border-b-2 border-blue-600 text-blue-600 font-bold' : 'text-gray-600 hover:text-gray-900'}`}
-              >
-                🔄 Timeline cập nhật
-              </button>
             </div>
 
             {/* Nội dung chi tiết theo Tab được chọn */}

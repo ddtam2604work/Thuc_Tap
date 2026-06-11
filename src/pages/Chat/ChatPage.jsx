@@ -22,14 +22,55 @@ const ChatPage = () => {
   } = useChat();
 
   const chatImagesArray = useMemo(() => {
-    return messages
-      .filter(m => m.msg_type === 'image')
-      .map(m => resolveAbsoluteUrl(m.content || m.text));
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const images = [];
+
+    messages.forEach(m => {
+      const content = (m.content || m.text || '').trim();
+      if (!content) return;
+
+      const isUUID = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/i.test(content);
+      const isImageFileName = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(content) && !content.includes(' ');
+      const isBase64OrBlob = /^blob:/i.test(content) || /^data:image\//i.test(content);
+      
+      let isImgUrl = false;
+      let finalImageUrl = content;
+
+      if (urlRegex.test(content)) {
+        const matchedUrl = content.match(urlRegex)[0];
+        finalImageUrl = matchedUrl;
+        try {
+          const urlObj = new URL(matchedUrl);
+          const domainName = urlObj.hostname;
+          let cleanPath = urlObj.pathname.replace(/[.,;!?)]+$/, '');
+          isImgUrl = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(cleanPath);
+          
+          if (domainName.includes('bing.com') && urlObj.searchParams.has('mediaurl')) {
+            finalImageUrl = decodeURIComponent(urlObj.searchParams.get('mediaurl'));
+            isImgUrl = true;
+          } else if (domainName.includes('google.com') && urlObj.searchParams.has('imgurl')) {
+            finalImageUrl = decodeURIComponent(urlObj.searchParams.get('imgurl'));
+            isImgUrl = true;
+          }
+        } catch (e) {}
+      }
+
+      if (m.msg_type === 'image' || isBase64OrBlob || isUUID || isImageFileName || isImgUrl) {
+        images.push(resolveAbsoluteUrl(finalImageUrl));
+      }
+    });
+
+    return images;
   }, [messages]);
 
   const openLightbox = (url) => {
     const idx = chatImagesArray.indexOf(url);
-    if (idx !== -1) setActiveLightboxIndex(idx);
+    if (idx !== -1) {
+      setActiveLightboxIndex(idx);
+    } else {
+      chatImagesArray.push(url);
+      setActiveLightboxIndex(chatImagesArray.length - 1);
+    }
   };
 
   return (
@@ -65,17 +106,23 @@ const ChatPage = () => {
             {messages.map((msg) => {
               const isMine = role === 'customer' ? msg.sendertype === 2 : msg.sendertype === 1;
               const msgTime = msg.createdate ? new Date(msg.createdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : msg.time;
+              const uniqueMsgId = msg.id || msg._id || msg.chatmessage_id || msg.createdate;
 
               return (
-                <ChatMessage 
-                  key={msg.id || msg.createdate} 
-                  msg={msg} 
-                  isMine={isMine} 
-                  msgTime={msgTime}
-                  openLightbox={openLightbox}
-                  setSelectedMsgToForward={setSelectedMsgToForward}
-                  setForwardModalOpen={setForwardModalOpen}
-                />
+                <div 
+                  key={uniqueMsgId} 
+                  id={`msg-${msg.id || msg._id || msg.chatmessage_id}`} 
+                  className={`flex flex-col w-full ${isMine ? 'items-end' : 'items-start'} transition-all duration-300 scroll-mt-4`}
+                >
+                  <ChatMessage 
+                    msg={msg} 
+                    isMine={isMine} 
+                    msgTime={msgTime}
+                    openLightbox={openLightbox}
+                    setSelectedMsgToForward={setSelectedMsgToForward}
+                    setForwardModalOpen={setForwardModalOpen}
+                  />
+                </div>
               );
             })}
             {typingStatus && <div className="text-xs text-gray-400 italic animate-pulse self-start ml-2 bg-gray-200/50 px-2 py-1 rounded-md">{typingStatus}</div>}

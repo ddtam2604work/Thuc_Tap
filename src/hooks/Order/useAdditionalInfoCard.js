@@ -1,34 +1,29 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 export const useAdditionalInfoCard = ({ 
-  recordedAudioFile, setRecordedAudioFile, // 🌟 Tuyến dữ liệu 1: Ghi âm trực tiếp
-  uploadedAudioFile, setUploadedAudioFile  // 🌟 Tuyến dữ liệu 2: File upload có sẵn
+  recordedAudioFile, setRecordedAudioFile
 }) => {
-  const [activeTab, setActiveTab] = useState('RECORD'); 
   const [isRecording, setIsRecording] = useState(false);
-  
-  // Quản lý 2 URL preview độc lập để hiển thị song song nếu cần
   const [recordedPreviewUrl, setRecordedPreviewUrl] = useState('');
-  const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState('');
   
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Đồng bộ preview URL từ file truyền từ ngoài vào (Ví dụ: EditOrder có sẵn file ghi âm)
+  // Đồng bộ URL preview từ dữ liệu bên ngoài đổ về (ví dụ luồng Sửa đơn hàng)
   useEffect(() => {
-    if (uploadedAudioFile && uploadedAudioFile.previewUrl) {
-      setUploadedPreviewUrl(uploadedAudioFile.previewUrl);
-      setActiveTab('AUDIO_FILE');
-    } else if (uploadedAudioFile && uploadedAudioFile instanceof File) {
-      // Bỏ qua tạo URL nếu là file upload trực tiếp từ component này vì đã xử lý ở handleAudioUpload
-    } else if (!uploadedAudioFile) {
-      // Đặt lại state nếu file bị xoá
-      setUploadedPreviewUrl('');
+    if (recordedAudioFile) {
+      if (typeof recordedAudioFile === 'string') {
+        setRecordedPreviewUrl(recordedAudioFile);
+      } else if (recordedAudioFile.previewUrl) {
+        setRecordedPreviewUrl(recordedAudioFile.previewUrl);
+      }
+    } else {
+      setRecordedPreviewUrl('');
     }
-  }, [uploadedAudioFile]);
+  }, [recordedAudioFile]);
 
-  // 🎙️ LUỒNG GHI ÂM TRỰC TIẾP (Microphone Stream Pipeline)
+  // 🎙️ LUỒNG GHI ÂM TRỰC TIẾP
   const startRecording = useCallback(async () => {
     audioChunksRef.current = [];
     try {
@@ -46,13 +41,15 @@ export const useAdditionalInfoCard = ({
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const file = new File([audioBlob], `MicRecord_${Date.now()}.wav`, { type: 'audio/wav' });
         
-        if (recordedPreviewUrl) URL.revokeObjectURL(recordedPreviewUrl); 
+        if (recordedPreviewUrl && recordedPreviewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(recordedPreviewUrl); 
+        }
         
         setRecordedPreviewUrl(URL.createObjectURL(audioBlob));
-        setRecordedAudioFile(file); // Đẩy về tuyến dữ liệu ghi âm của cha
+        setRecordedAudioFile(file); 
         
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop()); // Thu hồi quyền micro ngay lập tức
+          streamRef.current.getTracks().forEach(track => track.stop()); 
           streamRef.current = null;
         }
       };
@@ -63,7 +60,7 @@ export const useAdditionalInfoCard = ({
       console.error('Lỗi Micro:', error);
       alert('⚠️ Không thể kết nối Micro. Vui lòng cấp quyền trong cài đặt trình duyệt.');
     }
-  }, [recordedPreviewUrl, setRecordedAudioFile]); // ✅ SỬA TẠI ĐÂY: setAudioFile -> setRecordedAudioFile
+  }, [recordedPreviewUrl, setRecordedAudioFile]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -73,45 +70,18 @@ export const useAdditionalInfoCard = ({
   }, [isRecording]);
 
   const removeRecordedAudio = useCallback(() => {
-    if (recordedPreviewUrl) URL.revokeObjectURL(recordedPreviewUrl);
+    if (recordedPreviewUrl && recordedPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(recordedPreviewUrl);
+    }
     setRecordedPreviewUrl('');
     setRecordedAudioFile(null);
-  }, [recordedPreviewUrl, setRecordedAudioFile]); // ✅ SỬA TẠI ĐÂY: setAudioFile -> setRecordedAudioFile
-
-
-  // 📤 LUỒNG TẢI FILE GHI ÂM SẴN CÓ (File Binary Pipeline)
-  const handleAudioUpload = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('audio/')) {
-      alert('⚠️ Vui lòng chọn tệp tin âm thanh hợp lệ (MP3, WAV, M4A, OGG).');
-      return;
-    }
-
-    if (uploadedPreviewUrl) URL.revokeObjectURL(uploadedPreviewUrl);
-
-    setUploadedPreviewUrl(URL.createObjectURL(file));
-    setUploadedAudioFile(file); // Đẩy về tuyến dữ liệu tệp tải lên của cha
-    e.target.value = null; 
-  }, [uploadedPreviewUrl, setUploadedAudioFile]);
-
-  const removeUploadedAudio = useCallback(() => {
-    if (uploadedPreviewUrl) URL.revokeObjectURL(uploadedPreviewUrl);
-    setUploadedPreviewUrl('');
-    setUploadedAudioFile(null);
-  }, [uploadedPreviewUrl, setUploadedAudioFile]);
+  }, [recordedPreviewUrl, setRecordedAudioFile]);
 
   return {
-    activeTab,
-    setActiveTab,
     isRecording,
     recordedPreviewUrl,
-    uploadedPreviewUrl,
     startRecording,
     stopRecording,
-    handleAudioUpload,
-    removeRecordedAudio,
-    removeUploadedAudio
+    removeRecordedAudio
   };
 };

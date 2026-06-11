@@ -17,7 +17,7 @@ const formatAbsoluteDriveLink = (url) => {
 const resolveAbsoluteUrl = (fileId) => {
   if (!fileId) return '';
   const idStr = String(fileId).trim();
-  if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:')) return idStr;
+  if (idStr.startsWith('http://') || idStr.startsWith('https://') || idStr.startsWith('blob:') || idStr.startsWith('data:')) return idStr;
   if (!idStr.includes('/') && !idStr.includes('.')) return `${MEDIA_URL}/api/get/public/${idStr}`;
   return `${MEDIA_URL}${idStr.startsWith('/') ? idStr : `/${idStr}`}`;
 };

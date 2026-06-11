@@ -12,7 +12,6 @@ import AccountPage from './pages/AccountManagement/AccountPage';
 import ProductPage from './pages/Product/ProductPage';
 import CustomerPage from './pages/customer/CustomerPage';
 import ProfilePage from './pages/Profile/ProfilePage'; 
-import SettingsPage from './pages/Setting/SettingPage';
 import ChatPage from './pages/Chat/ChatPage';
 import NotificationPage from './components/common/NotificationDropdown'; // Thêm trang thông báo phục vụ khách hàng
 
@@ -186,16 +185,6 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={allRoles}>
                   <MainLayout><ProfilePage /></MainLayout>
-                </ProtectedRoute>
-              } 
-            />
-
-            {/* Cấu hình hệ thống: Chỉ dành cho nội bộ */}
-            <Route 
-              path="/settings" 
-              element={
-                <ProtectedRoute allowedRoles={managementRoles}>
-                  <MainLayout><SettingsPage /></MainLayout>
                 </ProtectedRoute>
               } 
             />

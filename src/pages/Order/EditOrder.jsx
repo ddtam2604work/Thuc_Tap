@@ -135,18 +135,10 @@ const EditOrder = () => {
             setGeneralNote={setGeneralNote}
             generalImages={generalImages}
             setGeneralImages={setGeneralImages}
-            audioFile={recordedAudioFile || uploadedAudioFile}      
-            setAudioFile={(file) => {
-              // Nếu đối tác tải file ghi âm mới lên hoặc ghi âm đè, cập nhật state luồng ghi âm mới
-              if (file instanceof File || (file && file.file)) {
-                setRecordedAudioFile(file);
-                setUploadedAudioFile(null);
-              } else {
-                // Nếu file bị xóa hoặc reset về null
-                setRecordedAudioFile(null);
-                setUploadedAudioFile(file);
-              }
-            }}
+            recordedAudioFile={recordedAudioFile}
+            setRecordedAudioFile={setRecordedAudioFile}
+            uploadedAudioFile={uploadedAudioFile}
+            setUploadedAudioFile={setUploadedAudioFile}
           />
         </div>
 

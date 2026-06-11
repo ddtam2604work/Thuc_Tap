@@ -1,20 +1,36 @@
+import { useEffect, useState } from 'react';
 import Button from '../../../components/skeleton/Button';
 import { useOrderSummaryCard } from '../../../hooks/Order/useOrderSummaryCard';
 
 const OrderSummaryCard = ({ 
-  products, subtotal, vat, total, customer, shippingUnit, shippingCode, generalNote, generalImages, audioFile, onSaveDraft, onCreateAndAwait, onSubmit, submitLabel, isSubmitting: parentSubmitting 
+  products, subtotal, vat, total, customer, shippingUnit, shippingCode, generalNote, generalImages, 
+  recordedAudioFile, 
+  onSaveDraft, onCreateAndAwait, onSubmit, submitLabel, isSubmitting: parentSubmitting 
 }) => {
   const formatCurrency = (value) => new Intl.NumberFormat('vi-VN').format(value || 0);
+  const [recordedUrl, setRecordedUrl] = useState('');
 
-  // 🌟 KẾT NỐI HOOK NỘI BỘ: Đảm bảo dữ liệu map đúng cấu hình của thẻ Card tóm tắt đơn
+  useEffect(() => {
+    let rBlobUrl = '';
+    if (!recordedAudioFile) {
+      setRecordedUrl('');
+      return;
+    }
+    if (typeof recordedAudioFile === 'string') {
+      setRecordedUrl(recordedAudioFile);
+    } else if (recordedAudioFile.previewUrl) {
+      setRecordedUrl(recordedAudioFile.previewUrl);
+    } else if (recordedAudioFile instanceof Blob || recordedAudioFile instanceof File) {
+      try {
+        rBlobUrl = URL.createObjectURL(recordedAudioFile);
+        setRecordedUrl(rBlobUrl);
+      } catch (e) { setRecordedUrl(''); }
+    }
+    return () => { if (rBlobUrl && rBlobUrl.startsWith('blob:')) URL.revokeObjectURL(rBlobUrl); };
+  }, [recordedAudioFile]);
+
   const { isSubmitting, handleCreateOrderSubmit, handleSaveDraftSubmit } = useOrderSummaryCard({
-    customer,
-    products,
-    shippingUnit,
-    shippingCode,
-    generalNote,
-    generalImages,
-    audioFile
+    customer, products, shippingUnit, shippingCode, generalNote, generalImages, recordedAudioFile
   });
 
   const activeSubmitting = parentSubmitting || isSubmitting;
@@ -38,7 +54,18 @@ const OrderSummaryCard = ({
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 pt-1 border-t border-gray-100/80 text-gray-500 font-medium">
+        {/* HIỂN THỊ FILE AUDIO CHỈ DẪN */}
+        {recordedUrl && (
+          <div className="flex flex-col gap-2 pt-2 border-t border-gray-100/80">
+            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Tệp âm thanh đính kèm:</span>
+            <div className="flex items-center gap-2 bg-gray-50/60 p-1 rounded-lg border border-gray-100">
+              <span className="text-xs text-blue-600 font-bold whitespace-nowrap px-1">🎙️ Ghi âm:</span>
+              <audio src={recordedUrl} controls className="h-6 w-full text-xs outline-none" />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 pt-2 border-t border-gray-100/80 text-gray-500 font-medium">
           <div className="flex justify-between items-center">
             <span>Tạm tính hệ thống:</span>
             <span className="text-gray-800 font-semibold">{formatCurrency(subtotal)} ₫</span>
@@ -53,12 +80,8 @@ const OrderSummaryCard = ({
         </div>
 
         <div className="flex flex-col gap-2 mt-2">
-          {/* 🌟 CHUYỂN ĐỔI SỰ KIỆN CHUẨN: Gọi trực tiếp hàm submit đã vá lỗi trượt trường dữ liệu */}
           <Button 
-            type="button"
-            variant="primary" 
-            onClick={onSubmit || handleCreateOrderSubmit} 
-            disabled={activeSubmitting}
+            type="button" variant="primary" onClick={onSubmit || handleCreateOrderSubmit} disabled={activeSubmitting}
             className="w-full bg-blue-600 hover:bg-blue-700 h-9 rounded-lg text-[12px] font-bold"
           >
             {activeSubmitting ? '⏳ ĐANG XỬ LÝ...' : (submitLabel || 'Tạo đơn hàng')}
@@ -66,28 +89,16 @@ const OrderSummaryCard = ({
           
           {(onCreateAndAwait || onSaveDraft) && (
             <Button 
-              type="button" 
-              variant="secondary"
+              type="button" variant="secondary" disabled={activeSubmitting}
               onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (onSaveDraft) {
-                  onSaveDraft();
-                } else {
-                  handleSaveDraftSubmit();
-                }
+                e.preventDefault(); e.stopPropagation();
+                if (onSaveDraft) onSaveDraft(); else handleSaveDraftSubmit();
               }}
-              disabled={activeSubmitting}
               className="w-full bg-amber-100 text-amber-700 hover:bg-amber-200 h-9 rounded-lg text-[12px] font-bold"
             >
               {activeSubmitting ? '⏳ ĐANG LƯU...' : 'Lưu nháp'}
             </Button>
           )}
-        </div>
-
-        <div className="bg-blue-50/60 border border-blue-100 p-3 rounded-lg text-[11px] text-blue-800/90 leading-relaxed flex items-start gap-2 mt-1">
-          <span className="text-xs select-none">💡</span>
-          <p>Hệ thống tự động đồng bộ và gửi hóa đơn xác nhận tới khách hàng ngay sau khi hoàn tất.</p>
         </div>
       </div>
     </div>
