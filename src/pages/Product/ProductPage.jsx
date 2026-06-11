@@ -28,14 +28,6 @@ const ProductPage = () => {
           <ProductManagementPage />
         )}
       </div>
-
-      {/* Floating Chat Button */}
-      <Button variant="fab">
-        <span className="text-2xl">💬</span>
-        <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#BA1A1A] text-[10px] font-bold">
-          3
-        </div>
-      </Button>
     </div>
   );
 };
