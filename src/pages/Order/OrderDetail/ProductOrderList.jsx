@@ -4,7 +4,7 @@ import Table from '../../../components/skeleton/Table';
 import { useProductOrderList } from '../../../hooks/Order/useProductOrderList';
 
 const ProductOrderList = ({ products = [], attachments = [], generalNote = '', audioNoteUrl = '' }) => {
-  const formatPrice = (val) => new Intl.NumberFormat('vi-VN').format(val || 0);
+  const formatPrice = (val) => new Intl.NumberFormat('en-US').format(val || 0);
   const { getAbsoluteUrl, handleDownloadFile, getFileIcon } = useProductOrderList();
   const [currentImageIndex, setCurrentImageIndex] = useState(null);
   const [audioUrl, setAudioUrl] = useState('');
@@ -30,7 +30,6 @@ const ProductOrderList = ({ products = [], attachments = [], generalNote = '', a
     if (audioNoteUrl && typeof audioNoteUrl === 'string') {
       const cleanStr = audioNoteUrl.trim();
       
-      // Khối Fallback phòng ngừa dữ liệu cũ dạng JSON Array sót lại trong DB
       if (cleanStr.startsWith('[') && cleanStr.endsWith(']')) {
         try {
           const parsed = JSON.parse(cleanStr);
@@ -128,9 +127,22 @@ const ProductOrderList = ({ products = [], attachments = [], generalNote = '', a
             const rowImages = (p.images || []).filter(img => isImageFile(img.name, img.previewUrl || img.url));
             const rowDocs = (p.images || []).filter(img => !isImageFile(img.name, img.previewUrl || img.url));
 
+            // 🎯 KIỂM TRA TRẠNG THÁI KHÓA/ẨN CỦA SẢN PHẨM TRÊN GIAO DIỆN XEM CHI TIẾT ĐƠN HÀNG
+            const isProductInactive = String(p.isactive) === '0' || p.isactive === false || p.status === 'Khóa' || p.status === 'NGỪNG KINH DOANH';
+
             return (
               <tr key={idx} className="text-center text-gray-700 text-[12px] border-b border-gray-50 last:border-0 hover:bg-gray-50/40 transition-colors">
-                <td className="py-3 px-3 text-left font-bold text-gray-800">{p.name || 'Sản phẩm không tên'}</td>
+                <td className="py-3 px-3 text-left font-bold text-gray-800">
+                  <div className="flex flex-col gap-0.5">
+                    <span>{p.name || 'Sản phẩm không tên'}</span>
+                    {/* Render badge ghi chú đỏ cảnh báo sản phẩm ngưng hoạt động */}
+                    {isProductInactive && (
+                      <span className="text-[10px] text-red-500 font-bold bg-red-50 border border-red-100 px-1.5 py-0.5 rounded w-max mt-1 select-none">
+                        Sản phẩm không hoạt động
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="py-3 px-3 text-left whitespace-normal">
                   <div className="flex flex-col items-start gap-2.5">
                     {p.driveLink && (

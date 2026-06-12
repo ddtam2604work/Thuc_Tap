@@ -13,11 +13,29 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
     handleNoteChange
   } = useProductItemRow({ product, catalog, onUpdate });
 
+  // 🎯 LUỒNG KIỂM TRA PHÒNG THỦ: Xác định sản phẩm hiện tại trong dòng đơn hàng có bị khóa hay không
+  const isProductDisabled = (() => {
+    const currentId = product.productId || product.product_id;
+    if (!currentId || !catalog) return false;
+    
+    const found = catalog.find(item => String(item.id || item.product_id) === String(currentId));
+    if (found) {
+      // Nhận diện theo cấu trúc API của ProductManagementTable (isactive string/bool hoặc status Khóa)
+      return String(found.isactive) === '0' || found.isactive === false || found.status === 'Khóa';
+    }
+    // Fallback: Nếu đơn hàng cũ có ID nhưng API catalog đã lọc bỏ hoàn toàn không trả về nữa
+    return true;
+  })();
+
   return (
-    <div className="relative bg-white border border-gray-100 border-l-4 border-l-blue-500/90 shadow-xs rounded-xl p-5 flex flex-col gap-4 pt-7 transition-all duration-200 hover:shadow-sm">
+    <div className={`relative bg-white border shadow-xs rounded-xl p-5 flex flex-col gap-4 pt-7 transition-all duration-200 hover:shadow-sm ${
+      isProductDisabled ? 'border-l-4 border-l-red-500 bg-red-50/10' : 'border-gray-100 border-l-4 border-l-blue-500/90'
+    }`}>
       
       {/* Floating Badge số thứ tự dòng */}
-      <div className="absolute -left-2.5 -top-2 w-5.5 h-5.5 bg-gradient-to-tr from-blue-600 to-blue-500 text-white rounded-full flex items-center justify-center shadow-md z-10 text-[10px] font-bold">
+      <div className={`absolute -left-2.5 -top-2 w-5.5 h-5.5 text-white rounded-full flex items-center justify-center shadow-md z-10 text-[10px] font-bold ${
+        isProductDisabled ? 'bg-gradient-to-tr from-red-600 to-red-500' : 'bg-gradient-to-tr from-blue-600 to-blue-500'
+      }`}>
         {index + 1}
       </div>
 
@@ -35,22 +53,43 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
       {/* Grid cấu hình thông tin */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         
-        {/* Dropdown Sản Phẩm In lấy trực tiếp dữ liệu sạch từ useProducts */}
+        {/* Dropdown Sản Phẩm In */}
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sản phẩm</label>
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sản phẩm</label>
+            {/* Chú thích trạng thái khóa đồng bộ thời gian thực */}
+            {isProductDisabled && (
+              <span className="text-[11px] font-bold text-red-500 animate-pulse">
+                ⚠️ Sản phẩm không hoạt động
+              </span>
+            )}
+          </div>
           <select 
             value={product.productId || product.product_id || ''} 
             onChange={handleSelectProduct}
             disabled={isLoadingCatalog}
-            className="w-full h-9 px-3 border border-gray-200 rounded-lg text-[12px] bg-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-gray-700 cursor-pointer"
+            className={`w-full h-9 px-3 border rounded-lg text-[12px] bg-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium cursor-pointer ${
+              isProductDisabled ? 'border-red-300 text-red-700 bg-red-50/20' : 'border-gray-200 text-gray-700'
+            }`}
           >
             <option value="" disabled>-- Vui lòng chọn sản phẩm cần in --</option>
-            {catalog?.map(item => (
-              <option key={item.id || item.product_id} value={item.id || item.product_id}>
-                {/* 🌟 ĐỒNG BỘ HIỂN THỊ: Map chuẩn theo item.code và item.name từ useProducts */}
-                {item.code ? `[${item.code}] ` : ''}{item.name || 'Sản phẩm không tên'}
+            
+            {/* Ghi vết an toàn: Nếu sản phẩm cũ bị khóa hoàn toàn khỏi danh mục trả về, tự sinh option ẩn để bảo toàn UI */}
+            {isProductDisabled && (product.productId || product.product_id) && !catalog.some(item => String(item.id || item.product_id) === String(product.productId || product.product_id)) && (
+              <option value={product.productId || product.product_id}>
+                {product.name || 'Sản phẩm lưu vết cũ'} (Sản phẩm không hoạt động)
               </option>
-            ))}
+            )}
+
+            {catalog?.map(item => {
+              const itemDisabled = String(item.isactive) === '0' || item.isactive === false || item.status === 'Khóa';
+              return (
+                <option key={item.id || item.product_id} value={item.id || item.product_id}>
+                  {item.code ? `[${item.code}] ` : ''}{item.name || 'Sản phẩm không tên'}
+                  {itemDisabled ? ' (Sản phẩm không hoạt động)' : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -81,8 +120,8 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Giá áp dụng (VNĐ)</label>
           <input 
-            type="number" 
-            value={product.appliedPrice || product.applied_price || 0}
+            type="text" 
+            value={product.appliedPriceDisplay !== undefined ? product.appliedPriceDisplay : formatCurrency(product.appliedPrice || product.applied_price || 0)}
             onChange={handleAppliedPriceChange}
             className="w-full h-9 px-3 border border-gray-200 rounded-lg text-[12px] font-bold text-blue-600 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all" 
           />

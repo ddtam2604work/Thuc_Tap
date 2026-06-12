@@ -5,12 +5,14 @@ import { useSelector } from 'react-redux';
 
 // Đảm bảo không lỗi nếu biến môi trường chưa load kịp
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://113.161.204.185:4000';
+const CALL_SERVER_URL = 'http://localhost:4001';
 
 const SocketContext = createContext();
 export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
+  const [callSocket, setCallSocket] = useState(null);
   const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
   const [toastMessage, setToastMessage] = useState(null);
   const pollingIntervalRef = useRef(null);
@@ -115,23 +117,46 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
+    // KẾT NỐI CALL SOCKET SERVER (Local: 4001)
+    const callSocketInstance = io(CALL_SERVER_URL, {
+      transports: ['websocket', 'polling'],
+      auth: { token: token.replace(/^Bearer\s+/i, '').trim() }
+    });
+
+    setCallSocket(callSocketInstance);
+
+    callSocketInstance.on('connect', () => {
+      console.log('🟢 Kết nối Call Socket thành công đến:', CALL_SERVER_URL);
+    });
+
+    callSocketInstance.on('connect_error', (err) => {
+      console.error('🔴 Lỗi kết nối Call Socket:', err.message);
+    });
+
     return () => {
       socketInstance.disconnect();
+      callSocketInstance.disconnect();
       stopFallbackPolling();
     };
   }, [token, location.pathname]); // Lắng nghe thêm cả pathname để xử lý bật/tắt toast động
 
   // Lắng nghe việc đăng xuất để hủy kết nối
   useEffect(() => {
-    if (location.pathname === '/login' && socket) {
-      socket.disconnect();
-      setSocket(null);
+    if (location.pathname === '/login') {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      if (callSocket) {
+        callSocket.disconnect();
+        setCallSocket(null);
+      }
       stopFallbackPolling();
     }
-  }, [location.pathname, socket]);
+  }, [location.pathname, socket, callSocket]);
 
   return (
-    <SocketContext.Provider value={{ socket, globalUnreadCount, setGlobalUnreadCount, showToast }}>
+    <SocketContext.Provider value={{ socket, callSocket, globalUnreadCount, setGlobalUnreadCount, showToast }}>
       {children}
       {toastMessage && (
         <div className="fixed bottom-4 right-4 z-50 bg-white border border-blue-200 shadow-xl rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 cursor-pointer hover:bg-gray-50 transition-colors"

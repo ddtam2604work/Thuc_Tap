@@ -42,14 +42,11 @@ export const useAuth = () => {
 
         try {
             setLoading(true);
-            // Payload truyền đi đúng cấu trúc: { username: "0837257268", password: "..." }
             const rawResponse = await authService.login({ username: trimmedUsername, password });
             
-            // 🛠️ GIẢI PHÁP PHÒNG THỦ: Tự động quét tìm Token ở mọi biến thể cấu trúc của Backend
             const token = rawResponse?.accessToken || rawResponse?.data?.accessToken || rawResponse?.token || rawResponse?.data?.token;
             const rToken = rawResponse?.refreshToken || rawResponse?.data?.refreshToken;
             
-            // Tự động bóc tách UserInfo bất chấp cấu trúc lồng nhau hay dàn phẳng ở Root level
             const rootData = rawResponse?.data || rawResponse || {};
             const userInfo = rawResponse?.user || rawResponse?.data?.user || rawResponse?.userInfo || rawResponse?.data?.userInfo || rootData;
 
@@ -57,12 +54,10 @@ export const useAuth = () => {
                 throw new Error(rawResponse?.message || rawResponse?.msg || 'Không nhận được Token xác thực hợp lệ từ hệ thống.');
             }
 
-            // Lưu trữ cặp token đồng bộ phục vụ cơ chế làm mới phiên (Silent Refresh)
             localStorage.setItem('accessToken', token);
             if (rToken) localStorage.setItem('refreshToken', rToken);
             if (userInfo) localStorage.setItem('userInfo', JSON.stringify(userInfo));
             
-            // Cập nhật Redux Global State
             dispatch(loginSuccess({ token, user: userInfo }));
             setSuccessMessage('Đăng nhập thành công! Đang chuyển hướng...');
 
@@ -78,7 +73,6 @@ export const useAuth = () => {
             return true;
         } catch (err) {
             console.error('[useAuth/handleLogin] Error:', err);
-            // Chuẩn hóa thông báo lỗi từ Interceptor đưa ra
             const apiError = err?.message || err?.msg || err?.response?.data?.message || 'Số điện thoại hoặc mật khẩu không chính xác.';
             setErrorMessage(apiError);
             return false;

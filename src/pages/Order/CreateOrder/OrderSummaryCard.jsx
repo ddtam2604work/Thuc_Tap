@@ -7,7 +7,7 @@ const OrderSummaryCard = ({
   recordedAudioFile, 
   onSaveDraft, onCreateAndAwait, onSubmit, submitLabel, isSubmitting: parentSubmitting 
 }) => {
-  const formatCurrency = (value) => new Intl.NumberFormat('vi-VN').format(value || 0);
+  const formatCurrency = (value) => new Intl.NumberFormat('en-US').format(value || 0);
   const [recordedUrl, setRecordedUrl] = useState('');
 
   useEffect(() => {

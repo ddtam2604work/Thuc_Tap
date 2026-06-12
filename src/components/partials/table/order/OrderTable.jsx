@@ -25,11 +25,11 @@ const Tooltip = ({ content, children, className = "" }) => {
 const OrderTable = ({ orders }) => {
   const navigate = useNavigate();
   
-  // Định dạng tiền tệ chuẩn: 120000 -> 120.000 đ
+  // Định dạng tiền tệ chuẩn: 120,000 đ
   const formatCurrency = (value) => {
     if (!value) return '0 đ';
     const amount = Math.floor(Number(value));
-    return amount.toLocaleString('vi-VN') + ' đ';
+    return amount.toLocaleString('en-US') + ' đ';
   };
 
   // Định dạng hiển thị ngày tháng dạng dd/mm/yyyy chuẩn tiếng Việt

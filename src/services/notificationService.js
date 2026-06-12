@@ -12,12 +12,17 @@ export const notificationService = {
   /**
    * Postman Request: get-personal-paging
    */
-  getPersonalPaging: async (token, page = 1, pagesize = 20, search = "") => {
+  getPersonalPaging: async (token, page = 1, pagesize = 20, is_read = undefined) => {
     try {
+      const payload = { page, pagesize };
+      if (is_read !== undefined && is_read !== "") {
+        payload.is_read = is_read;
+      }
+      
       const response = await fetch(`${BE_URL}/api/v1/notification/get-personal-paging`, {
         method: 'POST',
         headers: createHeaders(token),
-        body: JSON.stringify({ page, pagesize, search }),
+        body: JSON.stringify(payload),
       });
       
       if (!response.ok) throw new Error(`Lỗi HTTP: ${response.status}`);

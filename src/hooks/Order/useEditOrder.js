@@ -151,11 +151,14 @@ export const useEditOrder = () => {
           }
         } else {
           showToast(beData?.message || 'Không thể tải dữ liệu đơn hàng.', 'error');
-          navigate('/orders');
+          navigate('/error', { state: { status: 404, message: beData?.message || 'Không tìm thấy dữ liệu đơn hàng hoặc bạn không có quyền truy cập.' } });
         }
       } catch (error) {
         console.error('❌ Lỗi tải chi tiết đơn hàng lên form sửa:', error);
-      } fileSystem: {
+        const errMsg = error?.response?.data?.message || error?.message || 'Không tìm thấy dữ liệu đơn hàng hoặc bạn không có quyền truy cập.';
+        const statusCode = error?.response?.status || error?.statusCode || 404;
+        navigate('/error', { state: { status: statusCode, message: errMsg } });
+      } finally {
         setIsLoading(false);
       }
     };

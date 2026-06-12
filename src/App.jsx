@@ -13,7 +13,9 @@ import ProductPage from './pages/Product/ProductPage';
 import CustomerPage from './pages/customer/CustomerPage';
 import ProfilePage from './pages/Profile/ProfilePage'; 
 import ChatPage from './pages/Chat/ChatPage';
-import NotificationPage from './components/common/NotificationDropdown'; // Thêm trang thông báo phục vụ khách hàng
+import NotificationPage from './pages/Notification/NotificationPage'; // Thêm trang thông báo phục vụ khách hàng
+
+import ErrorPage from './components/common/ErrorPage';
 
 // Phân hệ quản lý Đơn hàng (Orders System Components)
 import OrderPage from './pages/Order/OrderPage';
@@ -39,7 +41,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const role = getUserRoleFromToken();
 
   // Nếu Route có cấu hình giới hạn quyền, và quyền hiện tại không nằm trong danh sách cho phép
-  if (allowedRoles && !allowedRoles.includes(role)) {
+  if (
+    allowedRoles &&
+    !allowedRoles.map(r => r.toLowerCase()).includes((role || '').toLowerCase())
+  ) {
     // Điều hướng dựa trên vai trò để tối ưu hóa trải nghiệm người dùng (UX)
     if (role === 'customer') {
       return <Navigate to="/products" replace />;
@@ -209,18 +214,22 @@ function App() {
               } 
             />
 
+            {/* ================= ERROR ROUTE ================= */}
+            <Route 
+              path="/error" 
+              element={
+                <ProtectedRoute allowedRoles={allRoles}>
+                  <ErrorPage />
+                </ProtectedRoute>
+              } 
+            />
+
             {/* ================= FALLBACK ROUTE ================= */}
-            {/* Chuyển hướng thông minh dựa vào Role nếu người dùng nhập sai URL */}
+            {/* Chuyển hướng sang trang báo lỗi nếu nhập sai URL hoặc vượt quyền IDOR */}
             <Route 
               path="*" 
               element={
-                <ProtectedRoute>
-                  {getUserRoleFromToken() === 'customer' ? (
-                    <Navigate to="/products" replace />
-                  ) : (
-                    <Navigate to="/home" replace />
-                  )}
-                </ProtectedRoute>
+                <Navigate to="/error" replace state={{ status: 404, message: "Trang bạn yêu cầu không tồn tại hoặc bạn không có quyền truy cập." }} />
               } 
             />
           </Routes>

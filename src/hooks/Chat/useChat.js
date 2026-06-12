@@ -33,7 +33,7 @@ const getUserRoleFromToken = () => {
 };
 
 export const useChat = () => {
-    const { socket } = useSocket();
+    const { socket, callSocket } = useSocket();
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -71,9 +71,6 @@ export const useChat = () => {
         return new Date(dateStr).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     };
 
-    /**
-     * 🎯 ĐIỀU CHỈNH LOGIC PHÂN LOẠI MEDIA STORAGE:
-     */
     const mediaStorage = useMemo(() => {
         const images = [];
         const links = [];
@@ -99,7 +96,6 @@ export const useChat = () => {
                 images.push({ ...msg, url: finalImageUrl });
             } 
             
-            // 🌟 SỬA LỖI Ở ĐÂY: Dùng trực tiếp match() thay vì test() để không bị dính trạng thái (lastIndex) của RegExp.
             const foundLinks = content.match(/(https?:\/\/[^\s]+)/gi);
             if (foundLinks && !isActualSticker && msg.msg_type !== 'audio' && msg.msg_type !== 'image') {
                 foundLinks.forEach(link => {
@@ -185,12 +181,16 @@ export const useChat = () => {
                 setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
                 socket.emit('chat:read', { chatconversation_id: activeRoomId });
             }
+            
+            const isMasked = typeof data.content === 'string' && data.content.startsWith('__CALL_HISTORY__:');
+            const previewText = isMasked ? '[Lịch sử cuộc gọi]' : (data.msg_type === 'image' ? '[Hình ảnh]' : data.msg_type === 'sticker' ? '[Nhãn dán]' : data.msg_type === 'audio' ? '[Ghi âm]' : data.content);
+
             setChatRooms((prevRooms) =>
                 prevRooms.map((room) =>
                     room.id === cid
                         ? {
                               ...room,
-                              lastMessage: data.msg_type === 'image' ? '[Hình ảnh]' : data.msg_type === 'sticker' ? '[Nhãn dán]' : data.msg_type === 'audio' ? '[Ghi âm]' : data.content,
+                              lastMessage: previewText,
                               time: formatTime(data.createdate || new Date()),
                               unread: cid === activeRoomId ? 0 : room.unread + 1,
                           }
@@ -208,12 +208,38 @@ export const useChat = () => {
 
         socket.on('chat:message', handleChatMessage);
         socket.on('chat:typing', handleTyping);
+        
+        if (callSocket) {
+            callSocket.on('chat:message', handleChatMessage);
+            
+            callSocket.on('call:save_log', (logData) => {
+                // Giải pháp tối ưu: Chỉ cho tài khoản 'staff' gửi tín hiệu 'chat:send' để lưu DB lõi qua tin nhắn văn bản,
+                // tránh hiện tượng nhân bản bản ghi (Duplicate) từ cả 2 đầu client cùng lúc.
+                if (role === 'staff' && socket && logData.chatconversation_id) {
+                    socket.emit('chat:send', {
+                        chatconversation_id: logData.chatconversation_id,
+                        company_id: COMPANY_ID,
+                        msg_type: 'text', 
+                        content: `__CALL_HISTORY__:${JSON.stringify({
+                            type: logData.type,
+                            duration: logData.duration,
+                            status: logData.status,
+                            initiator: logData.initiator
+                        })}`
+                    });
+                }
+            });
+        }
 
         return () => {
             socket.off('chat:message', handleChatMessage);
             socket.off('chat:typing', handleTyping);
+            if (callSocket) {
+                callSocket.off('chat:message', handleChatMessage);
+                callSocket.off('call:save_log');
+            }
         };
-    }, [socket, activeRoomId, role]);
+    }, [socket, callSocket, activeRoomId, role]);
 
     const handleScroll = useCallback(async (e) => {
         const container = e.currentTarget;

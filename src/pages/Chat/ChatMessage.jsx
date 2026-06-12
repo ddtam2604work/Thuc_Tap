@@ -23,7 +23,10 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
   
   const isForcedImage = !isSticker && (msg.msg_type === 'image' || /^blob:/i.test(dataContent) || /^data:image\//i.test(dataContent) || isUUID || isImageFileName);
   
-  const isMediaCard = isForcedImage || isSticker;
+  // 🌟 ĐỒNG BỘ ĐA TẦNG: Chấp nhận cả kiểu cấu trúc msg_type native lẫn chuỗi text mặt nạ từ DB đổ ra
+  const isMaskedCallStr = dataContent.startsWith('__CALL_HISTORY__:');
+  const isCallHistory = msg.msg_type === 'call_history' || isMaskedCallStr;
+  const isMediaCard = isForcedImage || isSticker || isCallHistory;
 
   const handleContextMenu = (e) => {
     e.preventDefault(); 
@@ -32,6 +35,64 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
   };
 
   const renderBody = () => {
+    if (isCallHistory) {
+      try {
+        const rawJson = isMaskedCallStr ? dataContent.substring('__CALL_HISTORY__:'.length) : dataContent;
+        const callData = JSON.parse(rawJson);
+        const isVideo = callData.type === 'video';
+        
+        const mins = Math.floor((callData.duration || 0) / 60);
+        const secs = (callData.duration || 0) % 60;
+        const timeString = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        let statusText = '';
+        let subText = '';
+        let icon = isVideo ? '📹' : '📞';
+
+        const currentRole = localStorage.getItem('accessToken') && 
+          JSON.parse(window.atob(localStorage.getItem('accessToken').split('.')[1])).customer_id ? 'customer' : 'staff';
+        
+        const isInitiatorMe = callData.initiator === currentRole;
+
+        if (callData.status === 'completed') {
+          statusText = isInitiatorMe ? (isVideo ? 'Cuộc gọi video đi' : 'Cuộc gọi thoại đi') : (isVideo ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến');
+          subText = `Thời lượng: ${timeString}`;
+        } else if (callData.status === 'busy') {
+          statusText = isInitiatorMe ? 'Máy bận' : 'Cuộc gọi nhỡ';
+          subText = 'Đối phương đang bận';
+        } else if (callData.status === 'rejected') {
+          statusText = isInitiatorMe ? (isVideo ? 'Cuộc gọi video bị từ chối' : 'Cuộc gọi thoại bị từ chối') : (isVideo ? 'Từ chối cuộc gọi video' : 'Từ chối cuộc gọi thoại');
+          subText = 'Đã từ chối';
+        } else {
+          statusText = isInitiatorMe ? (isVideo ? 'Cuộc gọi video không trả lời' : 'Cuộc gọi thoại không trả lời') : (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi thoại nhỡ');
+          subText = 'Bỏ lỡ';
+        }
+
+        return (
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-xs shadow-xs min-w-[220px] transition-all max-w-[280px] ${
+            isMine 
+              ? 'bg-blue-50/70 border-blue-100 text-blue-950 rounded-tr-none' 
+              : 'bg-gray-50/90 border-gray-100 text-gray-800 rounded-tl-none'
+          }`}>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-xs ${
+              callData.status === 'completed' 
+                ? 'bg-green-100 text-green-600' 
+                : 'bg-red-100 text-red-500'
+            }`}>
+              {icon}
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="font-bold truncate text-[13px]">{statusText}</span>
+              <span className="text-[11px] font-medium text-gray-500">{subText}</span>
+            </div>
+          </div>
+        );
+      } catch (e) {
+        console.error("❌ Lỗi cấu trúc JSON trong msg.content của call_history:", e);
+        return <span className="text-xs italic text-gray-400 bg-gray-100 p-2 rounded-lg">Bản ghi cuộc gọi lỗi cấu trúc</span>;
+      }
+    }
+
     // 1. Sticker
     if (isSticker) {
       return (
@@ -40,7 +101,7 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
             src={resolveAbsoluteUrl(dataContent)} 
             alt="Sticker" 
             className="w-28 h-28 object-contain drop-shadow-md" 
-            referrerPolicy="no-referrer" /* 🌟 FIX 403 LỖI HOTLINK */
+            referrerPolicy="no-referrer"
             onError={(e) => { 
               e.target.onerror = null; 
               e.target.src = 'https://placehold.co/112x112/transparent/94a3b8?text=Sticker+Lỗi';
@@ -59,7 +120,7 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
             src={imageUrl} 
             alt="Chat Media" 
             className="max-h-[320px] w-full object-cover cursor-zoom-in hover:brightness-95 transition-all" 
-            referrerPolicy="no-referrer" /* 🌟 FIX 403 LỖI HOTLINK */
+            referrerPolicy="no-referrer"
             onClick={() => openLightbox(imageUrl)} 
             onError={(e) => { 
               e.target.onerror = null; 
@@ -81,7 +142,6 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
     }
 
     // 4. URL / Link Image / Video / Youtube
-    // 🌟 SỬA LỖI Ở ĐÂY: Dùng trực tiếp match thay vì Regex Stateful
     const urlMatches = dataContent.match(/(https?:\/\/[^\s]+)/gi);
     
     if (urlMatches && urlMatches.length > 0) {
@@ -134,7 +194,7 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
               src={finalImageUrl} 
               alt="Preview" 
               className="w-full max-h-[180px] rounded-lg cursor-zoom-in shadow-sm border border-black/5 object-cover bg-white" 
-              referrerPolicy="no-referrer" /* 🌟 FIX 403 LỖI HOTLINK CHO ẢNH NGOÀI */
+              referrerPolicy="no-referrer"
               onClick={() => openLightbox(finalImageUrl)} 
               onError={(e) => { e.target.style.display = 'none'; }} 
             />
@@ -157,7 +217,6 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
       );
     }
 
-    // 5. Text thường
     return <span className="whitespace-pre-wrap break-words line-clamp-[15] leading-relaxed">{dataContent}</span>;
   };
 

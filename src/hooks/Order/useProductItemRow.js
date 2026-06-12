@@ -3,10 +3,7 @@ import { useCallback } from 'react';
 export const useProductItemRow = ({ product, catalog, onUpdate }) => {
   // Định dạng tiền tệ VNĐ hiển thị trên giao diện trực quan
   const formatCurrency = useCallback((value) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(value || 0);
+    return new Intl.NumberFormat('en-US').format(value || 0) + ' đ';
   }, []);
 
   // 🌟 ĐỒNG BỘ HOÀN HẢO THEO useProducts: Áp dụng tra cứu chuẩn key hệ thống
@@ -31,7 +28,8 @@ export const useProductItemRow = ({ product, catalog, onUpdate }) => {
       base_price: basePriceFromApi,
       price: basePriceFromApi,
       appliedPrice: currentQty * basePriceFromApi,
-      applied_price: currentQty * basePriceFromApi
+      applied_price: currentQty * basePriceFromApi,
+      appliedPriceDisplay: undefined
     });
   }, [catalog, product.quantity, onUpdate]);
 
@@ -43,7 +41,8 @@ export const useProductItemRow = ({ product, catalog, onUpdate }) => {
       onUpdate({
         quantity: '',
         appliedPrice: 0,
-        applied_price: 0
+        applied_price: 0,
+        appliedPriceDisplay: undefined
       });
       return;
     }
@@ -54,17 +53,20 @@ export const useProductItemRow = ({ product, catalog, onUpdate }) => {
     onUpdate({ 
       quantity: newQty,
       appliedPrice: newQty * currentBasePrice,
-      applied_price: newQty * currentBasePrice
+      applied_price: newQty * currentBasePrice,
+      appliedPriceDisplay: undefined
     });
   }, [product.basePrice, product.price, onUpdate]);
 
   const handleAppliedPriceChange = useCallback((e) => {
-    const newPrice = Number(e.target.value) || 0;
-    if (newPrice < 0) return;
+    const rawValue = e.target.value;
+    const cleanValue = rawValue.replace(/[^\d]/g, '');
+    const newPrice = Number(cleanValue) || 0;
     
     onUpdate({ 
       appliedPrice: newPrice,
-      applied_price: newPrice
+      applied_price: newPrice,
+      appliedPriceDisplay: rawValue
     });
   }, [onUpdate]);
 
