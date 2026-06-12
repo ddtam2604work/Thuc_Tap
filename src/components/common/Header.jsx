@@ -8,7 +8,7 @@ import { useSocket } from '../../context/SocketContext';
 import { getUserRoleFromToken } from '../../utils/auth'; 
 import Button from '../skeleton/Button'; 
 import ActiveWrapper from '../skeleton/ActiveWrapper'; 
-import NotificationDropdown from '../common/NotificationDropdown';
+import NotificationDropdown from '../../pages/Notification/NotificationDropdown';
 
 // ==========================================
 // 1. COMPONENT LOGO (ĐIỀU CHỈNH ROUTE ĐỘNG)

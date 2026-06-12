@@ -7,7 +7,7 @@ const OrderFinancialSummary = ({ summary = {}, liability = {} }) => {
   const safeLiability = liability || {};
 
   // Hàm định dạng tiền tệ bọc thêm fallback (val || 0) tránh lỗi hiển thị NaN
-  const formatPrice = (val) => new Intl.NumberFormat('vi-VN').format(val || 0);
+  const formatPrice = (val) => new Intl.NumberFormat('en-US').format(val || 0);
 
   return (
     <div className="w-full flex flex-col gap-4 text-[12px]">

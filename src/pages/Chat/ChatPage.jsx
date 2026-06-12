@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useChat } from '../../hooks/Chat/useChat';
+import { useSocket } from '../../context/SocketContext'; // 🌟 BỔ SUNG: Import để lấy trực tiếp thực thể socket kết nối
+import { useCall } from '../../hooks/Chat/useCall';       // 🌟 BỔ SUNG: Kích hoạt Hook đàm thoại WebRTC mới
+import CallWindow from './CallWindow';                   // 🌟 BỔ SUNG: Layout overlay màn hình cuộc gọi
 
 // Import các modules đã được bóc tách
 import ChatSidebarLeft from './ChatSidebarLeft';
@@ -20,6 +23,16 @@ const ChatPage = () => {
     handleSendImage, handleStartRecording, handleStopRecording, handleToggleSpeechToText,
     handleForwardMessage, handleSendSticker, handleDownloadStickerPack
   } = useChat();
+
+  // 🌟 BỔ SUNG: Liên kết điều phối logic trạng thái cuộc gọi
+  const { socket, callSocket } = useSocket();
+  const callProps = useCall(callSocket, activeRoomId, role);
+
+  // 🌟 BỔ SUNG: Truy tìm chính xác tên người gọi dựa vào ID phòng cuộc gọi phát sinh
+  const currentCallRoomName = useMemo(() => {
+    const targetRoom = chatRooms.find(r => r.id === callProps.roomCallId);
+    return targetRoom ? targetRoom.name : (activeRoom?.name || 'Khách hàng hỗ trợ');
+  }, [callProps.roomCallId, chatRooms, activeRoom]);
 
   const chatImagesArray = useMemo(() => {
     const urlRegex = /(https?:\/\/[^\s]+)/gi;
@@ -89,9 +102,30 @@ const ChatPage = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Trực tuyến
               </span>
             </div>
-            <button onClick={() => setShowMediaSidebar(!showMediaSidebar)} className="h-8 px-3 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors">
-              {showMediaSidebar ? '✕ Đóng kho' : '📁 Kho dữ liệu'}
-            </button>
+            
+            {/* 🌟 THAY ĐỔI: Tích hợp nút Gọi điện thoại thoại (📞) và Video Call (📹) trực diện lên Header */}
+            <div className="flex items-center gap-2">
+              <button 
+                type="button" 
+                onClick={() => callProps.startCall('voice')} 
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
+                title="Gọi thoại thoại"
+              >
+                📞
+              </button>
+              <button 
+                type="button" 
+                onClick={() => callProps.startCall('video')} 
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
+                title="Gọi cuộc gọi Video"
+              >
+                📹
+              </button>
+              <span className="h-4 w-[1px] bg-gray-200 mx-1"></span>
+              <button onClick={() => setShowMediaSidebar(!showMediaSidebar)} className="h-8 px-3 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors">
+                {showMediaSidebar ? '✕ Đóng kho' : '📁 Kho dữ liệu'}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 gap-2">
@@ -181,6 +215,10 @@ const ChatPage = () => {
           <div className="absolute bottom-4 text-white/60 text-xs font-mono">{activeLightboxIndex + 1} / {chatImagesArray.length}</div>
         </div>
       )}
+
+      {/* 🌟 BỔ SUNG: Render màn hình điều phối cuộc gọi đè lên lớp cha */}
+      <CallWindow {...callProps} roomName={currentCallRoomName} />
+
     </div>
   );
 };

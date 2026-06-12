@@ -103,7 +103,7 @@ const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, 
             
             {/* Cột 4: Giá bán - Khóa cứng min-w */}
             <td className="p-4 text-right text-[#191C1D] font-semibold whitespace-nowrap w-[130px] min-w-[130px]">
-              {(Number(row.price) || 0).toLocaleString('vi-VN')} đ
+              {(Number(row.price) || 0).toLocaleString('en-US')} đ
             </td>
             
             {/* Cột 5: Mô tả - Dùng max-w-[160px] */}

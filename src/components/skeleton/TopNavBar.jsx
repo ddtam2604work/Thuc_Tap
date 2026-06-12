@@ -10,7 +10,7 @@ import { getUserRoleFromToken } from '../../utils/auth';
 import Button from './Button'; // Chú ý kiểm tra lại đường dẫn import Button của bạn
 import notificationIcon from '../../assets/images/icon_chuong_thong_bao.png';
 import chatIcon from '../../assets/images/icon_chat.png';
-import NotificationDropdown from '../common/NotificationDropdown';
+import NotificationDropdown from '../../pages/Notification/NotificationDropdown';
 
 const TopNavBar = () => {
   const { logout } = useAuth();
@@ -132,29 +132,25 @@ const TopNavBar = () => {
       {/* Right side: Icons & Avatar */}
       <div className="flex items-center gap-4">
         
-        {role !== 'customer' && (
-          <>
-            {/* Notification Icon */}
-            <NotificationDropdown />
-            
-            {/* Chat Icon (Tích hợp link & Badge đếm tin nhắn) */}
-            <Link to="/chat" className="relative flex items-center justify-center">
-              <Button variant="icon" className="h-[34px] w-[34px] p-0 hover:bg-white/10 transition-colors rounded-lg flex items-center justify-center">
-                <div 
-                  style={{ maskImage: `url(${chatIcon})` }}
-                  className="h-[19px] w-[19px] bg-white [mask-size:contain] [mask-repeat:no-repeat]" 
-                />
-              </Button>
-              
-              {/* Badge: Chỉ hiển thị khi có tin nhắn chưa đọc (globalUnreadCount > 0) */}
-              {globalUnreadCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
-                  {globalUnreadCount > 99 ? '99+' : globalUnreadCount}
-                </span>
-              )}
-            </Link>
-          </>
-        )}
+        {/* Notification Icon */}
+        <NotificationDropdown />
+        
+        {/* Chat Icon (Tích hợp link & Badge đếm tin nhắn) */}
+        <Link to="/chat" className="relative flex items-center justify-center">
+          <Button variant="icon" className="h-[34px] w-[34px] p-0 hover:bg-white/10 transition-colors rounded-lg flex items-center justify-center">
+            <div 
+              style={{ maskImage: `url(${chatIcon})` }}
+              className="h-[19px] w-[19px] bg-white [mask-size:contain] [mask-repeat:no-repeat]" 
+            />
+          </Button>
+          
+          {/* Badge: Chỉ hiển thị khi có tin nhắn chưa đọc (globalUnreadCount > 0) */}
+          {globalUnreadCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
+              {globalUnreadCount > 99 ? '99+' : globalUnreadCount}
+            </span>
+          )}
+        </Link>
 
         {/* Profile Avatar & Dropdown Logic */}
         <div className="relative ml-2" ref={dropdownRef}>

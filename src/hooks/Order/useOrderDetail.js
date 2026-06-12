@@ -183,10 +183,13 @@ export const useOrderDetail = () => {
         setStatus(raw.orderstatus_code || 'NEW'); 
       } else {
         showToast(beData?.message || 'Không thể tải dữ liệu đơn hàng.', 'error');
-        navigate('/orders');
+        navigate('/error', { state: { status: 404, message: beData?.message || 'Không tìm thấy dữ liệu đơn hàng hoặc bạn không có quyền truy cập.' } });
       }
     } catch (error) {
       console.error('❌ Lỗi tiến trình xử lý chi tiết đơn hàng:', error);
+      const errMsg = error?.response?.data?.message || error?.message || 'Không tìm thấy dữ liệu đơn hàng hoặc bạn không có quyền truy cập.';
+      const statusCode = error?.response?.status || error?.statusCode || 404;
+      navigate('/error', { state: { status: statusCode, message: errMsg } });
     } finally {
       if (!silent) setIsLoading(false);
     }
