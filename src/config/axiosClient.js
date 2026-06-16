@@ -2,9 +2,17 @@ import axios from 'axios';
 import { store } from '../redux/store'; 
 import { logout as logoutAction } from '../redux/slices/authSlice'; 
 
-const API_URL = import.meta.env.VITE_BE_URL;
+// =========================================================================
+// 🔥 ĐIỀU CHỈNH: Tự động nhận diện nếu chạy qua Ngrok để né lỗi mạng trên điện thoại
+// =========================================================================
+const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+const isNgrok = currentOrigin.includes('ngrok-free.dev');
+
+const API_URL = isNgrok ? currentOrigin : import.meta.env.VITE_BE_URL;
+
 // BỔ SUNG: Biến URL môi trường dành riêng cho cụm Media Server
 const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://113.161.204.185:4010';
+// =========================================================================
 
 export const apiBackend = axios.create({
   baseURL: `${API_URL}/api/v1`,
@@ -167,7 +175,7 @@ apiMedia.interceptors.response.use(
       }
 
       try {
-        console.log('🔄 Đang âm thầm đổi accessToken mới từ luồng Media...');
+        console.log('🔄 Đang âm thầm đổi accessToken mới từ luồng Media... ');
         
         const res = await axios.post(`${API_URL}/api/v1/auth/refresh-token`, {
           refreshToken: refreshToken
