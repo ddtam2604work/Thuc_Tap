@@ -1,5 +1,8 @@
 export const getUserRoleFromToken = () => {
     try {
+        const storedRole = localStorage.getItem('userRole');
+        if (storedRole) return storedRole.toLowerCase();
+
         const token = localStorage.getItem('accessToken');
         if (!token) return 'staff';
         const base64Url = token.split('.')[1];

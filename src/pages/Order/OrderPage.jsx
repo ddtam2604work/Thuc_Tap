@@ -163,7 +163,7 @@ const OrderPage = () => {
         </form>
 
         {/* Khối chứa bảng trắng bo góc tinh tế */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden transition-all min-h-[200px] flex flex-col justify-center">
+        <div className="w-full min-h-[200px] flex flex-col justify-center">
           {isLoading ? (
             <div className="text-center py-12 flex flex-col items-center justify-center gap-3 text-gray-400 text-[13px] font-medium animate-pulse">
               <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

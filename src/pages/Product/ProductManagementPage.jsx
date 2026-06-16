@@ -259,7 +259,7 @@ const ProductManagementPage = () => {
         {/* Table & Phân trang số hoàn chỉnh của AccountPage */}
         {!loading && !error && (
           <>
-            <div className="w-full overflow-x-auto bg-white rounded-lg shadow-sm border border-gray-100">
+            <div className="w-full">
               <ProductManagementTable data={products} categories={categories} onEdit={handleOpenEdit} onDelete={handleDelete} isLoading={isGenerating} />
             </div>
             

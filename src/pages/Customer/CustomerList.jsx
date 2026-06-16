@@ -181,7 +181,7 @@ const CustomerList = () => {
         </div>
 
         {/* Bảng dữ liệu */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden transition-all">
+        <div className="w-full">
           <CustomerListTable 
             customers={customers} 
             isLoading={loading} 

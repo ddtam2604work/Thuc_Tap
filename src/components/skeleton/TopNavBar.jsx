@@ -51,9 +51,25 @@ const TopNavBar = () => {
     await logout(); // Gọi logic logout từ useAuth (đã bao gồm xóa token và chuyển trang)
   };
 
+  // 🎯 HÀM MAP DỮ LIỆU: Dịch mã quyền sang tên hiển thị thân thiện (UI)
+  const getRoleDisplayName = (rawRole) => {
+    if (!rawRole) return "Người dùng";
+    const normalizedRole = String(rawRole).toUpperCase();
+    switch (normalizedRole) {
+      case 'ADMIN':
+        return "Quản trị viên";
+      case 'STAFF':
+        return "Nhân viên";
+      case 'CUSTOMER':
+        return "Khách hàng";
+      default:
+        return rawRole; // Fallback nếu có role lạ
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-50 flex h-[56px] w-full items-center justify-between bg-[#0037B0] px-4 shadow-md border-b border-white/20">
-      
+    <header className="sticky top-0 z-50 flex h-[56px] w-full justify-center bg-[#0037B0] shadow-md border-b border-white/20">
+      <div className="flex w-full items-center justify-between max-w-[1440px] px-3 sm:px-6 lg:px-8">
       {/* Left side: Hamburger (Mobile) & Title */}
       <div className="flex items-center gap-2">
         {/* Hamburger Menu Icon - for mobile */}
@@ -133,7 +149,7 @@ const TopNavBar = () => {
       <div className="flex items-center gap-4">
         
         {/* Notification Icon */}
-        <NotificationDropdown />
+        {role !== 'customer' && <NotificationDropdown />}
         
         {/* Chat Icon (Tích hợp link & Badge đếm tin nhắn) */}
         <Link to="/chat" className="relative flex items-center justify-center">
@@ -161,6 +177,7 @@ const TopNavBar = () => {
             `}
           >
             <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-white/30 overflow-hidden text-white text-[12px] font-bold">
+              {/* Có thể thay đổi chữ 'A' thành ký tự đầu của tên User nếu bạn có thông tin UserInfo */}
               <span>A</span>
             </div>
           </button>
@@ -172,7 +189,26 @@ const TopNavBar = () => {
               {/* User Info Header */}
               <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Tài khoản</p>
-                <p className="text-[13px] font-bold text-[#1E293B] truncate">Quản trị viên</p>
+                {/* 🎯 ĐÃ SỬA: Map đúng tên Role vào UI thay vì fix cứng */}
+                <p className="text-[13px] font-bold text-[#1E293B] truncate">
+                  {(() => {
+                    try {
+                      const userInfoStr = localStorage.getItem('userInfo');
+                      if (userInfoStr) {
+                        const userInfo = JSON.parse(userInfoStr);
+                        if (userInfo?.roles && userInfo.roles.length > 0 && userInfo.roles[0].name) {
+                          return userInfo.roles[0].name;
+                        }
+                        if (userInfo?.role_name) {
+                          return userInfo.role_name;
+                        }
+                      }
+                    } catch (e) {
+                      console.error("Lỗi parse userInfo trong TopNavBar", e);
+                    }
+                    return getRoleDisplayName(role);
+                  })()}
+                </p>
               </div>
               
               {/* Menu Links */}
@@ -199,6 +235,7 @@ const TopNavBar = () => {
           )}
         </div>
 
+      </div>
       </div>
     </header>
   );

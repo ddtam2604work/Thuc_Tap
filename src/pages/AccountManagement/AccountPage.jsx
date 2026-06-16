@@ -176,7 +176,7 @@ const AccountPage = () => {
         {error && !loading && <div className="text-center py-10 text-red-500">Lỗi: {error}</div>}
         
         {!loading && !error && (
-          <div className="w-full overflow-x-auto bg-white rounded-lg shadow-sm border border-gray-100">
+          <div className="w-full">
             <AccountTable 
               accounts={accounts} 
               onEdit={(acc) => setModal({ type: 'edit', data: acc, isOpen: true })} 

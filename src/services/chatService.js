@@ -85,6 +85,24 @@ export const chatService = {
     }
   },
 
+  // 🌟 ĐIỀU CHỈNH: Trỏ API upload Video về BASE_URL (Cổng 4000) theo đúng thiết kế của Backend
+  uploadVideoBase64: async (base64Data) => {
+    try {
+      // Đổi MEDIA_URL thành BASE_URL
+      const res = await fetch(`${BASE_URL}/api/v1/media/upload-video`, {
+        method: 'POST',
+        headers: getHeaders(false),
+        body: JSON.stringify({ video: base64Data }),
+      });
+      
+      if (!res.ok) throw new Error(`Backend Error status ${res.status}`);
+      return await res.json();
+    } catch (error) {
+      console.error('[chatService] uploadVideoBase64 error:', error);
+      throw error;
+    }
+  },
+
   uploadAudioBase64: async (base64Data) => {
     try {
       const res = await fetch(`${MEDIA_URL}/api/v1/media/upload-audio`, {

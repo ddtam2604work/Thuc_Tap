@@ -27,7 +27,7 @@ export const useAuth = () => {
         if (errorMessage) setErrorMessage(null);
     };
 
-    // 🎯 LUỒNG XỬ LÝ ĐĂNG NHẬP NÂNG CẤP PHÒNG THỦ ĐA TẦNG
+    // 🎯 LUỒNG XỬ LÝ ĐĂNG NHẬP NÂNG CẤP PHÒNG THỦ ĐA TẦNG & TRÍCH XUẤT ROLE
     const handleLogin = async (e) => {
         if (e && e.preventDefault) e.preventDefault(); 
         
@@ -54,16 +54,44 @@ export const useAuth = () => {
                 throw new Error(rawResponse?.message || rawResponse?.msg || 'Không nhận được Token xác thực hợp lệ từ hệ thống.');
             }
 
+            // ==========================================
+            // LÕI XỬ LÝ QUYỀN (ROLE EXTRACTION)
+            // ==========================================
+            let extractedRole = null;
+            
+            // Lấy role từ mảng roles (dựa theo cấu trúc JSON backend trả về)
+            if (userInfo?.roles && Array.isArray(userInfo.roles) && userInfo.roles.length > 0) {
+                extractedRole = userInfo.roles[0].code; // Kết quả ví dụ: "ADMIN"
+            } 
+            // Fallback: nếu Backend trả về dạng chuỗi role đơn lẻ
+            else if (userInfo?.role) {
+                extractedRole = userInfo.role;
+            }
+
+            // ==========================================
+            // LƯU TRỮ VÀO BỘ NHỚ TRÌNH DUYỆT
+            // ==========================================
             localStorage.setItem('accessToken', token);
             if (rToken) localStorage.setItem('refreshToken', rToken);
             if (userInfo) localStorage.setItem('userInfo', JSON.stringify(userInfo));
             
+            // LƯU ROLE TRỰC TIẾP (Ép kiểu về string an toàn)
+            if (extractedRole) {
+                localStorage.setItem('userRole', String(extractedRole));
+            } else {
+                // Fallback an toàn nếu không tìm thấy quyền, mặc định cho làm customer
+                localStorage.setItem('userRole', 'customer'); 
+            }
+            
             dispatch(loginSuccess({ token, user: userInfo }));
             setSuccessMessage('Đăng nhập thành công! Đang chuyển hướng...');
 
+            // Điều hướng dựa trên quyền vừa lưu
             setTimeout(() => {
-                const role = getUserRoleFromToken();
-                if (role === 'customer') {
+                // Đọc lại từ hàm tiện ích (Lúc này hàm getUserRoleFromToken phải đọc từ localStorage('userRole'))
+                const currentRole = (getUserRoleFromToken() || '').toLowerCase();
+                
+                if (currentRole === 'customer') {
                     navigate('/chat', { replace: true });
                 } else {
                     navigate('/home', { replace: true });
@@ -89,9 +117,11 @@ export const useAuth = () => {
         } catch (err) {
             console.error('Lỗi gọi API đăng xuất phía Server:', err);
         } finally {
+            // Dọn dẹp TOÀN BỘ rác trong LocalStorage
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('userInfo');
+            localStorage.removeItem('userRole'); // <--- QUAN TRỌNG: Xóa Role
             localStorage.clear(); 
             
             dispatch(logoutAction());

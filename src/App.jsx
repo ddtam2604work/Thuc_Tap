@@ -10,7 +10,7 @@ import LoginPage from './pages/Auth/LoginPage';
 import HomePage from './pages/Home/HomePage'; 
 import AccountPage from './pages/AccountManagement/AccountPage';
 import ProductPage from './pages/Product/ProductPage';
-import CustomerPage from './pages/customer/CustomerPage';
+import CustomerPage from './pages/Customer/CustomerPage';
 import ProfilePage from './pages/Profile/ProfilePage'; 
 import ChatPage from './pages/Chat/ChatPage';
 import NotificationPage from './pages/Notification/NotificationPage'; // Thêm trang thông báo phục vụ khách hàng
@@ -35,20 +35,32 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const location = useLocation();
 
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  const role = getUserRoleFromToken();
+  // Ép kiểu về string để an toàn, hoặc xử lý nếu backend trả về mảng
+  let role = getUserRoleFromToken(); 
+  
+  // Xử lý an toàn: Nếu role là mảng (vd: ['admin']), lấy phần tử đầu tiên
+  if (Array.isArray(role)) {
+    role = role[0]; 
+  }
+  
+  const normalizedRole = (role || '').toLowerCase();
 
-  // Nếu Route có cấu hình giới hạn quyền, và quyền hiện tại không nằm trong danh sách cho phép
+  // Kiểm tra quyền
   if (
     allowedRoles &&
-    !allowedRoles.map(r => r.toLowerCase()).includes((role || '').toLowerCase())
+    !allowedRoles.map(r => r.toLowerCase()).includes(normalizedRole)
   ) {
-    // Điều hướng dựa trên vai trò để tối ưu hóa trải nghiệm người dùng (UX)
-    if (role === 'customer') {
+    console.warn(`Access Denied: User role '${normalizedRole}' not in allowed roles:`, allowedRoles);
+    
+    // Tránh vòng lặp vô tận (Infinite Loop) nếu user không có cả quyền vào /home
+    if (normalizedRole === 'customer') {
       return <Navigate to="/products" replace />;
     }
+    // Nếu là staff nhưng cố vào /account-management (chỉ dành cho admin)
+    // Sẽ bị đẩy về /home. 
     return <Navigate to="/home" replace />;
   }
 

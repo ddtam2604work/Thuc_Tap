@@ -109,7 +109,7 @@ const ChatPage = () => {
                 type="button" 
                 onClick={() => callProps.startCall('voice')} 
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
-                title="Gọi thoại thoại"
+                title="Gọi thoại"
               >
                 📞
               </button>
@@ -117,13 +117,23 @@ const ChatPage = () => {
                 type="button" 
                 onClick={() => callProps.startCall('video')} 
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
-                title="Gọi cuộc gọi Video"
+                title="Gọi Video"
               >
                 📹
               </button>
               <span className="h-4 w-[1px] bg-gray-200 mx-1"></span>
-              <button onClick={() => setShowMediaSidebar(!showMediaSidebar)} className="h-8 px-3 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors">
-                {showMediaSidebar ? '✕ Đóng kho' : '📁 Kho dữ liệu'}
+              
+              {/* 🌟 THAY ĐỔI: Biến nút Kho Dữ Liệu thành Icon dạng Toggle */}
+              <button 
+                onClick={() => setShowMediaSidebar(!showMediaSidebar)} 
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs transition-all ${
+                  showMediaSidebar 
+                    ? 'border-blue-500 bg-blue-50 text-blue-600' 
+                    : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
+                }`}
+                title={showMediaSidebar ? "Đóng kho dữ liệu" : "Mở kho dữ liệu"}
+              >
+                {showMediaSidebar ? '📂' : '📁'}
               </button>
             </div>
           </div>
@@ -138,7 +148,18 @@ const ChatPage = () => {
         {activeRoom && (
           <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 p-6 overflow-y-auto bg-slate-50 flex flex-col gap-4 scrollbar-thin">
             {messages.map((msg) => {
-              const isMine = role === 'customer' ? msg.sendertype === 2 : msg.sendertype === 1;
+              // Chuyển const thành let để có thể ghi đè
+              let isMine = role === 'customer' ? msg.sendertype === 2 : msg.sendertype === 1;
+              
+              // 🌟 BỔ SUNG: Nếu là tin nhắn lịch sử cuộc gọi, ép hướng hiển thị theo người gọi (initiator)
+              if (typeof msg.content === 'string' && msg.content.startsWith('__CALL_HISTORY__:')) {
+                  try {
+                      const callData = JSON.parse(msg.content.replace('__CALL_HISTORY__:', ''));
+                      // Nếu vai trò hiện tại trùng với người khởi tạo -> tin nhắn của mình (nằm bên phải)
+                      isMine = callData.initiator === role;
+                  } catch (e) {}
+              }
+
               const msgTime = msg.createdate ? new Date(msg.createdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : msg.time;
               const uniqueMsgId = msg.id || msg._id || msg.chatmessage_id || msg.createdate;
 
@@ -155,6 +176,7 @@ const ChatPage = () => {
                     openLightbox={openLightbox}
                     setSelectedMsgToForward={setSelectedMsgToForward}
                     setForwardModalOpen={setForwardModalOpen}
+                    role={role} // 🌟 NHỚ TRUYỀN THÊM role VÀO ĐÂY ĐỂ ChatMessage BIẾT VAI TRÒ
                   />
                 </div>
               );

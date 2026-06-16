@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { mediaService } from '../../services/mediaService'; 
 
 export const resolveAbsoluteUrl = (fileContent) => {
@@ -12,21 +12,62 @@ export const resolveAbsoluteUrl = (fileContent) => {
   return mediaService.getViewUrl(idStr);
 };
 
-const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForward, setForwardModalOpen }) => {
+const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelectedMsgToForward, setForwardModalOpen }) => {
   const dataContent = (msg.content || msg.text || '').trim();
+
+  // 🌟 BỔ SUNG: State quản lý hiển thị các menu chức năng & thu gọn nội dung
+  const [showMenu, setShowMenu] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const menuRef = useRef(null);
+
+  // Xử lý đóng Menu Tùy chọn khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMenu]);
 
   const isUUID = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/i.test(dataContent);
   const isImageFileName = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(dataContent) && !dataContent.includes(' ');
+  const isVideoFileName = /\.(mp4|webm|ogg|mov)$/i.test(dataContent) && !dataContent.includes(' ');
 
   const isStickerFallback = /api\.dicebear\.com/i.test(dataContent);
   const isSticker = msg.msg_type === 'sticker' || isStickerFallback;
   
-  const isForcedImage = !isSticker && (msg.msg_type === 'image' || /^blob:/i.test(dataContent) || /^data:image\//i.test(dataContent) || isUUID || isImageFileName);
+  const isForcedImage = !isSticker && (msg.msg_type === 'image' || /^blob:/i.test(dataContent) || /^data:image\//i.test(dataContent) || (isUUID && msg.msg_type !== 'video' && msg.msg_type !== 'audio') || isImageFileName);
+  const isForcedVideo = !isSticker && (msg.msg_type === 'video' || /^data:video\//i.test(dataContent) || isVideoFileName);
   
-  // 🌟 ĐỒNG BỘ ĐA TẦNG: Chấp nhận cả kiểu cấu trúc msg_type native lẫn chuỗi text mặt nạ từ DB đổ ra
   const isMaskedCallStr = dataContent.startsWith('__CALL_HISTORY__:');
   const isCallHistory = msg.msg_type === 'call_history' || isMaskedCallStr;
-  const isMediaCard = isForcedImage || isSticker || isCallHistory;
+
+  let isMine = propIsMine;
+  let parsedCallData = null;
+
+  if (isCallHistory) {
+    try {
+      const rawJson = isMaskedCallStr ? dataContent.substring('__CALL_HISTORY__:'.length) : dataContent;
+      parsedCallData = JSON.parse(rawJson);
+
+      let currentRole = 'staff';
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(window.atob(base64));
+        currentRole = payload.customer_id ? 'customer' : 'staff';
+      }
+
+      isMine = parsedCallData.initiator === currentRole;
+    } catch (e) {
+      console.error("❌ Lỗi cấu trúc JSON trong msg.content của call_history:", e);
+    }
+  }
+
+  const isMediaCard = isForcedImage || isForcedVideo || isSticker || isCallHistory;
 
   const handleContextMenu = (e) => {
     e.preventDefault(); 
@@ -36,103 +77,90 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
 
   const renderBody = () => {
     if (isCallHistory) {
-      try {
-        const rawJson = isMaskedCallStr ? dataContent.substring('__CALL_HISTORY__:'.length) : dataContent;
-        const callData = JSON.parse(rawJson);
-        const isVideo = callData.type === 'video';
-        
-        const mins = Math.floor((callData.duration || 0) / 60);
-        const secs = (callData.duration || 0) % 60;
-        const timeString = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      if (!parsedCallData) return <span className="text-xs italic text-gray-400 bg-gray-100 p-2 rounded-lg">Bản ghi cuộc gọi lỗi cấu trúc</span>;
 
-        let statusText = '';
-        let subText = '';
-        let icon = isVideo ? '📹' : '📞';
+      const callData = parsedCallData;
+      const isVideo = callData.type === 'video';
+      
+      const mins = Math.floor((callData.duration || 0) / 60);
+      const secs = (callData.duration || 0) % 60;
+      const timeString = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-        const currentRole = localStorage.getItem('accessToken') && 
-          JSON.parse(window.atob(localStorage.getItem('accessToken').split('.')[1])).customer_id ? 'customer' : 'staff';
-        
-        const isInitiatorMe = callData.initiator === currentRole;
+      let statusText = '';
+      let subText = '';
+      let icon = isVideo ? '📹' : '📞';
 
-        if (callData.status === 'completed') {
-          statusText = isInitiatorMe ? (isVideo ? 'Cuộc gọi video đi' : 'Cuộc gọi thoại đi') : (isVideo ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến');
-          subText = `Thời lượng: ${timeString}`;
-        } else if (callData.status === 'busy') {
-          statusText = isInitiatorMe ? 'Máy bận' : 'Cuộc gọi nhỡ';
-          subText = 'Đối phương đang bận';
-        } else if (callData.status === 'rejected') {
-          statusText = isInitiatorMe ? (isVideo ? 'Cuộc gọi video bị từ chối' : 'Cuộc gọi thoại bị từ chối') : (isVideo ? 'Từ chối cuộc gọi video' : 'Từ chối cuộc gọi thoại');
-          subText = 'Đã từ chối';
-        } else {
-          statusText = isInitiatorMe ? (isVideo ? 'Cuộc gọi video không trả lời' : 'Cuộc gọi thoại không trả lời') : (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi thoại nhỡ');
-          subText = 'Bỏ lỡ';
-        }
-
-        return (
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-xs shadow-xs min-w-[220px] transition-all max-w-[280px] ${
-            isMine 
-              ? 'bg-blue-50/70 border-blue-100 text-blue-950 rounded-tr-none' 
-              : 'bg-gray-50/90 border-gray-100 text-gray-800 rounded-tl-none'
-          }`}>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-xs ${
-              callData.status === 'completed' 
-                ? 'bg-green-100 text-green-600' 
-                : 'bg-red-100 text-red-500'
-            }`}>
-              {icon}
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="font-bold truncate text-[13px]">{statusText}</span>
-              <span className="text-[11px] font-medium text-gray-500">{subText}</span>
-            </div>
-          </div>
-        );
-      } catch (e) {
-        console.error("❌ Lỗi cấu trúc JSON trong msg.content của call_history:", e);
-        return <span className="text-xs italic text-gray-400 bg-gray-100 p-2 rounded-lg">Bản ghi cuộc gọi lỗi cấu trúc</span>;
+      if (callData.status === 'completed') {
+        statusText = isMine ? (isVideo ? 'Cuộc gọi video đi' : 'Cuộc gọi thoại đi') : (isVideo ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến');
+        subText = `Thời lượng: ${timeString}`;
+      } else if (callData.status === 'busy') {
+        statusText = isMine ? 'Máy bận' : 'Cuộc gọi nhỡ';
+        subText = 'Đối phương đang bận';
+      } else if (callData.status === 'rejected') {
+        statusText = isMine ? (isVideo ? 'Cuộc gọi video bị từ chối' : 'Cuộc gọi thoại bị từ chối') : (isVideo ? 'Từ chối cuộc gọi video' : 'Từ chối cuộc gọi thoại');
+        subText = 'Đã từ chối';
+      } else {
+        statusText = isMine ? (isVideo ? 'Cuộc gọi video không trả lời' : 'Cuộc gọi thoại không trả lời') : (isVideo ? 'Cuộc gọi video nhỡ' : 'Cuộc gọi thoại nhỡ');
+        subText = 'Bỏ lỡ';
       }
+
+      return (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-xs shadow-xs min-w-[220px] transition-all max-w-[280px] ${
+          isMine 
+            ? 'bg-blue-50/70 border-blue-100 text-blue-950 rounded-tr-none' 
+            : 'bg-gray-50/90 border-gray-100 text-gray-800 rounded-tl-none'
+        }`}>
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-xs ${
+            callData.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
+          }`}>
+            {icon}
+          </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="font-bold truncate text-[13px]">{statusText}</span>
+            <span className="text-[11px] font-medium text-gray-500">{subText}</span>
+          </div>
+        </div>
+      );
     }
 
-    // 1. Sticker
     if (isSticker) {
       return (
         <div className="hover:scale-105 transition-transform duration-200 py-1">
           <img 
-            src={resolveAbsoluteUrl(dataContent)} 
-            alt="Sticker" 
-            className="w-28 h-28 object-contain drop-shadow-md" 
-            referrerPolicy="no-referrer"
-            onError={(e) => { 
-              e.target.onerror = null; 
-              e.target.src = 'https://placehold.co/112x112/transparent/94a3b8?text=Sticker+Lỗi';
-            }} 
+            src={resolveAbsoluteUrl(dataContent)} alt="Sticker" 
+            className="w-28 h-28 object-contain drop-shadow-md" referrerPolicy="no-referrer"
+            onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/112x112/transparent/94a3b8?text=Sticker+Lỗi'; }} 
           />
         </div>
       );
     }
 
-    // 2. Image
     if (isForcedImage) {
       const imageUrl = resolveAbsoluteUrl(dataContent);
       return (
         <div className="relative overflow-hidden rounded-xl border border-gray-100 shadow-xs max-w-[260px] bg-gray-50 flex items-center justify-center min-h-[100px] min-w-[100px]">
           <img 
-            src={imageUrl} 
-            alt="Chat Media" 
+            src={imageUrl} alt="Chat Media" referrerPolicy="no-referrer" onClick={() => openLightbox(imageUrl)} 
             className="max-h-[320px] w-full object-cover cursor-zoom-in hover:brightness-95 transition-all" 
-            referrerPolicy="no-referrer"
-            onClick={() => openLightbox(imageUrl)} 
-            onError={(e) => { 
-              e.target.onerror = null; 
-              e.target.src = 'https://placehold.co/260x200/e2e8f0/94a3b8?text=Image+Not+Found';
-              e.target.className = "w-full h-full object-cover opacity-70 p-1 rounded-xl";
-            }} 
+            onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/260x200/e2e8f0/94a3b8?text=Image+Not+Found'; e.target.className = "w-full h-full object-cover opacity-70 p-1 rounded-xl"; }} 
           />
         </div>
       );
     }
 
-    // 3. Audio
+    if (isForcedVideo) {
+      const videoUrl = resolveAbsoluteUrl(dataContent);
+      return (
+        <div className="relative overflow-hidden rounded-xl border border-gray-100 shadow-xs max-w-[260px] bg-black flex items-center justify-center min-h-[100px] min-w-[100px]">
+          <video 
+            src={videoUrl} controls playsInline preload="metadata"
+            className="max-h-[320px] w-full object-contain" 
+            onError={(e) => { console.error('Lỗi tải video'); }} 
+          />
+        </div>
+      );
+    }
+
     if (msg.msg_type === 'audio' || /^data:audio\//i.test(dataContent) || /\.mp3/i.test(dataContent)) {
       return (
         <div className="flex items-center py-1 min-w-[220px]">
@@ -141,9 +169,7 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
       );
     }
 
-    // 4. URL / Link Image / Video / Youtube
     const urlMatches = dataContent.match(/(https?:\/\/[^\s]+)/gi);
-    
     if (urlMatches && urlMatches.length > 0) {
       const matchedUrl = urlMatches[0];
       let isImgUrl = false, isVideoUrl = false, isYouTube = false, youtubeId = '';
@@ -153,7 +179,6 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
       try { 
         const urlObj = new URL(matchedUrl);
         domainName = urlObj.hostname; 
-        
         let cleanPath = urlObj.pathname.replace(/[.,;!?)]+$/, '');
         isImgUrl = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(cleanPath);
         
@@ -165,16 +190,11 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
           isImgUrl = true;
         }
         
-        if (!isImgUrl) {
-          isVideoUrl = /\.(mp4|webm|ogg)$/i.test(cleanPath);
-        }
+        if (!isImgUrl) isVideoUrl = /\.(mp4|webm|ogg)$/i.test(cleanPath);
         
         if (!isImgUrl && !isVideoUrl) {
           const ytMatch = matchedUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-          if (ytMatch && ytMatch[1]) {
-            isYouTube = true;
-            youtubeId = ytMatch[1];
-          }
+          if (ytMatch && ytMatch[1]) { isYouTube = true; youtubeId = ytMatch[1]; }
         }
       } catch (e) {}
 
@@ -190,14 +210,7 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
           </div>
 
           {isImgUrl ? (
-            <img 
-              src={finalImageUrl} 
-              alt="Preview" 
-              className="w-full max-h-[180px] rounded-lg cursor-zoom-in shadow-sm border border-black/5 object-cover bg-white" 
-              referrerPolicy="no-referrer"
-              onClick={() => openLightbox(finalImageUrl)} 
-              onError={(e) => { e.target.style.display = 'none'; }} 
-            />
+            <img src={finalImageUrl} alt="Preview" referrerPolicy="no-referrer" onClick={() => openLightbox(finalImageUrl)} onError={(e) => { e.target.style.display = 'none'; }} className="w-full max-h-[180px] rounded-lg cursor-zoom-in shadow-sm border border-black/5 object-cover bg-white" />
           ) : isYouTube ? (
             <div className="relative w-full rounded-lg overflow-hidden bg-black shadow-sm" style={{ paddingBottom: '56.25%' }}>
               <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${youtubeId}`} title="YouTube" frameBorder="0" allowFullScreen></iframe>
@@ -217,7 +230,26 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
       );
     }
 
-    return <span className="whitespace-pre-wrap break-words line-clamp-[15] leading-relaxed">{dataContent}</span>;
+    // 🌟 THAY ĐỔI: Thu gọn văn bản dài chỉ khi user bấm "Xem thêm" (UX cực mượt)
+    const TEXT_LIMIT = 400;
+    if (dataContent.length > TEXT_LIMIT) {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="whitespace-pre-wrap break-words leading-relaxed">
+            {isExpanded ? dataContent : `${dataContent.substring(0, TEXT_LIMIT)}...`}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+            className={`text-[11px] font-bold mt-1 self-end transition-colors ${isMine ? 'text-blue-200 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`}
+          >
+            {isExpanded ? 'Thu gọn' : 'Xem thêm'}
+          </button>
+        </div>
+      );
+    }
+
+    return <span className="whitespace-pre-wrap break-words leading-relaxed">{dataContent}</span>;
   };
 
   return (
@@ -225,8 +257,35 @@ const ChatMessage = ({ msg, isMine, msgTime, openLightbox, setSelectedMsgToForwa
       onContextMenu={handleContextMenu}
       className={`flex flex-col max-w-[75%] group relative cursor-pointer select-none ${isMine ? 'self-end items-end' : 'self-start items-start'}`}
     >
-      <div className={`absolute top-1/2 -translate-y-1/2 hidden group-hover:flex items-center bg-white border border-gray-200 rounded-lg shadow-md p-1 gap-1 z-20 text-[11px] ${isMine ? '-left-12' : '-right-12'}`}>
-        <button type="button" onClick={() => { setSelectedMsgToForward(msg); setForwardModalOpen(true); }} className="p-1 text-gray-500 hover:text-blue-600 rounded hover:bg-gray-50" title="Chuyển tiếp">↩️</button>
+      {/* 🌟 THAY ĐỔI: Menu Tùy chọn (3 chấm) đóng gói chức năng ẩn, thay vì hiển thị hover thô thiển */}
+      <div ref={menuRef} className={`absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-20 ${isMine ? '-left-8' : '-right-8'}`}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+          className={`w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 bg-white/90 rounded-full shadow-xs border border-gray-100 transition-all ${showMenu ? 'opacity-100 ring-2 ring-blue-100' : 'opacity-0 group-hover:opacity-100'}`}
+          title="Tùy chọn tin nhắn"
+        >
+          ⋮
+        </button>
+
+        {showMenu && (
+          <div className={`absolute top-full mt-1 bg-white border border-gray-100 shadow-xl rounded-xl py-1.5 flex flex-col min-w-[130px] text-xs z-50 animate-in fade-in zoom-in-95 duration-100 ${isMine ? 'right-0' : 'left-0'}`}>
+            <button 
+              type="button" 
+              onClick={(e) => { e.stopPropagation(); setSelectedMsgToForward(msg); setForwardModalOpen(true); setShowMenu(false); }} 
+              className="px-3 py-2 text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2"
+            >
+              <span>↩️</span> Chuyển tiếp
+            </button>
+            <button 
+              type="button" 
+              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(dataContent); setShowMenu(false); }} 
+              className="px-3 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <span>📋</span> Sao chép
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={`px-3.5 py-2 text-[13px] leading-relaxed shadow-xs ${

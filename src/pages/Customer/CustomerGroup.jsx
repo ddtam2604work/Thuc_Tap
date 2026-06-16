@@ -100,23 +100,15 @@ const CustomerGroup = () => {
           </div>
         </div>
 
-        {/* Trạng thái Loading dữ liệu từ máy chủ */}
-        {loading && (
-          <div className="text-center py-10 text-gray-500">
-            ⏳ Đang đồng bộ danh mục nhóm từ máy chủ...
-          </div>
-        )}
-        
-        {/* ĐÃ ĐIỀU CHỈNH: Thêm container bọc ngoài Table giúp đồng bộ layout bo góc trắng đổ bóng mượt mà giống image_a7a606.png */}
-        {!loading && (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden transition-all">
-            <CustomerGroupTable 
-              groups={filteredGroups} 
-              onEdit={handleOpenEditModal} 
-              onDelete={handleDeleteGroup} 
-            />
-          </div>
-        )}
+        {/* ĐÃ ĐIỀU CHỈNH: Bỏ wrapper bị dư style để đồng bộ với Table */}
+        <div className="w-full">
+          <CustomerGroupTable 
+            groups={filteredGroups}
+            isLoading={loading}
+            onEdit={handleOpenEditModal} 
+            onDelete={handleDeleteGroup} 
+          />
+        </div>
       </main>
 
       {/* Cấu trúc Modal Form Thêm / Sửa nhóm */}

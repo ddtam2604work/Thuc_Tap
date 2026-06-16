@@ -86,7 +86,7 @@ export const useChat = () => {
             const isStickerFallback = /api\.dicebear\.com/i.test(content);
             const isActualSticker = msg.msg_type === 'sticker' || isStickerFallback;
 
-            const isPureUploadedImage = !isActualSticker && (msg.msg_type === 'image' || isBase64OrBlob || isUUID || (isImageFileName && !content.startsWith('http')));
+            const isPureUploadedImage = !isActualSticker && (msg.msg_type === 'image' || isBase64OrBlob || (isUUID && msg.msg_type !== 'video' && msg.msg_type !== 'audio') || (isImageFileName && !content.startsWith('http')));
 
             if (isPureUploadedImage) {
                 let finalImageUrl = content;
@@ -182,8 +182,42 @@ export const useChat = () => {
                 socket.emit('chat:read', { chatconversation_id: activeRoomId });
             }
             
+            // 🌟 THAY ĐỔI: Xử lý logic bóc tách chi tiết trạng thái cuộc gọi theo vai trò
             const isMasked = typeof data.content === 'string' && data.content.startsWith('__CALL_HISTORY__:');
-            const previewText = isMasked ? '[Lịch sử cuộc gọi]' : (data.msg_type === 'image' ? '[Hình ảnh]' : data.msg_type === 'sticker' ? '[Nhãn dán]' : data.msg_type === 'audio' ? '[Ghi âm]' : data.content);
+            let previewText = data.content;
+
+            if (isMasked) {
+                try {
+                    const callData = JSON.parse(data.content.replace('__CALL_HISTORY__:', ''));
+                    const isVideo = callData.type === 'video';
+                    const icon = isVideo ? '📹' : '📞';
+                    
+                    // Kiểm tra xem user hiện tại có phải là người gọi hay không
+                    const isMyCall = callData.initiator === role; 
+                    
+                    if (callData.status === 'rejected') {
+                        // Nếu mình là người gọi đi (Khách hàng) -> Hiển thị "bị từ chối"
+                        // Nếu mình là người nhận (Admin) -> Hiển thị "Từ chối cuộc gọi"
+                        previewText = isMyCall 
+                            ? `${icon} Cuộc gọi thoại bị từ chối` 
+                            : `${icon} Từ chối cuộc gọi`;
+                    } else if (callData.status === 'missed' || callData.status === 'busy') {
+                        previewText = isMyCall 
+                            ? `${icon} Cuộc gọi đi bị nhỡ` 
+                            : `${icon} Cuộc gọi đến bị nhỡ`;
+                    } else {
+                        previewText = `${icon} Cuộc gọi (${callData.duration}s)`;
+                    }
+                } catch (e) {
+                    previewText = '[Lịch sử cuộc gọi]';
+                }
+            } else if (data.msg_type === 'image') {
+                previewText = '[Hình ảnh]';
+            } else if (data.msg_type === 'sticker') {
+                previewText = '[Nhãn dán]';
+            } else if (data.msg_type === 'audio') {
+                previewText = '[Ghi âm]';
+            }
 
             setChatRooms((prevRooms) =>
                 prevRooms.map((room) =>
@@ -293,6 +327,39 @@ export const useChat = () => {
 
     const handleSendImage = useCallback(async (file) => {
         if (!file || !socket || !activeRoomId) return;
+        
+        const isVideo = file.type && file.type.startsWith('video/');
+
+        // 🌟 XỬ LÝ VIDEO TƯƠNG TỰ AUDIO: Chuyển thành Base64 và Fallback qua Socket nếu API lỗi 404
+        if (isVideo) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file); // Mã hóa video thành Base64
+            
+            reader.onloadend = async () => {
+                const base64Data = reader.result;
+                try {
+                    // Thử gọi API upload Base64
+                    const result = await chatService.uploadVideoBase64(base64Data);
+                    const savedPath = result?.data?.filePath || result?.data?.fileUrl || base64Data;
+                    
+                    socket.emit('chat:send', {
+                        chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+                        content: savedPath, msg_type: 'video'
+                    });
+                } catch (err) {
+                    // 🎯 FALLBACK: Vì API đang báo 404, code sẽ nhảy vào đây và gửi trực tiếp Video Base64 vào thẳng Socket chat!
+                    socket.emit('chat:send', {
+                        chatconversation_id: activeRoomId, company_id: COMPANY_ID,
+                        content: base64Data, msg_type: 'video'
+                    });
+                }
+            };
+            return; // Dừng luồng tại đây để chờ FileReader hoàn tất
+        }
+
+        // ==========================================
+        // KHỐI LOGIC UPLOAD ẢNH CŨ (GIỮ NGUYÊN 100%)
+        // ==========================================
         try {
             const formData = new FormData();
             formData.append('files', file); 
@@ -332,7 +399,7 @@ export const useChat = () => {
             } else {
                 detailError = String(err);
             }
-            alert(`Upload ảnh thất bại!\n\nChi tiết lỗi hệ thống:\n${detailError}`); 
+            alert(`Tải file thất bại!\n\nChi tiết lỗi hệ thống:\n${detailError}`); 
         }
     }, [socket, activeRoomId]);
 
@@ -467,6 +534,22 @@ export const useChat = () => {
         if (role === 'customer') return;
         setActiveRoomId(roomId);
         setChatRooms(prevRooms => prevRooms.map(room => room.id === roomId ? { ...room, unread: 0 } : room));
+
+        // 🌟 NÂNG CẤP UX: Tự động thu gọn tất cả các chức năng mở rộng khi đổi khách hàng (Reset Context)
+        setShowMediaSidebar(false);
+        setShowStickerPicker(false);
+        
+        // Dọn dẹp micro nếu đang bật ghi âm
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+        
+        // Dọn dẹp bộ nhận diện giọng nói nếu đang dịch
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
     }, [role]);
 
     const activeRoom = useMemo(() => chatRooms.find(r => r.id === activeRoomId), [chatRooms, activeRoomId]);

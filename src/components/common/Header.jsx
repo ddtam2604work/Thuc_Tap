@@ -26,7 +26,7 @@ const Logo = () => {
           <path d="M18.88 19.12l-3.76-3.76" />
           <path d="M21 14l-1.5 1.5" />
       </svg>
-      <span className="text-xl font-bold text-white tracking-tight">QuanLy</span>
+      <span className="text-xl font-bold text-white tracking-tight">QLKD</span>
     </Link>
   );
 };
