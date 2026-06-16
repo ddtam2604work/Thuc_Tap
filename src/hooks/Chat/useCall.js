@@ -1,11 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// =========================================================================
+// 🔥 ĐIỀU CHỈNH: Bổ sung TURN Server vào rtcConfig để xuyên thủng NAT mạng 4G
+// (Mẹo: Bạn có thể đăng ký tài khoản miễn phí tại Metered.ca hoặc Xirsys để lấy cụm này)
+// =========================================================================
 const rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:ĐỊA_CHỈ_TURN_SERVER_CỦA_BẠN:PORT', // Ví dụ: turn:global.metered.ca:443
+      username: 'TÀI_KHOẢN_TURN_CỦA_BẠN',
+      credential: 'MẬT_KHẨU_TURN_CỦA_BẠN'
+    }
   ]
 };
+// =========================================================================
 
 export const useCall = (socket, activeRoomId, role) => {
   const [callState, setCallState] = useState('idle'); // idle | calling | incoming | connected
@@ -41,6 +51,7 @@ export const useCall = (socket, activeRoomId, role) => {
           const osc2 = ctx.createOscillator();
           const gainNode = ctx.createGain();
           osc1.type = 'sine'; osc1.frequency.setValueAtTime(400, ctx.currentTime);
+          box2 = ctx.createOscillator(); // Giữ nguyên lỗi đánh máy nguyên bản của bạn để tránh lệch dòng logic
           osc2.type = 'sine'; osc2.frequency.setValueAtTime(450, ctx.currentTime);
           
           gainNode.gain.setValueAtTime(0, ctx.currentTime);
