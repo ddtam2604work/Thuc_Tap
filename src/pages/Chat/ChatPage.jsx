@@ -109,7 +109,11 @@ const ChatPage = () => {
                 type="button" 
                 onClick={() => callProps.startCall('voice')} 
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
+<<<<<<< HEAD
                 title="Gọi thoại"
+=======
+                title="Gọi thoại thoại"
+>>>>>>> cac3715996eb4af2cfa19996f7703af37e4062fa
               >
                 📞
               </button>
@@ -117,11 +121,16 @@ const ChatPage = () => {
                 type="button" 
                 onClick={() => callProps.startCall('video')} 
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
+<<<<<<< HEAD
                 title="Gọi Video"
+=======
+                title="Gọi cuộc gọi Video"
+>>>>>>> cac3715996eb4af2cfa19996f7703af37e4062fa
               >
                 📹
               </button>
               <span className="h-4 w-[1px] bg-gray-200 mx-1"></span>
+<<<<<<< HEAD
               
               {/* 🌟 THAY ĐỔI: Biến nút Kho Dữ Liệu thành Icon dạng Toggle */}
               <button 
@@ -134,6 +143,10 @@ const ChatPage = () => {
                 title={showMediaSidebar ? "Đóng kho dữ liệu" : "Mở kho dữ liệu"}
               >
                 {showMediaSidebar ? '📂' : '📁'}
+=======
+              <button onClick={() => setShowMediaSidebar(!showMediaSidebar)} className="h-8 px-3 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors">
+                {showMediaSidebar ? '✕ Đóng kho' : '📁 Kho dữ liệu'}
+>>>>>>> cac3715996eb4af2cfa19996f7703af37e4062fa
               </button>
             </div>
           </div>
