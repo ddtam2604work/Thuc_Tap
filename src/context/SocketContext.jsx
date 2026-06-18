@@ -5,7 +5,9 @@ import { useSelector } from 'react-redux';
 
 // Đảm bảo không lỗi nếu biến môi trường chưa load kịp
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://113.161.204.185:4000';
-const CALL_SERVER_URL = 'http://localhost:4001';
+
+// 🌟 ĐIỀU CHỈNH 1: Trỏ động URL Call Server theo môi trường thông qua biến .env hoặc domain Production thực tế
+const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || 'https://qlkd.nosomovo.xyz:4001';
 
 const SocketContext = createContext();
 export const useSocket = () => useContext(SocketContext);
@@ -117,16 +119,24 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
-    // KẾT NỐI CALL SOCKET SERVER (Local: 4001)
-    const callSocketInstance = io(CALL_SERVER_URL, {
+    // 🌟 ĐIỀU CHỈNH 2: Tự động chuẩn hóa giao thức kết nối động cho Call Socket
+    const safeCallUrl = String(CALL_SERVER_URL);
+    const targetCallUrl = safeCallUrl.includes('localhost')
+      ? safeCallUrl.replace('https://', 'http://')
+      : safeCallUrl;
+
+    // 🌟 ĐIỀU CHỈNH 3: Khởi tạo Call Socket bọc cấu hình bảo mật SSL cho Production
+    const callSocketInstance = io(targetCallUrl, {
       transports: ['websocket', 'polling'],
+      secure: !targetCallUrl.includes('http://'), // Tự động bật mã hóa an toàn WSS nếu chạy URL HTTPS Production
+      rejectUnauthorized: false,                  // Vượt cơ chế chặn chứng chỉ SSL tự ký khi gọi IP/Domain thực tế
       auth: { token: token.replace(/^Bearer\s+/i, '').trim() }
     });
 
     setCallSocket(callSocketInstance);
 
     callSocketInstance.on('connect', () => {
-      console.log('🟢 Kết nối Call Socket thành công đến:', CALL_SERVER_URL);
+      console.log('🟢 Kết nối Call Socket thành công đến:', targetCallUrl);
     });
 
     callSocketInstance.on('connect_error', (err) => {
