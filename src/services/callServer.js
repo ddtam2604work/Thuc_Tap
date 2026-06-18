@@ -1,40 +1,22 @@
 import 'dotenv/config'; // 🌟 Đọc cấu hình từ file .env
 import express from 'express';
 import http from 'http';
-import https from 'https'; // 🌟 BỔ SUNG: Khai báo module https để bọc SSL Production
-import fs from 'fs';       // 🌟 BỔ SUNG: Khai báo module fs để đọc file chứng chỉ
 import { Server } from 'socket.io';
 import cors from 'cors';
 
-// 🌟 BẮT BUỘC PHÒNG THỦ: Bỏ qua cảnh báo chặn bảo mật TLS khi Node gọi HTTPS tới IP Public chứng chỉ tự ký
+// BẮT BUỘC PHÒNG THỦ: Bỏ qua cảnh báo chặn bảo mật TLS khi Node gọi HTTPS tới IP Public chứng chỉ tự ký
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const app = express();
 app.use(cors());
 
-// 🌟 ĐIỀU CHỈNH: Tự động switch giữa HTTPS (Production) và HTTP (Local) dựa trên biến môi trường .env
-let server;
-if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
-  try {
-    const options = {
-      key: fs.readFileSync(process.env.SSL_KEY_PATH),
-      cert: fs.readFileSync(process.env.SSL_CERT_PATH)
-    };
-    server = https.createServer(options, app);
-    console.log('🔒 Call Server đang chạy an toàn dưới giao thức HTTPS/WSS (Production)');
-  } catch (err) {
-    console.error('❌ Lỗi đọc file chứng chỉ SSL, tự động fallback về HTTP:', err.message);
-    server = http.createServer(app);
-  }
-} else {
-  server = http.createServer(app);
-  console.log('🔓 Call Server đang chạy dưới giao thức HTTP/WS (Local Development)');
-}
+// 🌟 ĐIỀU CHỈNH TRIỆT ĐỂ: Luôn chạy HTTP thuần túy ở môi trường nội bộ sau Nginx Reverse Proxy
+const server = http.createServer(app);
+console.log('🔓 Call Server vận hành nội bộ dưới giao thức HTTP/WS (SSL Offloading Enabled)');
 
-// Khởi tạo Socket.io và cấp quyền CORS động linh hoạt cho cả Localhost và Domain/IP Production
-
+// Khởi tạo Socket.io và cấp quyền CORS động linh hoạt cho toàn bộ hạ tầng mạng Production
 const io = new Server(server, {
-  path: '/call-socket', // Đặt cứng path này (Không dùng /socket.io mặc định nữa)
+  path: '/call-socket', // Đặt cứng path này đồng bộ 100% với Frontend và Nginx
   cors: {
     origin: (origin, callback) => {
       callback(null, true); // Chấp nhận mọi Origin gọi tới kể cả từ 4G di động
@@ -118,7 +100,7 @@ io.on('connection', (socket) => {
     if (session) {
       saveCallToMainDatabase(roomCallId, session, 'rejected', 0);
       
-      // 🌟 SỬA BUG CỐT LÕI: Đổi socket.emit thành io.emit để Staff luôn bắt được log kể cả khi Customer từ chối
+      // SỬA BUG CỐT LÕI: Đổi socket.emit thành io.emit để Staff luôn bắt được log kể cả khi Customer từ chối
       io.emit('call:save_log', {
         chatconversation_id: roomCallId,
         type: session.type,
@@ -142,7 +124,7 @@ io.on('connection', (socket) => {
 
       saveCallToMainDatabase(roomCallId, session, duration > 0 ? 'completed' : 'missed', duration);
 
-      // 🌟 SỬA BUG CỐT LÕI: Đổi từ socket.emit sang io.emit phát tán toàn cục chống rớt log khi Customer cúp máy
+      // SỬA BUG CỐT LÕI: Đổi từ socket.emit sang io.emit phát tán toàn cục chống rớt log khi Customer cúp máy
       io.emit('call:save_log', {
         chatconversation_id: roomCallId,
         type: session.type,
@@ -161,7 +143,7 @@ io.on('connection', (socket) => {
     if (session) {
       saveCallToMainDatabase(roomCallId, session, 'busy', 0);
 
-      // 🌟 SỬA BUG CỐT LÕI: Đồng bộ io.emit báo bận cho toàn hệ thống
+      // SỬA BUG CỐT LÕI: Đồng bộ io.emit báo bận cho toàn hệ thống
       io.emit('call:save_log', {
         chatconversation_id: roomCallId,
         type: session.type,
