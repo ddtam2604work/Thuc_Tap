@@ -32,9 +32,14 @@ if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
 }
 
 // Khởi tạo Socket.io và cấp quyền CORS động linh hoạt cho cả Localhost và Domain/IP Production
+
 const io = new Server(server, {
+  path: '/socket.io', // Giữ nguyên mặc định để tránh lỗi định tuyến của Engine.io
   cors: {
-    origin: true, // 🌟 SỬA BUG: Thay regex cứng bằng `true` để Socket tự động bắt và phản hồi khớp theo Origin gọi tới (tương thích tuyệt đối với credentials: true trên Production)
+    // Sử dụng function để chấp nhận mọi Origin gọi tới một cách an toàn (Hỗ trợ cả thiết bị di động/4G)
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     methods: ["GET", "POST"],
     credentials: true
   }

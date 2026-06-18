@@ -124,7 +124,7 @@ export const SocketProvider = ({ children }) => {
 
     // 🌟 ĐIỀU CHỈNH 2: Thiết lập cấu hình kết nối thông minh qua cổng 7002 của Nginx Proxy
     const callSocketInstance = io(targetCallUrl, {
-      path: targetCallUrl.includes('localhost') ? '/socket.io' : '/call-socket', // Nếu chạy local dev thì dùng mặc định, chạy prod qua cổng 7002 thì dùng path nhận diện riêng
+      path: targetCallUrl.includes('localhost') ? '/socket.io/' : '/call-socket/', // 🌟 Thêm dấu / vào cuối chuỗi path
       transports: ['websocket', 'polling'],
       secure: !targetCallUrl.includes('http://'),
       rejectUnauthorized: false,
