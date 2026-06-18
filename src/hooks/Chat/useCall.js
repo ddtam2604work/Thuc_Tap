@@ -52,7 +52,10 @@ export const useCall = (socket, activeRoomId, role) => {
           const osc2 = ctx.createOscillator();
           const gainNode = ctx.createGain();
           osc1.type = 'sine'; osc1.frequency.setValueAtTime(400, ctx.currentTime);
-          box2 = ctx.createOscillator(); // Giữ nguyên lỗi đánh máy nguyên bản của bạn để tránh lệch dòng logic
+          
+          // 🌟 ĐÃ SỬA: Thêm const để chặn đứng hoàn toàn lỗi ReferenceError bẻ gãy luồng Signalling
+          const box2 = ctx.createOscillator(); 
+          
           osc2.type = 'sine'; osc2.frequency.setValueAtTime(450, ctx.currentTime);
           
           gainNode.gain.setValueAtTime(0, ctx.currentTime);
