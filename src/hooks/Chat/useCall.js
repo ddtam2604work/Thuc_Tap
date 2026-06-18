@@ -8,11 +8,6 @@ const rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    {
-      urls: 'turn:ĐỊA_CHỈ_TURN_SERVER_CỦA_BẠN:PORT', // Ví dụ: turn:global.metered.ca:443
-      username: 'TÀI_KHOẢN_TURN_CỦA_BẠN',
-      credential: 'MẬT_KHẨU_TURN_CỦA_BẠN'
-    }
   ]
 };
 // =========================================================================
