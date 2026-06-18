@@ -123,14 +123,14 @@ export const SocketProvider = ({ children }) => {
       : safeCallUrl;
 
     // 🌟 ĐIỀU CHỈNH 2: Thiết lập cấu hình kết nối thông minh qua cổng 7002 của Nginx Proxy
+    // 🌟 ĐIỀU CHỈNH: Đồng bộ tuyệt đối path với cả Nginx và Backend
     const callSocketInstance = io(targetCallUrl, {
-      path: targetCallUrl.includes('localhost') ? '/socket.io/' : '/call-socket/', // 🌟 Thêm dấu / vào cuối chuỗi path
-      transports: ['websocket', 'polling'],
+      path: '/call-socket', // Khai báo chuỗi sạch, không thêm dấu gạch chéo ở cuối
+      transports: ['websocket'],
       secure: !targetCallUrl.includes('http://'),
       rejectUnauthorized: false,
       auth: { token: token.replace(/^Bearer\s+/i, '').trim() }
     });
-
     setCallSocket(callSocketInstance);
 
     callSocketInstance.on('connect', () => {
