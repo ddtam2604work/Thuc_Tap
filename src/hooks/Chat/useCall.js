@@ -28,6 +28,7 @@ export const useCall = (socket, activeRoomId, role) => {
 
   const peerConnectionRef = useRef(null);
   const currentCallSessionRef = useRef(null);
+  const iceCandidatesQueueRef = useRef([]); // 🌟 BỔ SUNG: Hàng đợi lưu ICE candidates đến sớm khi peer chưa sẵn sàng
   
   // 🌟 KHỞI TẠO BỘ NHẠC CHUÔNG PROCEDURAL (WEB AUDIO API)
   const audioCtxRef = useRef(null);
@@ -118,6 +119,7 @@ export const useCall = (socket, activeRoomId, role) => {
     setIsMuted(false);
     setIsVideoOff(false);
     currentCallSessionRef.current = null;
+    iceCandidatesQueueRef.current = []; // 🌟 BỔ SUNG: Dọn sạch hàng đợi khi reset
   }, [localStream]);
 
   const createPeerConnection = useCallback((targetRoomId) => {
@@ -197,6 +199,15 @@ export const useCall = (socket, activeRoomId, role) => {
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+
+        // 🌟 BỔ SUNG: Đẩy toàn bộ các ICE candidate đã tích lũy trong hàng đợi vào Peer Connection
+        if (iceCandidatesQueueRef.current.length > 0) {
+          for (const candidate of iceCandidatesQueueRef.current) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
+          }
+          iceCandidatesQueueRef.current = [];
+        }
+
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         setCallState('connected');
@@ -212,8 +223,15 @@ export const useCall = (socket, activeRoomId, role) => {
     };
 
     const handleNewIceCandidate = async (data) => {
-      if (peerConnectionRef.current && data.candidate) {
-        try { await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+      if (data.candidate) {
+        const pc = peerConnectionRef.current;
+        // 🌟 SỬA BUG: Chỉ thêm khi PC sẵn sàng và remoteDescription đã được cấu hình từ Offer/Answer
+        if (pc && pc.remoteDescription) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+        } else {
+          // Ngược lại đưa vào hàng đợi chờ xử lý sau
+          iceCandidatesQueueRef.current.push(data.candidate);
+        }
       }
     };
 

@@ -1,6 +1,8 @@
 import 'dotenv/config'; // 🌟 Đọc cấu hình từ file .env
 import express from 'express';
 import http from 'http';
+import https from 'https'; // 🌟 BỔ SUNG: Khai báo module https để bọc SSL Production
+import fs from 'fs';       // 🌟 BỔ SUNG: Khai báo module fs để đọc file chứng chỉ
 import { Server } from 'socket.io';
 import cors from 'cors';
 
@@ -10,12 +12,29 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const app = express();
 app.use(cors());
 
-const server = http.createServer(app);
+// 🌟 ĐIỀU CHỈNH: Tự động switch giữa HTTPS (Production) và HTTP (Local) dựa trên biến môi trường .env
+let server;
+if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
+  try {
+    const options = {
+      key: fs.readFileSync(process.env.SSL_KEY_PATH),
+      cert: fs.readFileSync(process.env.SSL_CERT_PATH)
+    };
+    server = https.createServer(options, app);
+    console.log('🔒 Call Server đang chạy an toàn dưới giao thức HTTPS/WSS (Production)');
+  } catch (err) {
+    console.error('❌ Lỗi đọc file chứng chỉ SSL, tự động fallback về HTTP:', err.message);
+    server = http.createServer(app);
+  }
+} else {
+  server = http.createServer(app);
+  console.log('🔓 Call Server đang chạy dưới giao thức HTTP/WS (Local Development)');
+}
 
-// Khởi tạo Socket.io và cấp quyền CORS cho Vite
+// Khởi tạo Socket.io và cấp quyền CORS động linh hoạt cho cả Localhost và Domain/IP Production
 const io = new Server(server, {
   cors: {
-    origin: [/http:\/\/localhost:\d+/], 
+    origin: true, // 🌟 SỬA BUG: Thay regex cứng bằng `true` để Socket tự động bắt và phản hồi khớp theo Origin gọi tới (tương thích tuyệt đối với credentials: true trên Production)
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -192,5 +211,5 @@ io.on('connection', (socket) => {
 
 const PORT = 4001;
 server.listen(PORT, () => {
-  console.log(`🚀 Local Socket Mock Server đang chạy tại: http://localhost:${PORT}`);
+  console.log(`🚀 Call Server vận hành chính thức tại Port: ${PORT}`);
 });
