@@ -4,9 +4,8 @@ import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 // Đảm bảo không lỗi nếu biến môi trường chưa load kịp
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://113.161.204.185:4000';
-
-// 🌟 ĐIỀU CHỈNH 1: Trỏ Call Server về cổng 7002 công khai của Production thay vì cổng 4001 bị chặn
+// 🌟 SỬA LỖI: Trỏ Core Chat Socket về tên miền bảo mật cổng 7002 thay vì gọi IP trực tiếp
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://qlkd.nosomovo.xyz:7002';
 const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || 'https://qlkd.nosomovo.xyz:7002';
 
 const SocketContext = createContext();
