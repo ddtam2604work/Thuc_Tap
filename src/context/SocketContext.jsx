@@ -6,8 +6,8 @@ import { useSelector } from 'react-redux';
 // Đảm bảo không lỗi nếu biến môi trường chưa load kịp
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://113.161.204.185:4000';
 
-// 🌟 ĐIỀU CHỈNH 1: Trỏ động URL Call Server theo môi trường thông qua biến .env hoặc domain Production thực tế
-const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || 'https://qlkd.nosomovo.xyz:4001';
+// 🌟 ĐIỀU CHỈNH 1: Trỏ Call Server về cổng 7002 công khai của Production thay vì cổng 4001 bị chặn
+const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || 'https://qlkd.nosomovo.xyz:7002';
 
 const SocketContext = createContext();
 export const useSocket = () => useContext(SocketContext);
@@ -90,7 +90,6 @@ export const SocketProvider = ({ children }) => {
 
     // LẮNG NGHE EVENT THỰC TẾ 1: Tin nhắn real-time trong phòng trò chuyện
     socketInstance.on('chat:message', (data) => {
-      // Nếu người dùng KHÔNG ở trang chat thì mới hiển thị Toast thông báo toàn cục
       if (location.pathname !== '/chat') {
         setGlobalUnreadCount(prev => prev + 1);
         if (data?.content) {
@@ -114,22 +113,21 @@ export const SocketProvider = ({ children }) => {
       if (data?.accessToken) {
         console.log('🔄 Đã tự động cập nhật Access Token mới từ Socket.');
         localStorage.setItem('accessToken', data.accessToken);
-        // Lưu ý: Nếu dự án của bạn lưu token trong Redux, hãy dispatch hành động cập nhật token tại đây:
-        // dispatch(updateTokenAction(data.accessToken));
       }
     });
 
-    // 🌟 ĐIỀU CHỈNH 2: Tự động chuẩn hóa giao thức kết nối động cho Call Socket
+    // Tự động chuẩn hóa giao thức kết nối động cho Call Socket
     const safeCallUrl = String(CALL_SERVER_URL);
     const targetCallUrl = safeCallUrl.includes('localhost')
       ? safeCallUrl.replace('https://', 'http://')
       : safeCallUrl;
 
-    // 🌟 ĐIỀU CHỈNH 3: Khởi tạo Call Socket bọc cấu hình bảo mật SSL cho Production
+    // 🌟 ĐIỀU CHỈNH 2: Thiết lập cấu hình kết nối thông minh qua cổng 7002 của Nginx Proxy
     const callSocketInstance = io(targetCallUrl, {
+      path: targetCallUrl.includes('localhost') ? '/socket.io' : '/call-socket', // Nếu chạy local dev thì dùng mặc định, chạy prod qua cổng 7002 thì dùng path nhận diện riêng
       transports: ['websocket', 'polling'],
-      secure: !targetCallUrl.includes('http://'), // Tự động bật mã hóa an toàn WSS nếu chạy URL HTTPS Production
-      rejectUnauthorized: false,                  // Vượt cơ chế chặn chứng chỉ SSL tự ký khi gọi IP/Domain thực tế
+      secure: !targetCallUrl.includes('http://'),
+      rejectUnauthorized: false,
       auth: { token: token.replace(/^Bearer\s+/i, '').trim() }
     });
 
@@ -148,7 +146,7 @@ export const SocketProvider = ({ children }) => {
       callSocketInstance.disconnect();
       stopFallbackPolling();
     };
-  }, [token, location.pathname]); // Lắng nghe thêm cả pathname để xử lý bật/tắt toast động
+  }, [token, location.pathname]);
 
   // Lắng nghe việc đăng xuất để hủy kết nối
   useEffect(() => {
