@@ -211,7 +211,7 @@ function App() {
               path="/chat" 
               element={
                 <ProtectedRoute allowedRoles={allRoles}>
-                  <MainLayout><ChatPage /></MainLayout>
+                  <MainLayout noCard={true}><ChatPage /></MainLayout>
                 </ProtectedRoute>
               } 
             />

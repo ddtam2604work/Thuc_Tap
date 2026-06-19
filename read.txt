@@ -1,0 +1,1 @@
+hãy điều chỉnh trang chatpage để cố định không cuộn được, chỉ có nội dung bên trong chat mới được phép cuộn di chuyển, cố gắng hoàn thiện để tăng trãi nghiệm người dùng, lưu ý không thay đổi hay xóa các logic code khác.

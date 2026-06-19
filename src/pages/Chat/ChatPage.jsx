@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useChat } from '../../hooks/Chat/useChat';
-import { useSocket } from '../../context/SocketContext'; // 🌟 BỔ SUNG: Import để lấy trực tiếp thực thể socket kết nối
-import { useCall } from '../../hooks/Chat/useCall';       // 🌟 BỔ SUNG: Kích hoạt Hook đàm thoại WebRTC mới
-import CallWindow from './CallWindow';                   // 🌟 BỔ SUNG: Layout overlay màn hình cuộc gọi
+import { useSocket } from '../../context/SocketContext'; 
+import { useCall } from '../../hooks/Chat/useCall';       
+import CallWindow from './CallWindow';                   
 
 // Import các modules đã được bóc tách
 import ChatSidebarLeft from './ChatSidebarLeft';
@@ -24,11 +24,9 @@ const ChatPage = () => {
     handleForwardMessage, handleSendSticker, handleDownloadStickerPack
   } = useChat();
 
-  // 🌟 BỔ SUNG: Liên kết điều phối logic trạng thái cuộc gọi
-  const { socket, callSocket } = useSocket();
+  const { callSocket } = useSocket();
   const callProps = useCall(callSocket, activeRoomId, role);
 
-  // 🌟 BỔ SUNG: Truy tìm chính xác tên người gọi dựa vào ID phòng cuộc gọi phát sinh
   const currentCallRoomName = useMemo(() => {
     const targetRoom = chatRooms.find(r => r.id === callProps.roomCallId);
     return targetRoom ? targetRoom.name : (activeRoom?.name || 'Khách hàng hỗ trợ');
@@ -45,7 +43,7 @@ const ChatPage = () => {
       const isUUID = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/i.test(content);
       const isImageFileName = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(content) && !content.includes(' ');
       const isBase64OrBlob = /^blob:/i.test(content) || /^data:image\//i.test(content);
-      
+
       let isImgUrl = false;
       let finalImageUrl = content;
 
@@ -57,7 +55,7 @@ const ChatPage = () => {
           const domainName = urlObj.hostname;
           let cleanPath = urlObj.pathname.replace(/[.,;!?)]+$/, '');
           isImgUrl = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(cleanPath);
-          
+
           if (domainName.includes('bing.com') && urlObj.searchParams.has('mediaurl')) {
             finalImageUrl = decodeURIComponent(urlObj.searchParams.get('mediaurl'));
             isImgUrl = true;
@@ -65,7 +63,9 @@ const ChatPage = () => {
             finalImageUrl = decodeURIComponent(urlObj.searchParams.get('imgurl'));
             isImgUrl = true;
           }
-        } catch (e) {}
+        } catch {
+          // Silent catch for malformed URLs
+        }
       }
 
       if (m.msg_type === 'image' || isBase64OrBlob || isUUID || isImageFileName || isImgUrl) {
@@ -76,24 +76,26 @@ const ChatPage = () => {
     return images;
   }, [messages]);
 
+  const [extraImages, setExtraImages] = useState([]);
+  const fullChatImages = useMemo(() => [...chatImagesArray, ...extraImages], [chatImagesArray, extraImages]);
+
   const openLightbox = (url) => {
-    const idx = chatImagesArray.indexOf(url);
+    const idx = fullChatImages.indexOf(url);
     if (idx !== -1) {
       setActiveLightboxIndex(idx);
     } else {
-      chatImagesArray.push(url);
-      setActiveLightboxIndex(chatImagesArray.length - 1);
+      setExtraImages(prev => [...prev, url]);
+      setActiveLightboxIndex(fullChatImages.length);
     }
   };
 
   return (
-    <div className="flex h-[calc(100vh-80px)] bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden mt-1 relative select-none">
-      
+    <div className="flex w-full h-[calc(100vh-140px)] lg:h-[calc(100vh-160px)] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden relative select-none"> 
       {/* 1. Sidebar Trái */}
       <ChatSidebarLeft role={role} chatRooms={chatRooms} activeRoomId={activeRoomId} handleRoomSelect={handleRoomSelect} />
-
+      
       {/* 2. Cửa sổ Chat Chính */}
-      <div className="flex-1 flex flex-col bg-white min-w-0">
+      <div className="flex-1 flex flex-col bg-white min-w-0 h-full">
         {activeRoom ? (
           <div className="h-[68px] px-6 border-b border-gray-100 flex items-center justify-between bg-white flex-shrink-0 z-10">
             <div>
@@ -103,37 +105,44 @@ const ChatPage = () => {
               </span>
             </div>
             
-            {/* 🌟 THAY ĐỔI: Tích hợp nút Gọi điện thoại thoại (📞) và Video Call (📹) trực diện lên Header */}
             <div className="flex items-center gap-2">
               <button 
                 type="button" 
                 onClick={() => callProps.startCall('voice')} 
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-green-600 bg-gray-50 hover:bg-green-50 hover:border-green-200 transition-all group" 
                 title="Gọi thoại"
               >
-                📞
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
               </button>
+
               <button 
                 type="button" 
                 onClick={() => callProps.startCall('video')} 
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 transition-all text-xs" 
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-all group" 
                 title="Gọi Video"
               >
-                📹
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
               </button>
+
               <span className="h-4 w-[1px] bg-gray-200 mx-1"></span>
               
-              {/* 🌟 THAY ĐỔI: Biến nút Kho Dữ Liệu thành Icon dạng Toggle */}
               <button 
                 onClick={() => setShowMediaSidebar(!showMediaSidebar)} 
-                className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs transition-all ${
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${
                   showMediaSidebar 
-                    ? 'border-blue-500 bg-blue-50 text-blue-600' 
-                    : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
+                    ? 'border-amber-300 bg-amber-50 text-amber-500' 
+                    : 'border-gray-200 text-gray-400 bg-gray-50 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 title={showMediaSidebar ? "Đóng kho dữ liệu" : "Mở kho dữ liệu"}
               >
-                {showMediaSidebar ? '📂' : '📁'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
               </button>
             </div>
           </div>
@@ -146,18 +155,17 @@ const ChatPage = () => {
 
         {/* Khung hiển thị List tin nhắn */}
         {activeRoom && (
-          <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 p-6 overflow-y-auto bg-slate-50 flex flex-col gap-4 scrollbar-thin">
+          <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto p-6 bg-slate-50 flex flex-col gap-4 scrollbar-thin">
             {messages.map((msg) => {
-              // Chuyển const thành let để có thể ghi đè
               let isMine = role === 'customer' ? msg.sendertype === 2 : msg.sendertype === 1;
               
-              // 🌟 BỔ SUNG: Nếu là tin nhắn lịch sử cuộc gọi, ép hướng hiển thị theo người gọi (initiator)
               if (typeof msg.content === 'string' && msg.content.startsWith('__CALL_HISTORY__:')) {
                   try {
                       const callData = JSON.parse(msg.content.replace('__CALL_HISTORY__:', ''));
-                      // Nếu vai trò hiện tại trùng với người khởi tạo -> tin nhắn của mình (nằm bên phải)
                       isMine = callData.initiator === role;
-                  } catch (e) {}
+                  } catch {
+                      // Silent catch for invalid JSON
+                  }
               }
 
               const msgTime = msg.createdate ? new Date(msg.createdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : msg.time;
@@ -176,7 +184,7 @@ const ChatPage = () => {
                     openLightbox={openLightbox}
                     setSelectedMsgToForward={setSelectedMsgToForward}
                     setForwardModalOpen={setForwardModalOpen}
-                    role={role} // 🌟 NHỚ TRUYỀN THÊM role VÀO ĐÂY ĐỂ ChatMessage BIẾT VAI TRÒ
+                    role={role} 
                   />
                 </div>
               );
@@ -188,16 +196,18 @@ const ChatPage = () => {
 
         {/* Khung Nhập Liệu */}
         {activeRoom && (
-          <ChatInputArea 
-            inputMessage={inputMessage} setInputMessage={setInputMessage}
-            isRecording={isRecording} isListening={isListening}
-            showStickerPicker={showStickerPicker} setShowStickerPicker={setShowStickerPicker}
-            myStickers={myStickers} storeStickers={storeStickers}
-            handleSendMessage={handleSendMessage} handleSendImage={handleSendImage}
-            handleStartRecording={handleStartRecording} handleStopRecording={handleStopRecording}
-            handleToggleSpeechToText={handleToggleSpeechToText} handleSendSticker={handleSendSticker}
-            handleDownloadStickerPack={handleDownloadStickerPack}
-          />
+          <div className="flex-shrink-0 bg-white">
+            <ChatInputArea 
+              inputMessage={inputMessage} setInputMessage={setInputMessage}
+              isRecording={isRecording} isListening={isListening}
+              showStickerPicker={showStickerPicker} setShowStickerPicker={setShowStickerPicker}
+              myStickers={myStickers} storeStickers={storeStickers}
+              handleSendMessage={handleSendMessage} handleSendImage={handleSendImage}
+              handleStartRecording={handleStartRecording} handleStopRecording={handleStopRecording}
+              handleToggleSpeechToText={handleToggleSpeechToText} handleSendSticker={handleSendSticker}
+              handleDownloadStickerPack={handleDownloadStickerPack}
+            />
+          </div>
         )}
       </div>
 
@@ -206,7 +216,7 @@ const ChatPage = () => {
 
       {/* 4. Modals (Forward & Lightbox) */}
       {forwardModalOpen && selectedMsgToForward && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-xs">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] backdrop-blur-xs">
           <div className="bg-white rounded-xl w-80 p-5 shadow-2xl flex flex-col max-h-[400px] animate-in fade-in zoom-in-95 duration-150">
             <h3 className="font-bold text-gray-800 text-xs mb-3">Chuyển tiếp tin nhắn đến:</h3>
             <div className="flex-1 overflow-y-auto flex flex-col gap-1 scrollbar-thin">
@@ -225,7 +235,7 @@ const ChatPage = () => {
       )}
 
       {activeLightboxIndex !== null && (
-        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[9999] animate-in fade-in duration-200">
           <button className="absolute top-4 right-4 text-white text-2xl w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors" onClick={() => setActiveLightboxIndex(null)}>✕</button>
           {chatImagesArray.length > 1 && (
             <button className="absolute left-6 text-white text-2xl w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-30" disabled={activeLightboxIndex === 0} onClick={() => setActiveLightboxIndex(prev => Math.max(0, prev - 1))}>◀</button>
@@ -238,7 +248,6 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* 🌟 BỔ SUNG: Render màn hình điều phối cuộc gọi đè lên lớp cha */}
       <CallWindow {...callProps} roomName={currentCallRoomName} />
 
     </div>
