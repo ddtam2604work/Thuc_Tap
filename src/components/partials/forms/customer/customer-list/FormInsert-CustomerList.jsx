@@ -5,6 +5,20 @@ import Button from '../../../../skeleton/Button';
 // --- IMPORT HOOK THÔNG BÁO DÙNG CHUNG ---
 import { useNotification } from '../../../../../context/NotificationContext';
 
+// Helper: Format số điện thoại dạng xxx xxx xxxx và giới hạn 10 số
+const formatPhone = (val) => {
+  if (!val) return '';
+  let rawValue = String(val).replace(/\D/g, ''); // Bỏ mọi ký tự không phải số
+  rawValue = rawValue.substring(0, 10); // Khóa cứng tối đa 10 số
+  
+  if (rawValue.length > 6) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3, 6)} ${rawValue.slice(6)}`;
+  } else if (rawValue.length > 3) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3)}`;
+  }
+  return rawValue;
+};
+
 const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }) => {
   const [formData, setFormData] = useState({
     fullname: '', 
@@ -23,32 +37,76 @@ const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }
   const { showToast } = useNotification();
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : (name === 'isactive' ? Number(value) : value)
-    }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    const { name, value, type, checked, selectionStart } = e.target;
+
+    if (name === 'phone') {
+      const formattedValue = formatPhone(value);
+      setFormData(prev => ({ ...prev, [name]: formattedValue }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+
+      // THUẬT TOÁN GIỮ NGUYÊN VỊ TRÍ CON TRỎ CHUỘT
+      const beforeCursorStr = value.substring(0, selectionStart);
+      const digitsBeforeCursor = beforeCursorStr.replace(/\D/g, '').length;
+
+      let newCursorPos = 0;
+      let digitCount = 0;
+      for (let i = 0; i < formattedValue.length; i++) {
+        if (/\d/.test(formattedValue[i])) {
+          digitCount++;
+        }
+        if (digitCount === Math.min(digitsBeforeCursor, 10)) { // Cắt cursor không vượt quá 10 số
+          newCursorPos = i + 1;
+          break;
+        }
+      }
+      
+      if (digitsBeforeCursor === 0) newCursorPos = 0;
+
+      window.requestAnimationFrame(() => {
+        if (e.target) {
+          e.target.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      });
+    } else {
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: type === 'checkbox' ? checked : (name === 'isactive' ? Number(value) : value)
+      }));
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
     const clientErrors = {};
+    
+    // Validate Tên
     if (!formData.fullname.trim()) clientErrors.fullname = 'Bắt buộc nhập';
-    if (!formData.phone.trim()) clientErrors.phone = 'Bắt buộc nhập';
+    
+    // Lấy chuỗi số nguyên gốc của điện thoại để validate
+    const rawPhone = String(formData.phone).replace(/\D/g, '');
+
+    // Validate Số điện thoại chuẩn 10 số & bắt đầu bằng 0
+    if (!rawPhone) {
+      clientErrors.phone = 'Bắt buộc nhập';
+    } else if (!rawPhone.startsWith('0')) {
+      clientErrors.phone = 'SĐT phải bắt đầu bằng số 0';
+    } else if (rawPhone.length !== 10) {
+      clientErrors.phone = 'SĐT phải có đủ 10 chữ số';
+    }
 
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors); 
       // Bắn Toast Warning cảnh báo nhập thiếu thông tin bắt buộc
-      showToast('Vui lòng điền đầy đủ thông tin các trường bắt buộc (*)', 'warning');
+      showToast('Vui lòng kiểm tra lại thông tin các trường bắt buộc (*)', 'warning');
       return;
     }
 
     const payload = {
-      username: formData.phone.trim(), 
+      username: rawPhone, // Đẩy số gốc lên Backend
       password: "Password@123",        
       fullname: formData.fullname.trim(),
-      phone: formData.phone.trim(),
+      phone: rawPhone,    // Đẩy số gốc lên Backend
       address: formData.address.trim(),
       email: formData.email.trim(),
       gender: 1,                        
@@ -114,7 +172,7 @@ const FormInsertCustomerList = ({ onClose, onSubmit, isSaving, categories = [] }
               value={formData.phone} 
               onChange={handleChange} 
               disabled={isSaving} 
-              placeholder="0936481540" 
+              placeholder="093 648 1540" 
               className={`h-10 px-3.5 border rounded-xl text-sm bg-gray-50/30 focus:bg-white outline-none transition-all shadow-3xs ${
                 errors.phone ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-[#0037B0]'
               }`} 

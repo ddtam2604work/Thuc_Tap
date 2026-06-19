@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import Button from '../../../skeleton/Button';
 import CategoryFormInput from './CategoryFormInput';
 
+// Hàm helper để format số dạng xxx,xxx
+const formatPrice = (val) => {
+  if (!val) return '';
+  const rawValue = String(val).replace(/\D/g, ''); // Loại bỏ mọi ký tự không phải số
+  return rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, ','); // Thêm dấu phẩy phân cách hàng nghìn
+};
+
 const FormEditProduct = ({ initialData, onSave, onCancel, isSaving, categories = [], units = [] }) => {
   const [formData, setFormData] = useState({ 
     name: '', code: '', productcategory_id: '', units_id: '', price: '', status: 1, desc: '', thumbnail: '' 
@@ -13,9 +20,10 @@ const FormEditProduct = ({ initialData, onSave, onCancel, isSaving, categories =
       const isActive = (String(initialData.isactive) === '1' || initialData.isactive === true) || 
                        (String(initialData.status) === '1' || initialData.status === 'ACTIVE');
 
-      // 🔄 SAFE PRICE EXTRACTION
+      // 🔄 SAFE PRICE EXTRACTION - Đã thêm formatPrice ngay khi khởi tạo
       const priceRaw = initialData.price || initialData.productprice || initialData.standard_price || 0;
-      const priceClean = priceRaw ? String(Math.floor(Number(priceRaw))) : '';
+      // Dùng Math.floor để làm tròn, sau đó bọc formatPrice để hiển thị xxx,xxx ngay lúc vừa load form
+      const priceClean = priceRaw ? formatPrice(Math.floor(Number(priceRaw))) : '';
 
       const newFormData = { 
         name: initialData.name || initialData.product_name || '',
@@ -43,8 +51,38 @@ const FormEditProduct = ({ initialData, onSave, onCancel, isSaving, categories =
   }, [initialData]);
 
   const handleChange = (e) => {
-    const { id, value } = e.target;
-    setFormData(prev => ({ ...prev, [id]: value }));
+    const { id, value, selectionStart } = e.target;
+
+    // Kế thừa logic xử lý giá và giữ vị trí con trỏ chuột
+    if (id === 'price') {
+      const rawValue = value.replace(/\D/g, '');
+      const formattedValue = formatPrice(rawValue);
+
+      setFormData(prev => ({ ...prev, [id]: formattedValue }));
+
+      const beforeCursorStr = value.substring(0, selectionStart);
+      const digitsBeforeCursor = beforeCursorStr.replace(/\D/g, '').length;
+
+      let newCursorPos = 0;
+      let digitCount = 0;
+      for (let i = 0; i < formattedValue.length; i++) {
+        if (/\d/.test(formattedValue[i])) {
+          digitCount++;
+        }
+        if (digitCount === digitsBeforeCursor) {
+          newCursorPos = i + 1;
+          break;
+        }
+      }
+
+      window.requestAnimationFrame(() => {
+        if (e.target) {
+          e.target.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      });
+    } else {
+      setFormData(prev => ({ ...prev, [id]: value }));
+    }
   };
 
   const handleSubmit = (e) => {
@@ -79,7 +117,6 @@ const FormEditProduct = ({ initialData, onSave, onCancel, isSaving, categories =
           <label className="font-inter font-semibold text-[12px] leading-4 text-[#434655] tracking-[0.6px] uppercase">
             Danh mục <span className="text-red-500">*</span>
           </label>
-          {/* Đã đồng bộ h-[46px], rounded-xl, border-gray-200 */}
           <select 
             id="productcategory_id" required disabled={isSaving}
             className="h-[56px] px-4 bg-white border border-gray-200 rounded-xl text-[14px] text-[#191C1D] outline-none focus:border-[#1D4ED8] focus:ring-1 focus:ring-[#1D4ED8]/20 transition-all cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed"
@@ -99,12 +136,14 @@ const FormEditProduct = ({ initialData, onSave, onCancel, isSaving, categories =
             label="Giá cơ bản (Standard)" id="price" required
             value={formData.price} onChange={handleChange} disabled={isSaving}
           />
-          <span className="absolute right-3 bottom-[14px] text-xs font-semibold text-gray-500">VNĐ</span>
+          {/* Đã cập nhật Tailwind class để căn giữa hoàn hảo và chặn event click */}
+          <span className="absolute right-4 bottom-7 translate-y-1/2 text-xs font-semibold text-gray-500 pointer-events-none">
+            VNĐ
+          </span>
         </div>
         
         <div className="flex flex-col gap-2">
           <label className="font-inter font-semibold text-[12px] leading-4 text-[#434655] tracking-[0.6px] uppercase">Trạng thái</label>
-          {/* Đã đồng bộ h-[46px], rounded-xl, border-gray-200 */}
           <select 
             id="status" disabled={isSaving}
             className="h-[56px] px-4 bg-white border border-gray-200 rounded-xl text-[14px] text-[#191C1D] outline-none focus:border-[#1D4ED8] focus:ring-1 focus:ring-[#1D4ED8]/20 transition-all cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed"

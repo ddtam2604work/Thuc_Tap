@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import Button from '../../components/skeleton/Button';
 import AccountFormInput from '../../components/partials/forms/accounts/FormInsert-Account'; 
 
+// 🌟 HELPER: Format số điện thoại dạng xxx xxx xxxx và giới hạn 10 số
+const formatPhone = (val) => {
+  if (!val) return '';
+  let rawValue = String(val).replace(/\D/g, ''); 
+  rawValue = rawValue.substring(0, 10); 
+  
+  if (rawValue.length > 6) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3, 6)} ${rawValue.slice(6)}`;
+  } else if (rawValue.length > 3) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3)}`;
+  }
+  return rawValue;
+};
+
 const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
   const [formData, setFormData] = useState({
     fullname: '', 
@@ -35,16 +49,54 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
     }
   };
 
-  // 🛠️ ĐIỀU CHỈNH LOGIC VALIDATE: Tập trung vào 5 trường hiển thị, bỏ ràng buộc password/username thủ công
+  // 🎯 HÀM XỬ LÝ RIÊNG CHO SỐ ĐIỆN THOẠI (Format + Giữ vị trí con trỏ)
+  const handlePhoneChange = (e) => {
+    const { value, selectionStart } = e.target;
+    const formattedValue = formatPhone(value);
+
+    setFormData(prev => ({ ...prev, phone: formattedValue }));
+    if (validationErrors.phone) {
+      setValidationErrors(prev => ({ ...prev, phone: '' }));
+    }
+
+    const beforeCursorStr = value.substring(0, selectionStart);
+    const digitsBeforeCursor = beforeCursorStr.replace(/\D/g, '').length;
+
+    let newCursorPos = 0;
+    let digitCount = 0;
+    for (let i = 0; i < formattedValue.length; i++) {
+      if (/\d/.test(formattedValue[i])) {
+        digitCount++;
+      }
+      if (digitCount === Math.min(digitsBeforeCursor, 10)) {
+        newCursorPos = i + 1;
+        break;
+      }
+    }
+    
+    if (digitsBeforeCursor === 0) newCursorPos = 0;
+
+    window.requestAnimationFrame(() => {
+      if (e.target) {
+        e.target.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    });
+  };
+
+  // 🛠️ ĐIỀU CHỈNH LOGIC VALIDATE
   const validateForm = () => {
     const errors = {};
     
     if (!formData.fullname?.trim()) errors.fullname = 'Họ tên không được để trống';
     
-    if (!formData.phone?.trim()) {
+    // Validate Phone với chuỗi gốc (đã bỏ dấu cách)
+    const rawPhone = formData.phone ? String(formData.phone).replace(/\D/g, '') : '';
+    if (!rawPhone) {
       errors.phone = 'Số điện thoại không được để trống';
-    } else if (!/^0\d{9}$/.test(formData.phone)) {
-      errors.phone = 'Số điện thoại phải có định dạng 0XXXXXXXXX';
+    } else if (!rawPhone.startsWith('0')) {
+      errors.phone = 'Số điện thoại phải bắt đầu bằng số 0';
+    } else if (rawPhone.length !== 10) {
+      errors.phone = 'Số điện thoại phải có đủ 10 chữ số';
     }
     
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -65,16 +117,19 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
     try {
       setIsSaving(true);
       
-      // 🛠️ ĐỒNG BỘ PAYLOAD ĐĂNG KÝ: username lấy giá trị từ phone, ép kiểu dữ liệu chuẩn backend
+      // 🌟 TRÍCH XUẤT SỐ GỐC để gửi Backend
+      const rawPhone = formData.phone.replace(/\D/g, '');
+
+      // 🛠️ ĐỒNG BỘ PAYLOAD ĐĂNG KÝ
       const payload = {
-        username: formData.phone.trim(), // Số điện thoại làm username
+        username: rawPhone, // Dùng số nguyên gốc
         fullname: formData.fullname.trim(),
         role: String(formData.role),
         address: formData.address?.trim() || "",
         email: formData.email.trim(),
         gender: Number(formData.gender ?? 1),      
-        isactive: Number(formData.isactive), // Chuyển sang số (1 hoặc 0) khớp payload mẫu
-        phone: formData.phone.trim()
+        isactive: Number(formData.isactive), 
+        phone: rawPhone     // Dùng số nguyên gốc
       };
 
       await onSave(payload); 
@@ -125,8 +180,8 @@ const InsertAccount = ({ isOpen, onClose, onSave, roles = [] }) => {
             </div>
             <div className="w-full">
               <AccountFormInput 
-                label="Số điện thoại (Tên đăng nhập)" placeholder="Ví dụ: 0837257268" required disabled={isSaving}
-                value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} 
+                label="Số điện thoại (Tên đăng nhập)" placeholder="Ví dụ: 083 725 7268" required disabled={isSaving}
+                value={formData.phone} onChange={handlePhoneChange} /* 🎯 Thay bằng handle riêng */
               />
               {validationErrors.phone && <span className="text-xs text-red-500 font-medium mt-0.5 block">{validationErrors.phone}</span>}
             </div>

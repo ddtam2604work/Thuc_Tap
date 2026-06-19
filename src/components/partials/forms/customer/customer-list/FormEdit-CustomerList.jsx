@@ -5,6 +5,20 @@ import Button from '../../../../skeleton/Button';
 // --- IMPORT HOOK THÔNG BÁO DÙNG CHUNG ---
 import { useNotification } from '../../../../../context/NotificationContext';
 
+// Helper: Format số điện thoại dạng xxx xxx xxxx (Dùng hiển thị cho đẹp UI)
+const formatPhone = (val) => {
+  if (!val) return '';
+  let rawValue = String(val).replace(/\D/g, '');
+  rawValue = rawValue.substring(0, 10);
+  
+  if (rawValue.length > 6) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3, 6)} ${rawValue.slice(6)}`;
+  } else if (rawValue.length > 3) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3)}`;
+  }
+  return rawValue;
+};
+
 const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, categories = [] }) => {
   const [formData, setFormData] = useState({
     fullname: '', studioname: '', phone: '', email: '',
@@ -22,7 +36,7 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
       setFormData({
         fullname: initialData.fullname || '',
         studioname: initialData.studioname || '',
-        phone: initialData.phone || '',
+        phone: formatPhone(initialData.phone || ''), // Format SĐT ngay từ lúc nhận API
         email: initialData.email || '',
         address: initialData.address || '',
         customercategories_id: initialData.customercategories_id || '',
@@ -51,10 +65,13 @@ const FormEditCustomerList = ({ initialData, onClose, onSubmit, isSaving, catego
       return;
     }
 
+    // Lấy lại định dạng số nguyên thủy của điện thoại (bỏ dấu cách) khi gửi đi
+    const rawPhone = String(formData.phone).replace(/\D/g, '');
+
     const payload = {
-      username: formData.phone.trim(), 
+      username: rawPhone, 
       fullname: formData.fullname.trim(),
-      phone: formData.phone.trim(),
+      phone: rawPhone,
       address: formData.address.trim(),
       email: formData.email.trim(),
       studioname: formData.studioname.trim(),

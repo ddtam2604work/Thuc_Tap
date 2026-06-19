@@ -2,11 +2,58 @@ import React from 'react';
 import FormInput from '../../../skeleton/FormInput';
 import Button from '../../../skeleton/Button';
 
+// 🌟 HELPER: Format số điện thoại
+const formatPhone = (val) => {
+  if (!val) return '';
+  let rawValue = String(val).replace(/\D/g, ''); 
+  rawValue = rawValue.substring(0, 10); 
+  
+  if (rawValue.length > 6) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3, 6)} ${rawValue.slice(6)}`;
+  } else if (rawValue.length > 3) {
+    return `${rawValue.slice(0, 3)} ${rawValue.slice(3)}`;
+  }
+  return rawValue;
+};
+
 const FormEditAccount = ({ formData, onInputChange, onResetPassword, roles = [] }) => {
   
   const handleChange = (field) => (e) => {
     const val = e?.target !== undefined ? e.target.value : e;
     onInputChange(field, val);
+  };
+
+  // 🎯 HÀM XỬ LÝ RIÊNG CHO SỐ ĐIỆN THOẠI (Format + Giữ vị trí con trỏ thông qua hàm cha)
+  const handlePhoneChange = (e) => {
+    const { value, selectionStart } = e.target;
+    const formattedValue = formatPhone(value);
+
+    // Cập nhật lên state của Component cha
+    onInputChange('phone', formattedValue);
+
+    // Xử lý giữ vị trí con trỏ chuột
+    const beforeCursorStr = value.substring(0, selectionStart);
+    const digitsBeforeCursor = beforeCursorStr.replace(/\D/g, '').length;
+
+    let newCursorPos = 0;
+    let digitCount = 0;
+    for (let i = 0; i < formattedValue.length; i++) {
+      if (/\d/.test(formattedValue[i])) {
+        digitCount++;
+      }
+      if (digitCount === Math.min(digitsBeforeCursor, 10)) {
+        newCursorPos = i + 1;
+        break;
+      }
+    }
+    
+    if (digitsBeforeCursor === 0) newCursorPos = 0;
+
+    window.requestAnimationFrame(() => {
+      if (e.target) {
+        e.target.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    });
   };
 
   const getCurrentRoleCode = () => {
@@ -64,8 +111,8 @@ const FormEditAccount = ({ formData, onInputChange, onResetPassword, roles = [] 
           <label className="text-xs font-semibold text-gray-700 ml-0.5">Số điện thoại</label>
           <FormInput 
             className="h-10 border border-gray-200 rounded-xl text-sm bg-gray-50/30 focus:outline-none focus:border-[#0037B0] focus:bg-white transition-all shadow-3xs"
-            value={formData?.phone || ''} 
-            onChange={handleChange('phone')} 
+            value={formatPhone(formData?.phone || '')} /* 🎯 Ép format ngay từ lúc nhận API */
+            onChange={handlePhoneChange} /* 🎯 Thay bằng handle riêng */
           />
         </div>
 
