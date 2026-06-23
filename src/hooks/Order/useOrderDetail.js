@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { orderService } from '../../services/orderService';
+// 🎯 IMPORT THÊM apiBackend ĐỂ ĐIỀU KHIỂN TRỰC TIẾP API IN HÓA ĐƠN
+import { apiBackend } from '../../config/axiosClient';
 
 // --- IMPORT CÁC HOOK ĐIỀU KHIỂN DÙNG CHUNG CHUẨN XÁC ---
 import { useConfirm } from '../../context/ConfirmContext';
@@ -35,6 +37,56 @@ const safeParseAttachments = (data) => {
   return [];
 };
 
+// 🎯 HÀM GIẢI MÃ PDF ĐÃ ĐƯỢC NÂNG CẤP CHỐNG LỖI CORRUPT FILE (We can't open this file)
+const processSmartPdfBlob = async (response) => {
+  let resData = response?.data !== undefined ? response.data : response;
+
+  if (resData instanceof Blob) {
+    // Rà soát xem Backend có trả về báo lỗi JSON ẩn dưới lốt Blob hay không
+    if (resData.type && (resData.type.includes('json') || resData.type.includes('text'))) {
+      const text = await resData.text();
+      try {
+        const json = JSON.parse(text);
+        
+        // 🚨 Nếu là JSON lỗi, lập tức ném lỗi ra ngoài để ngừng mở PDF Viewer
+        if (json.errorCode === 0 || json.statusCode === 400 || json.statusCode === 500) {
+          throw new Error(json.message || "Lỗi dữ liệu từ hệ thống, không thể tạo PDF");
+        }
+
+        if (json.data && typeof json.data === 'string') {
+          const cleanBase64 = json.data.replace(/^data:(.*);base64,/, "");
+          const byteCharacters = atob(cleanBase64);
+          const byteNumbers = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          return new Blob([byteNumbers], { type: 'application/pdf' });
+        }
+      } catch (e) {
+        // Nếu parse JSON lỗi (SyntaxError) thì chứng tỏ đây là file PDF nhị phân xịn, được phép đi tiếp
+        if (!(e instanceof SyntaxError)) {
+          throw e;
+        }
+      }
+    }
+    // Trả về file nhị phân nguyên bản
+    return new Blob([resData], { type: 'application/pdf' });
+  } 
+  
+  if (typeof resData === 'string' || (resData?.data && typeof resData.data === 'string')) {
+    const base64String = typeof resData === 'string' ? resData : resData.data;
+    const cleanBase64 = base64String.replace(/^data:(.*);base64,/, "");
+    const byteCharacters = atob(cleanBase64);
+    const byteNumbers = new Uint8Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Blob([byteNumbers], { type: 'application/pdf' });
+  }
+
+  return new Blob([resData], { type: 'application/pdf' });
+};
+
 export const useOrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -49,7 +101,13 @@ export const useOrderDetail = () => {
   const [logsLoading, setLogsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Kích hoạt các công cụ điều khiển thông báo và xác nhận dùng chung
+  const [pdfViewer, setPdfViewer] = useState({
+    isOpen: false,
+    pdfUrl: null,
+    fileName: '',
+    title: ''
+  });
+
   const { confirm } = useConfirm();
   const { showToast } = useNotification();
 
@@ -221,27 +279,16 @@ export const useOrderDetail = () => {
     });
   }, [status]);
 
-  // Thay thế hàm executeStatusChange cũ bằng logic này:
-const executeStatusChange = async (targetStatus, successMsg) => {
+  const executeStatusChange = async (targetStatus, successMsg) => {
     setIsLoading(true);
     try {
         const res = await orderService.changeStatus(id, targetStatus);
-        
-        // 1. Phân tách response an toàn (Đảm bảo lấy đúng errorCode dù nằm ở lớp nào)
         const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
-        // 2. Kiểm tra điều kiện thành công (Mở rộng cho cả statusCode 200)
         if (beData?.errorCode === 1 || beData?.errorCode === "1" || beData?.statusCode === 200) {
-            
-            // 3. Cập nhật State tức thì để React re-render lại UI theo trạng thái mới
             setStatus(targetStatus); 
-            
-            // 4. Force refresh lại dữ liệu chi tiết đơn hàng để các logic phụ thuộc (như timeline) update theo
             setRefreshKey(prev => prev + 1);
-            
             if (successMsg) showToast(successMsg, 'success');
-            
-            // 5. Nếu cần thiết, gọi lại fetchOrderDetail để đồng bộ lại toàn bộ dữ liệu từ server
             await fetchOrderDetail(true); 
         } else { 
             showToast(beData?.message || 'Thao tác cập nhật trạng thái thất bại.', 'error'); 
@@ -252,11 +299,11 @@ const executeStatusChange = async (targetStatus, successMsg) => {
     } finally { 
         setIsLoading(false); 
     }
-};
+  };
 
   return {
     isLoading, status, orderStatus: status, order: orderData || {}, timeline, refreshKey, audioNoteUrl,
-    logs, history, logsLoading, historyLoading, fetchLogs, fetchHistory,
+    logs, history, logsLoading, historyLoading, fetchLogs, fetchHistory, pdfViewer,
     handleConfirmOrder: () => executeStatusChange(status === 'DRAFT' ? 'NEW' : 'AWAIT', 'Đã chuyển trạng thái đơn hàng!'), 
     handleApproveAndDebit: () => executeStatusChange('CONFIRMED', 'Đã phê duyệt công nợ đơn hàng.'), 
     handleCompleteStage: () => executeStatusChange('REJECTED', 'Đã chuyển đơn hàng vào danh sách từ chối duyệt.'), 
@@ -281,9 +328,6 @@ const executeStatusChange = async (targetStatus, successMsg) => {
         setIsLoading(false); 
       }
     }, 
-    // =================================================================
-    // LUỒNG XỬ LÝ HỦY ĐƠN HÀNG (SỬ DỤNG TOAST)
-    // =================================================================
     handleCancelInvoice: async () => {
       setIsLoading(true);
       try {
@@ -303,9 +347,6 @@ const executeStatusChange = async (targetStatus, successMsg) => {
         setIsLoading(false); 
       }
     }, 
-    // =================================================================
-    // LUỒNG XỬ LÝ XÓA ĐƠN HÀNG VÀ BẢN NHÁP (SỬ DỤNG TOAST + TRÌ HOÃN ĐIỀU HƯỚNG)
-    // =================================================================
     handleRejectOrder: async () => {
       setIsLoading(true);
       try {
@@ -313,8 +354,6 @@ const executeStatusChange = async (targetStatus, successMsg) => {
         const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
         if (beData?.errorCode === 1 || beData?.statusCode === 200) { 
-          // showToast('Đã thực hiện xóa dữ liệu đơn hàng thành công!', 'success');
-          // Tạo khoảng trễ nhỏ 50ms giúp Toast kịp render trước khi UI cha bị unmount do chuyển trang
           setTimeout(() => navigate('/orders'), 50);
         } else {
           showToast(beData?.message || 'Hệ thống từ chối xóa đơn hàng này.', 'error');
@@ -326,20 +365,63 @@ const executeStatusChange = async (targetStatus, successMsg) => {
       }
     }, 
     handleEditOrder: () => navigate(`/orders/edit/${id}`), 
+    closePdfViewer: () => {
+      if (pdfViewer.pdfUrl) {
+        URL.revokeObjectURL(pdfViewer.pdfUrl);
+      }
+      setPdfViewer({ isOpen: false, pdfUrl: null, fileName: '', title: '' });
+    },
+    
+    // 🎯 FIX: Gọi thẳng apiBackend và gán tham số là { id } thay vì qua orderService
     handlePrintInvoice: async () => {
+      if (!id) {
+        showToast('Không tìm thấy ID đơn hàng!', 'error');
+        return;
+      }
       try {
-        const res = await orderService.exportFullPdf(id);
-        window.open(URL.createObjectURL(new Blob([res.data || res], { type: 'application/pdf' })), '_blank');
-      } catch (err) { 
-        showToast('Lỗi kết nối máy in hóa đơn.', 'error'); 
+        showToast('Đang trích xuất hóa đơn khách hàng, vui lòng đợi...', 'info');
+        
+        // Cú pháp chuẩn ép buộc payload là "id" để Backend không báo lỗi
+        const response = await apiBackend.post('/order/export-pdf', { id }, { responseType: 'blob' });
+        
+        const blobData = await processSmartPdfBlob(response);
+        const fileURL = URL.createObjectURL(blobData);
+
+        setPdfViewer({
+          isOpen: true,
+          pdfUrl: fileURL,
+          fileName: `Hoa_don_khach_hang_${id}.pdf`,
+          title: `Hóa đơn khách hàng - #${id}`
+        });
+      } catch (error) {
+        console.error('Lỗi khi xuất hóa đơn khách hàng!', error);
+        showToast(error.message || 'Lỗi dữ liệu trả về từ máy chủ!', 'error');
       }
     }, 
+    
+    // 🎯 FIX: Tương tự, ép tham số payload là { id }
     handlePrintJobTicket: async () => {
+      if (!id) {
+        showToast('Không tìm thấy ID đơn hàng!', 'error');
+        return;
+      }
       try {
-        const res = await orderService.exportLimitPdf(id);
-        window.open(URL.createObjectURL(new Blob([res.data || res], { type: 'application/pdf' })), '_blank');
-      } catch (err) { 
-        showToast('Lỗi kết nối máy in xưởng sản xuất.', 'error'); 
+        showToast('Đang trích xuất lệnh sản xuất, vui lòng đợi...', 'info');
+        
+        const response = await apiBackend.post('/order/export-pdf-small', { id }, { responseType: 'blob' });
+        
+        const blobData = await processSmartPdfBlob(response);
+        const fileURL = URL.createObjectURL(blobData);
+
+        setPdfViewer({
+          isOpen: true,
+          pdfUrl: fileURL,
+          fileName: `Lenh_san_xuat_${id}.pdf`,
+          title: `Lệnh sản xuất - #${id}`
+        });
+      } catch (error) {
+        console.error('Lỗi khi xuất lệnh sản xuất!', error);
+        showToast(error.message || 'Lỗi dữ liệu trả về từ máy chủ!', 'error');
       }
     }, 
     handleBack: () => navigate('/orders')

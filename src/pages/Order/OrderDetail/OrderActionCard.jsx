@@ -6,6 +6,7 @@ import { useConfirm } from '../../../context/ConfirmContext';
 import { useNotification } from '../../../context/NotificationContext';
 
 const OrderActionCard = ({ 
+  // orderId, // ID is now handled by the parent hook via onPrint/onPrintJobTicket props
   status, 
   onConfirm, 
   onReject, 
@@ -71,52 +72,52 @@ const OrderActionCard = ({
 
         {(currentStatus === 'DRAFT' || currentStatus === 'NEW') && (
           <>
-            <Button onClick={onConfirm} className="w-full h-9.5 bg-[#00875A] text-white rounded-lg font-bold text-xs uppercase">✓ Xác nhận đơn</Button>
+            <Button onClick={onConfirm} className="w-full h-9.5 bg-[#00875A] text-white rounded-lg font-bold text-xs uppercase">Xác nhận đơn</Button>
             <div className="grid grid-cols-2 gap-2">
               <Button onClick={onEdit} className="h-9 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold text-xs">Chỉnh sửa</Button>
-              <Button onClick={handleRejectClick} className="h-9 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-semibold text-xs">✕ Xóa đơn</Button>
+              <Button onClick={handleRejectClick} className="h-9 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-semibold text-xs">Xóa đơn</Button>
             </div>
-            <Button onClick={onPrint} className="w-full h-9 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs mt-1">🖨️ In hóa đơn khách hàng</Button>
+            <Button onClick={onPrint} className="w-full h-9 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs mt-1">In hóa đơn khách hàng</Button>
           </>
         )}
 
         {currentStatus === 'AWAIT' && (
           <>
-            <Button onClick={onApprove} className="w-full h-9.5 bg-[#1EA854] text-white rounded-lg font-bold text-xs uppercase">✓ Duyệt đơn & Ghi nợ</Button>
+            <Button onClick={onApprove} className="w-full h-9.5 bg-[#1EA854] text-white rounded-lg font-bold text-xs uppercase">Duyệt đơn & Ghi nợ</Button>
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={onCompleteStage} className="h-9 bg-orange-50 text-orange-700 rounded-lg font-semibold text-xs">✕ Từ chối duyệt</Button>
-              <Button onClick={onEdit} className="h-9 bg-gray-100 text-gray-700 rounded-lg font-semibold text-xs">✏️ Sửa đơn</Button>
+              <Button onClick={onCompleteStage} className="h-9 bg-orange-50 text-orange-700 rounded-lg font-semibold text-xs">Từ chối duyệt</Button>
+              <Button onClick={onEdit} className="h-9 bg-gray-100 text-gray-700 rounded-lg font-semibold text-xs">Sửa đơn</Button>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-1">
-              <Button onClick={handleRejectClick} className="h-9 bg-red-50 text-red-600 rounded-lg font-semibold text-xs">✕ Xóa đơn</Button>
-              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs">🖨️ In hóa đơn</Button>
+              <Button onClick={handleRejectClick} className="h-9 bg-red-50 text-red-600 rounded-lg font-semibold text-xs">Xóa đơn</Button>
+              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-semibold text-xs">In hóa đơn</Button>
             </div>
           </>
         )}
 
         {currentStatus === 'CONFIRMED' && (
           <div className="flex flex-col gap-2">
-            <Button onClick={onStartProduction} className="w-full h-9.5 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase">⚙ Đưa vào sản xuất</Button>
+            <Button onClick={onStartProduction} className="w-full h-9.5 bg-blue-600 text-white rounded-lg font-bold text-xs uppercase">Đưa vào sản xuất</Button>
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={onHandoverShipping} className="h-9 bg-gray-100 text-gray-700 rounded-lg font-semibold text-[11px]">🚚 Bàn giao vận chuyển</Button>
-              <Button onClick={onCompleteOrder} className="h-9 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-[11px]">✓ Hoàn thành đơn</Button>
+              <Button onClick={onHandoverShipping} className="h-9 bg-gray-100 text-gray-700 rounded-lg font-semibold text-[11px]">Bàn giao vận chuyển</Button>
+              <Button onClick={onCompleteOrder} className="h-9 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-[11px]">Hoàn thành đơn</Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button onClick={onEdit} className="h-9 bg-gray-50 text-gray-600 rounded-lg font-medium text-[11px]">Chỉnh sửa đơn</Button>
-              <Button onClick={handleSafeCancelInvoice} className="h-9 bg-black text-white rounded-lg font-semibold text-[11px]">🛇 Hủy đơn hàng</Button>
+              <Button onClick={handleSafeCancelInvoice} className="h-9 bg-black text-white rounded-lg font-semibold text-[11px]">Hủy đơn hàng</Button>
             </div>
             <div className="grid grid-cols-2 gap-2 border-t pt-2 mt-1 border-gray-100">
-              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-medium text-[11px]">🖨️ In HĐ Khách</Button>
-              <Button onClick={onPrintJobTicket} className="h-9 bg-purple-50 text-purple-700 rounded-lg font-medium text-[11px]">🖨️ In HĐ Sản xuất</Button>
+              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-medium text-[11px]">In HĐ Khách</Button>
+              <Button onClick={onPrintJobTicket} className="h-9 bg-purple-50 text-purple-700 rounded-lg font-medium text-[11px]">In HĐ Sản xuất</Button>
             </div>
           </div>
         )}
 
         {currentStatus === 'REJECTED' && (
           <>
-            <Button onClick={onApprove} className="w-full h-9.5 bg-[#1EA854] text-white rounded-lg font-bold text-xs uppercase">✓ Duyệt đơn & Ghi nợ</Button>
+            <Button onClick={onApprove} className="w-full h-9.5 bg-[#1EA854] text-white rounded-lg font-bold text-xs uppercase">Duyệt đơn & Ghi nợ</Button>
             <div className="grid grid-cols-2 gap-2 mt-0.5">
-              <Button onClick={handleRejectClick} className="h-9 bg-red-50 text-red-600 rounded-lg font-semibold text-xs">✕ Xóa đơn hàng</Button>
+              <Button onClick={handleRejectClick} className="h-9 bg-red-50 text-red-600 rounded-lg font-semibold text-xs">Xóa đơn hàng</Button>
               <Button onClick={onEdit} className="h-9 bg-gray-100 text-gray-700 rounded-lg font-semibold text-xs">Chỉnh sửa đơn</Button>
             </div>
           </>
@@ -124,26 +125,26 @@ const OrderActionCard = ({
 
         {currentStatus === 'IN_PROGRESS' && (
           <div className="flex flex-col gap-2">
-            <Button onClick={onHandoverShipping} className="w-full h-9.5 bg-orange-500 text-white rounded-lg font-bold text-xs uppercase">🚚 Bàn giao vận chuyển</Button>
+            <Button onClick={onHandoverShipping} className="w-full h-9.5 bg-orange-500 text-white rounded-lg font-bold text-xs uppercase">Bàn giao vận chuyển</Button>
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={onCompleteOrder} className="h-9 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-[11px]">✓ Hoàn thành đơn</Button>
-              <Button onClick={handleSafeCancelInvoice} className="h-9 bg-black text-white rounded-lg font-semibold text-[11px]">🛇 Hủy đơn hàng</Button>
+              <Button onClick={onCompleteOrder} className="h-9 bg-emerald-50 text-emerald-700 rounded-lg font-semibold text-[11px]">Hoàn thành đơn</Button>
+              <Button onClick={handleSafeCancelInvoice} className="h-9 bg-black text-white rounded-lg font-semibold text-[11px]">Hủy đơn hàng</Button>
             </div>
-            <Button onClick={onEdit} className="w-full h-9 bg-gray-100 text-gray-700 rounded-lg font-medium text-xs">✏️ Chỉnh sửa đơn</Button>
+            <Button onClick={onEdit} className="w-full h-9 bg-gray-100 text-gray-700 rounded-lg font-medium text-xs">Chỉnh sửa đơn</Button>
             <div className="grid grid-cols-2 gap-2 border-t pt-2 mt-1 border-gray-100">
-              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-medium text-[11px]">🖨️ In HĐ Khách</Button>
-              <Button onClick={onPrintJobTicket} className="h-9 bg-purple-50 text-purple-700 rounded-lg font-medium text-[11px]">🖨️ In HĐ Sản xuất</Button>
+              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-medium text-[11px]">In HĐ Khách</Button>
+              <Button onClick={onPrintJobTicket} className="h-9 bg-purple-50 text-purple-700 rounded-lg font-medium text-[11px]">In HĐ Sản xuất</Button>
             </div>
           </div>
         )}
 
         {currentStatus === 'SHIPPING' && (
           <div className="flex flex-col gap-2">
-            <Button onClick={onCompleteOrder} className="w-full h-9.5 bg-[#1EA854] text-white rounded-lg font-bold text-xs uppercase">✓ Hoàn thành đơn hàng</Button>
-            <Button onClick={handleSafeCancelInvoice} className="w-full h-9 bg-black text-white rounded-lg font-semibold text-xs">🛇 Hủy đơn hàng</Button>
+            <Button onClick={onCompleteOrder} className="w-full h-9.5 bg-[#1EA854] text-white rounded-lg font-bold text-xs uppercase">Hoàn thành đơn hàng</Button>
+            <Button onClick={handleSafeCancelInvoice} className="w-full h-9 bg-black text-white rounded-lg font-semibold text-xs">Hủy đơn hàng</Button>
             <div className="grid grid-cols-2 gap-2 border-t pt-2 mt-1 border-gray-100">
-              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-medium text-[11px]">🖨️ In HĐ Khách</Button>
-              <Button onClick={onPrintJobTicket} className="h-9 bg-purple-50 text-purple-700 rounded-lg font-medium text-[11px]">🖨️ In HĐ Sản xuất</Button>
+              <Button onClick={onPrint} className="h-9 bg-blue-50 text-blue-700 rounded-lg font-medium text-[11px]">In HĐ Khách</Button>
+              <Button onClick={onPrintJobTicket} className="h-9 bg-purple-50 text-purple-700 rounded-lg font-medium text-[11px]">In HĐ Sản xuất</Button>
             </div>
           </div>
         )}
@@ -153,6 +154,7 @@ const OrderActionCard = ({
 };
 
 OrderActionCard.propTypes = {
+  // orderId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]), // Thêm Validate prop mới
   status: PropTypes.string,
   onConfirm: PropTypes.func.isRequired,
   onReject: PropTypes.func.isRequired,

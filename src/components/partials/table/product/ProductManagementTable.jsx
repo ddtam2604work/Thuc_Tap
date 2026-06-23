@@ -2,10 +2,8 @@ import Table from '../../../skeleton/Table';
 import { PRODUCT_TABLE_HEADERS } from '../../../../constants/product';
 import Button from '../../../skeleton/Button';
 
-// Component Tooltip custom cao cấp từ OrderTable (GIỮ NGUYÊN HOÀN TOÀN LOGIC)
 const Tooltip = ({ content, children, className = "" }) => {
   if (!content || content === '---' || content === '-' || content === 'linkgoogledrive') {
-    // 🎯 Loại bỏ w-full, dùng block kết hợp className có width cứng
     return <div className={`truncate block ${className}`}>{children}</div>;
   }
   
@@ -14,10 +12,9 @@ const Tooltip = ({ content, children, className = "" }) => {
       <div className="truncate w-full block cursor-pointer">
         {children}
       </div>
-      {/* 🎯 Trả Tooltip về neo góc trái (left-0) để đồng bộ tuyệt đối với text-left */}
-      <div className="absolute z-[999] invisible opacity-0 group-hover/tt:visible group-hover/tt:opacity-100 transition-all duration-300 bottom-full left-0 mb-2 w-max max-w-[280px] p-3 bg-[#191C1D] text-white text-xs font-normal rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] pointer-events-none whitespace-normal break-words leading-relaxed text-left">
+      <div className="absolute z-[999] invisible opacity-0 group-hover/tt:visible group-hover/tt:opacity-100 transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[280px] p-3 bg-[#191C1D] text-white text-xs font-normal rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] pointer-events-none whitespace-normal break-words leading-relaxed text-center">
         {content}
-        <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-[#191C1D] rotate-45 rounded-sm"></div>
+        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#191C1D] rotate-45 rounded-sm"></div>
       </div>
     </div>
   );
@@ -25,7 +22,6 @@ const Tooltip = ({ content, children, className = "" }) => {
 
 const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, isLoading = false }) => {
   
-  // HÀM BỌC LÓT GIAO DIỆN: Xử lý màu sắc và chữ cho Trạng thái (GIỮ NGUYÊN LOGIC)
   const getStatusLabel = (row) => {
     const isActive = (String(row.isactive) === '1' || row.isactive === true) || 
                      (String(row.status) === '1' || row.status === 'ACTIVE');
@@ -37,7 +33,6 @@ const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, 
     }
   };
 
-  // HÀM DỊCH UUID THÀNH TÊN DANH MỤC (GIỮ NGUYÊN LOGIC)
   const getCategoryName = (row) => {
     if (typeof row.category_name === 'string') return row.category_name;
     if (typeof row.category === 'string') return row.category;
@@ -74,8 +69,8 @@ const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, 
 
         return (
           <tr key={rowKey} className="hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors text-xs">
-            {/* Cột 1: Mã sản phẩm - Ép khung bảo vệ min-w-[120px] chống xâm lấn */}
-            <td className="p-4 text-left text-[#191C1D] font-medium max-w-[120px]">
+            {/* 🎯 Đổi text-left thành text-center, thu hẹp min-w */}
+            <td className="p-4 text-center text-[#191C1D] font-medium min-w-[100px] max-w-[150px]">
               <Tooltip content={row.code || row.id} className="w-full">
                 <span className="font-medium text-[#191C1D]">
                   {row.code || row.id || '-'}
@@ -83,8 +78,8 @@ const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, 
               </Tooltip>
             </td>
             
-            {/* Cột 2: Tên sản phẩm - Dùng w-[220px] cứng cho Tooltip để tạo vách ngăn tuyệt đối */}
-            <td className="p-4 text-left text-slate-800 text-sm font-medium max-w-[220px]">
+            {/* 🎯 Tương tự, căn giữa và giới hạn độ rộng tối đa */}
+            <td className="p-4 text-center text-slate-800 text-sm font-medium min-w-[120px] max-w-[180px]">
               <Tooltip content={row.name} className="w-full">
                 <span className="font-bold">
                   {row.name || '-'}
@@ -92,38 +87,34 @@ const ProductManagementTable = ({ data = [], categories = [], onEdit, onDelete, 
               </Tooltip>
             </td>
             
-            {/* Cột 3: Tên Danh mục - Dùng w-[140px] cứng */}
-            <td className="p-4 text-left text-[#585F67]">
-              <Tooltip content={currentCategoryName} className="w-[140px]">
+            <td className="p-4 text-center text-[#585F67] min-w-[100px] max-w-[130px]">
+              <Tooltip content={currentCategoryName} className="w-full">
                 <span className="text-[#585F67]">
                   {currentCategoryName}
                 </span>
               </Tooltip>
             </td>
             
-            {/* Cột 4: Giá bán - Khóa cứng min-w */}
-            <td className="p-4 text-right text-[#191C1D] font-semibold whitespace-nowrap w-[130px] min-w-[130px]">
+            {/* DUY NHẤT cột giá giữ text-right */}
+            <td className="p-4 text-right text-[#191C1D] font-semibold whitespace-nowrap min-w-[120px]">
               {(Number(row.price) || 0).toLocaleString('en-US')} đ
             </td>
             
-            {/* Cột 5: Mô tả - Dùng max-w-[160px] */}
-            <td className="p-4 text-left text-[#747686] max-w-[160px]">
-              <Tooltip content={currentDescription} className="w-[160px]">
+            <td className="p-4 text-center text-[#747686] min-w-[120px] max-w-[160px]">
+              <Tooltip content={currentDescription} className="w-full">
                 <span className="text-[#747686]">
                   {currentDescription || '---'}
                 </span>
               </Tooltip>
             </td>
             
-            {/* Cột 6: Trạng thái */}
-            <td className="p-4 text-center whitespace-nowrap w-[150px] min-w-[150px]">
+            <td className="p-4 text-center whitespace-nowrap min-w-[130px]">
               <span className={`inline-flex px-2 py-0.5 rounded-[2px] text-[12px] font-semibold uppercase tracking-wider ${statusObj.class}`}>
                 {statusObj.text}
               </span>
             </td>
             
-            {/* Cột 7: Thao tác */}
-            <td className="p-4 text-center whitespace-nowrap w-[100px] min-w-[100px]">
+            <td className="p-4 text-center whitespace-nowrap min-w-[100px]">
               <div className="flex items-center justify-center gap-3 font-semibold">
                 <Button variant="text" onClick={() => onEdit?.(row)} disabled={isLoading} className={isLoading ? 'opacity-50 cursor-not-allowed' : ''}>
                   {isLoading ? '⏳' : 'Sửa'}

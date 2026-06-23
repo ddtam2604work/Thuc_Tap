@@ -35,7 +35,7 @@ const processQueue = (error, token = null) => {
 };
 
 // ==========================================
-// 1. CẤU HÌNH INTERCEPTORS CHO API BACKEND (GIỮ NGUYÊN 100%)
+// 1. CẤU HÌNH INTERCEPTORS CHO API BACKEND
 // ==========================================
 
 // 1.1 Interceptor đính kèm Access Token vào mọi request gửi đi
@@ -112,6 +112,18 @@ apiBackend.interceptors.response.use(
 
     // 🎯 CHUẨN HÓA KHỐI DỮ LIỆU LỖI TRẢ VỀ TỪ BACKEND ĐỂ UI LAYER HỨNG ĐƯỢC
     if (error.response && error.response.data) {
+      
+      // 🌟 ĐIỀU CHỈNH 1: Chống nuốt lỗi khi tải file PDF/Image (Giải mã Blob thành JSON)
+      if (error.response.data instanceof Blob && error.response.data.type.includes('application/json')) {
+        try {
+          const textData = await error.response.data.text();
+          const jsonData = JSON.parse(textData);
+          return Promise.reject(jsonData);
+        } catch (e) {
+          return Promise.reject(error.response.data);
+        }
+      }
+
       return Promise.reject(error.response.data);
     }
 
@@ -121,10 +133,9 @@ apiBackend.interceptors.response.use(
 
 
 // ==========================================
-// 2. CẤU HÌNH INTERCEPTORS CHO API MEDIA (BỔ SUNG MỚI ĐỂ ĐỒNG BỘ LOGIC)
+// 2. CẤU HÌNH INTERCEPTORS CHO API MEDIA 
 // ==========================================
 
-// 2.1 Đính kèm Access Token cho luồng tải ảnh/file
 apiMedia.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
@@ -136,7 +147,6 @@ apiMedia.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 2.2 Xử lý đầu ra dữ liệu và Silent Refresh 401 đồng bộ cho luồng Media
 apiMedia.interceptors.response.use(
   (response) => {
     return response.data; 
@@ -196,6 +206,17 @@ apiMedia.interceptors.response.use(
     }
 
     if (error.response && error.response.data) {
+      // 🌟 ĐIỀU CHỈNH 1: Chống nuốt lỗi khi tải file Media
+      if (error.response.data instanceof Blob && error.response.data.type.includes('application/json')) {
+        try {
+          const textData = await error.response.data.text();
+          const jsonData = JSON.parse(textData);
+          return Promise.reject(jsonData);
+        } catch (e) {
+          return Promise.reject(error.response.data);
+        }
+      }
+
       return Promise.reject(error.response.data);
     }
 
@@ -205,12 +226,18 @@ apiMedia.interceptors.response.use(
 
 
 // ==========================================
-// 3. LOGIC HỆ THỐNG CHUNG (GIỮ NGUYÊN 100%)
+// 3. LOGIC HỆ THỐNG CHUNG 
 // ==========================================
 const handleLogoutSystem = () => {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('userInfo'); 
-  store.dispatch(logoutAction()); 
+  
+  // 🌟 ĐIỀU CHỈNH 2: Bọc an toàn store để chống lỗi Circular Dependency (Rất hay gặp khi code lớn dần)
+  if (store && typeof store.dispatch === 'function') {
+    store.dispatch(logoutAction()); 
+  }
+  
   console.error('🔴 Phiên đăng nhập hết hạn hoàn toàn. Mời đăng nhập lại.');
+  // Tùy chọn: window.location.href = '/login'; (Nếu Redux authSlice chưa kịp bắt sự thay đổi)
 };

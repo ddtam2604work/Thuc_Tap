@@ -6,6 +6,7 @@ import OrderTimeline from './OrderDetail/OrderTimeline';
 import OrderActionCard from './OrderDetail/OrderActionCard';
 import OrderFinancialSummary from './OrderDetail/OrderFinancialSummary';
 import { useState, useEffect } from 'react';
+import PdfViewerModal from './PdfViewerModal';
 
 const OrderDetail = () => {
   const { 
@@ -17,6 +18,8 @@ const OrderDetail = () => {
     refreshKey,
     audioNoteUrl, // 🌟 KỸ THUẬT: Bóc tách URL luồng stream file ghi âm từ Custom Hook
     logs, history, logsLoading, historyLoading, fetchLogs, fetchHistory,
+    pdfViewer,
+    closePdfViewer,
     handleConfirmOrder, 
     handleApproveAndDebit, 
     handleCompleteStage, 
@@ -49,7 +52,8 @@ const OrderDetail = () => {
   }
 
   return (
-    <div key={refreshKey} className="w-full animate-in fade-in duration-200">
+    <>
+      <div key={refreshKey} className="w-full animate-in fade-in duration-200">
       <DetailTwoColumnLayout
         backLabel="Quay lại danh sách đơn hàng"
         onBackClick={handleBack}
@@ -111,7 +115,15 @@ const OrderDetail = () => {
           </div>
         }
       />
-    </div>
+      </div>
+      <PdfViewerModal 
+        isOpen={pdfViewer.isOpen}
+        onClose={closePdfViewer}
+        pdfUrl={pdfViewer.pdfUrl}
+        fileName={pdfViewer.fileName}
+        title={pdfViewer.title}
+      />
+    </>
   );
 };
 

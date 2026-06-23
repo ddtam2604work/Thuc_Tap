@@ -21,12 +21,10 @@ export const useNotification = () => {
                     localStorage.getItem('accessToken') || 
                     localStorage.getItem('token');
 
-  // 🎯 LUỒNG NẠP DANH SÁCH THÔNG BÁO TÙY BIẾN CHO PHÂN TRANG VÀ LỌC TABS
   const fetchNotifications = useCallback(async (page = 1, pageSize = 20, isReadFilter = undefined) => {
     if (!authToken) return;
     setIsLoading(true);
     try {
-      // isReadFilter nhận giá trị: 0 (Chưa đọc), 1 (Đã đọc), undefined (Tất cả)
       const result = await notificationService.getPersonalPaging(authToken, page, pageSize, isReadFilter);
       
       if (result?.data) {
@@ -34,11 +32,9 @@ export const useNotification = () => {
         setNotifications(items);
         setTotalItems(result.data.total || 0);
         
-        // 🌟 ĐỒNG BỘ CẤP CAO: Đọc trực tiếp giá trị unread_count từ payload của Backend
         if (result.data.unread_count !== undefined) {
           setUnreadCount(Number(result.data.unread_count));
         } else {
-          // Fallback dự phòng nếu Backend không trả về unread_count ở một số điều kiện lọc
           const unread = items.filter(n => !n.is_read && n.status !== 'read').length;
           setUnreadCount(unread);
         }
@@ -50,15 +46,24 @@ export const useNotification = () => {
     }
   }, [authToken]);
 
-  // HÀM ĐÁNH DẤU TẤT CẢ ĐÃ ĐỌC (OPTIMISTIC UPDATE)
+  // 🎯 LẮNG NGHE SỰ KIỆN ĐỒNG BỘ: Bắt tín hiệu để xóa số trên icon ngay lập tức
+  useEffect(() => {
+    const handleSyncMarkAll = () => {
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true, status: 'read' })));
+      setUnreadCount(0);
+    };
+
+    window.addEventListener('sync_notifications_read', handleSyncMarkAll);
+    return () => window.removeEventListener('sync_notifications_read', handleSyncMarkAll);
+  }, []);
+
   const markAllAsRead = async () => {
     if (!authToken || unreadCount === 0) return;
 
     const unreadNotifications = notifications.filter(n => !n.is_read && n.status !== 'read');
 
-    // Chạy UI đột biến lập tức giúp người dùng không cảm thấy độ trễ mạng
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true, status: 'read' })));
-    setUnreadCount(0);
+    // 🎯 PHÁT TÍN HIỆU ĐỒNG BỘ: Báo cho Dropdown và tất cả các component khác update UI
+    window.dispatchEvent(new Event('sync_notifications_read'));
 
     try {
       await Promise.all(
@@ -72,20 +77,17 @@ export const useNotification = () => {
     }
   };
 
-  // LUỒNG XỬ LÝ CLICK SẢN PHẨM IN VÀ ĐIỀU HƯỚNG
   const handleNotificationClick = async (noti) => {
     if (!authToken) return;
     try {
       const result = await notificationService.getPersonalDetail(authToken, noti.id);
       const detailData = result?.data || result;
 
-      // Cập nhật state cục bộ tại chỗ
       setNotifications(prev => 
         prev.map(n => n.id === noti.id ? { ...n, is_read: true, status: 'read' } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
 
-      // Phân tách routing thông minh
       const targetPath = detailData?.redirect_url || detailData?.path || noti.redirect_url || noti.path;
       const businessId = detailData?.order_id || detailData?.reference_id || detailData?.data_id || 
                          noti.order_id || noti.reference_id || noti.data_id;
@@ -104,7 +106,6 @@ export const useNotification = () => {
     }
   };
 
-  // Đăng ký và lắng nghe sự kiện cổng Socket thời gian thực
   useEffect(() => {
     if (authToken) {
       fetchNotifications(1, 20);
