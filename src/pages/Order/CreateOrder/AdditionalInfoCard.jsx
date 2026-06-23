@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useAdditionalInfoCard } from '../../../hooks/Order/useAdditionalInfoCard';
 
 const AdditionalInfoCard = ({ 
   shippingUnit, setShippingUnit, 
   shippingCode, setShippingCode, 
   generalNote, setGeneralNote,
-  recordedAudioFile, setRecordedAudioFile
+  generalImages, setGeneralImages,
+  recordedAudioFile, setRecordedAudioFile,
+  uploadGeneralImages
 }) => {
   const {
     isRecording,
@@ -16,14 +19,76 @@ const AdditionalInfoCard = ({
     recordedAudioFile, 
     setRecordedAudioFile
   });
+  
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    
+    setIsUploading(true);
+    await uploadGeneralImages(files);
+    setIsUploading(false);
+    
+    e.target.value = null;
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    const targetImg = generalImages?.[indexToRemove];
+    if (targetImg?.previewUrl) {
+      URL.revokeObjectURL(targetImg.previewUrl);
+    }
+    const updatedImages = generalImages?.filter((_, idx) => idx !== indexToRemove) || [];
+    setGeneralImages(updatedImages);
+  };
 
   return (
     <div className="w-full flex flex-col gap-4">
-      <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-5 flex flex-col gap-3.5">
+      <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-5 flex flex-col gap-3.5 relative">
+        {isUploading && (
+          <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center rounded-xl">
+            <span className="text-sm font-bold text-blue-600">Đang tải lên...</span>
+            <span className="text-xs text-gray-500">Vui lòng chờ trong giây lát.</span>
+          </div>
+        )}
         <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Ghi chú chung & Tệp đính kèm</h3>
         
+        {/* General Attachments Upload */}
+        <div className="flex flex-wrap gap-2 mt-1">
+          {(generalImages || []).map((imgObj, i) => (
+            <div key={i} className="w-[82px] h-[82px] bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-center overflow-hidden relative group shadow-2xs">
+              {imgObj.isImage ? (
+                <img src={imgObj.previewUrl} alt={imgObj.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-1">
+                  <span className="text-2xl">📄</span>
+                  <span className="text-[9px] font-bold text-gray-500 truncate w-full">{imgObj.name}</span>
+                </div>
+              )}
+              <button 
+                type="button" 
+                onClick={() => handleRemoveImage(i)} 
+                className="absolute top-1 right-1 w-5 h-5 bg-black/60 hover:bg-red-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          
+          <label className="w-[82px] h-[82px] border-2 border-dashed border-gray-200 hover:border-blue-500/40 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer bg-gray-50/50 hover:bg-blue-50/20 transition-all duration-200 active:scale-95">
+            <span className="text-gray-400 text-sm">📎</span>
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Đính kèm</span>
+            <input 
+              type="file" 
+              multiple 
+              onChange={handleFileChange} 
+              className="hidden" 
+            />
+          </label>
+        </div>
+        
         {/* KHÔNG GIAN THAO TÁC GHI ÂM TRỰC TIẾP */}
-        <div className="min-h-[50px] flex flex-col justify-center bg-gray-50/40 p-2.5 rounded-xl border border-gray-100/60">
+        <div className="min-h-[50px] flex flex-col justify-center bg-gray-50/40 p-2.5 rounded-xl border border-gray-100/60 mt-2">
           <div className="flex flex-col gap-2 w-full animate-in fade-in duration-150">
             <button 
               type="button" 

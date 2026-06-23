@@ -22,11 +22,13 @@ const CreateOrder = () => {
     generalNote, setGeneralNote,
     products, catalog, isLoadingCatalog,
     generalImages, setGeneralImages,
-    recordedAudioFile, setRecordedAudioFile, // Chỉ nhận biến ghi âm
+    recordedAudioFile, setRecordedAudioFile,
     handleAddProduct, handleRemoveProduct, handleUpdateProduct,
     subtotal, vat, total,
     handleCreateOrderSubmit, handleSaveDraft, handleCreateAndAwait,
-    isSubmitting
+    isSubmitting,
+    uploadGeneralImages,
+    uploadProductImages // 🚀 Nhận thêm hàm upload ảnh sản phẩm gọi trực tiếp API
   } = useCreateOrder();
 
   const { filteredGroups, fetchGroups } = useCustomerGroups();
@@ -82,7 +84,17 @@ const CreateOrder = () => {
         <div className="w-full flex flex-col lg:flex-row items-start gap-4.5">
           <div className="flex-1 w-full flex flex-col gap-4.5">
             <CustomerInfoSection customer={customer} setCustomer={setCustomer} onOpenCreateModal={handleOpenCreateModal} refreshKey={customerRefreshKey} />
-            <ProductListSection products={products} catalog={catalog} isLoadingCatalog={isLoadingCatalog} onAddProduct={handleAddProduct} onRemoveProduct={handleRemoveProduct} onUpdateProduct={handleUpdateProduct} />
+            
+            {/* 🚀 Truyền hàm uploadProductImages xuống khu vực sản phẩm để xử lý sự kiện kích hoạt API tức thì khi chọn ảnh */}
+            <ProductListSection 
+              products={products} 
+              catalog={catalog} 
+              isLoadingCatalog={isLoadingCatalog} 
+              onAddProduct={handleAddProduct} 
+              onRemoveProduct={handleRemoveProduct} 
+              onUpdateProduct={handleUpdateProduct} 
+              uploadProductImages={uploadProductImages} 
+            />
           </div>
 
           <div className="w-full lg:w-[380px] flex flex-col gap-4.5 shrink-0">
@@ -99,6 +111,7 @@ const CreateOrder = () => {
               generalNote={generalNote} setGeneralNote={setGeneralNote}
               generalImages={generalImages} setGeneralImages={setGeneralImages}
               recordedAudioFile={recordedAudioFile} setRecordedAudioFile={setRecordedAudioFile}
+              uploadGeneralImages={uploadGeneralImages}
             />
           </div>
         </div>

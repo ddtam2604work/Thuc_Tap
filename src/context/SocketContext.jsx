@@ -3,9 +3,10 @@ import { io } from 'socket.io-client';
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
-// Đảm bảo không lỗi nếu biến môi trường chưa load kịp
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://qlkd.nosomovo.xyz:7002';
-const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || 'https://qlkd.nosomovo.xyz:7002';
+// Hợp nhất URL để tránh lỗi kết nối chéo khi chỉ có VITE_BE_URL được set
+const BE_URL = import.meta.env.VITE_BE_URL || 'wss://qlkd.nosomovo.xyz:7002';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || BE_URL;
+const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || BE_URL;
 
 const SocketContext = createContext();
 export const useSocket = () => useContext(SocketContext);
@@ -17,9 +18,13 @@ export const SocketProvider = ({ children }) => {
   const [toastMessage, setToastMessage] = useState(null);
   const pollingIntervalRef = useRef(null);
   const location = useLocation();
+  const locationRef = useRef(location);
   
-  // Lấy token từ Redux (đóng vai trò là accessToken)
   const token = useSelector((state) => state.auth.token);
+
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
 
   const showToast = (message, sender) => {
      setToastMessage({ message, sender });
@@ -45,7 +50,6 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
-  // Logic kết nối Socket chính xác theo Gateway Backend
   useEffect(() => {
     if (!token || token.length < 30) {
       return;
@@ -76,6 +80,24 @@ export const SocketProvider = ({ children }) => {
     socketInstance.on('connect', () => {
       console.log('🟢 Kết nối Socket thành công đến:', targetUrl);
       stopFallbackPolling(); 
+
+      // =========================================================================
+      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Tự động Join Company Channel ngay khi vừa kết nối thành công
+      // Giúp tài khoản lắng nghe tin nhắn Realtime lập tức ở mọi trang mà không cần vào mục Chat
+      // =========================================================================
+      try {
+        const currentToken = localStorage.getItem('accessToken') || token;
+        const payload = JSON.parse(window.atob(currentToken.split('.')[1]));
+        const isStaff = !payload.customer_id; // Nếu không có customer_id thì chắc chắn là Nhân viên
+
+        if (isStaff) {
+          socketInstance.emit('chat:join_company', { company_id: '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791' });
+          console.log('🏢 [Hạ tầng Realtime] Đã kích hoạt kênh nhận thông báo tin nhắn toàn cục.');
+        }
+      } catch (e) {
+        console.error("❌ Lỗi phân giải Token để tự động join Company Channel:", e);
+      }
+      // =========================================================================
     });
 
     socketInstance.on('connect_error', (err) => {
@@ -83,27 +105,31 @@ export const SocketProvider = ({ children }) => {
       startFallbackPolling();
     });
 
-    // =========================================================================
-    // 🌟 ĐÃ ĐIỀU CHỈNH LOGIC REALTIME 1: Bỏ chặn điều kiện trang để luôn tăng thông báo trên Header
-    // =========================================================================
-    socketInstance.on('chat:message', (data) => {
-      // Bất kể đang ở trang nào, nếu có tin nhắn gửi đến, ta đều tăng số lượng thông báo tổng lên
-      setGlobalUnreadCount(prev => prev + 1);
-      
-      // Chỉ hiển thị popup Toast thông báo khi người dùng đang không ở màn hình chat góc rộng
-      if (location.pathname !== '/chat' && data?.content) {
-        showToast(data.content, data.sender_name || 'Khách hàng');
-      }
-    });
+    const handleIncomingMessage = (data) => {
+      try {
+        const currentToken = localStorage.getItem('accessToken') || token;
+        const payload = JSON.parse(window.atob(currentToken.split('.')[1]));
+        const role = payload.customer_id ? 'customer' : 'staff';
+        const senderType = Number(data.sendertype || data.sender_type);
+        
+        const isFromOther = (role === 'staff' && senderType === 1) || (role === 'customer' && senderType === 2);
 
-    // 🌟 ĐÃ ĐIỀU CHỈNH LOGIC REALTIME 2: Tương tự đối với tin nhắn từ phòng khác
-    socketInstance.on('chat:new_message', (data) => {
-      setGlobalUnreadCount(prev => prev + 1);
-      
-      if (location.pathname !== '/chat' && data?.content) {
-        showToast(data.content, data.sender_name || 'Tin nhắn mới');
+        if (isFromOther) {
+          if (!locationRef.current.pathname.startsWith('/chat')) {
+            setGlobalUnreadCount(prev => prev + 1);
+            
+            if (data?.content) {
+              showToast(data.content, data.sender_name || (senderType === 1 ? 'Khách hàng' : 'Tin nhắn mới'));
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Lỗi xử lý tin nhắn socket:", e);
       }
-    });
+    };
+
+    socketInstance.on('chat:message', handleIncomingMessage);
+    socketInstance.on('chat:new_message', handleIncomingMessage);
 
     socketInstance.on('chat:access_token_refreshed', (data) => {
       if (data?.accessToken) {
@@ -113,16 +139,34 @@ export const SocketProvider = ({ children }) => {
     });
 
     const safeCallUrl = String(CALL_SERVER_URL);
-    const targetCallUrl = safeCallUrl.includes('localhost')
-      ? safeCallUrl.replace('https://', 'http://')
-      : safeCallUrl;
+    let targetCallUrl = safeCallUrl;
+
+    // 🎯 GIẢI PHÁP ĐIỀU CHỈNH THÔNG MINH:
+    // Nhìn trực tiếp vào địa chỉ trình duyệt xem có phải đang chạy Test dưới Local hay không
+    const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocalTest) {
+      // Nếu bạn đang mở http://localhost:5173 để test, ép luồng chạy thẳng vào callServer.js local (Cổng 4001)
+      // Giải pháp này giúp bỏ qua hoàn toàn IP Production trong .env mà không cần sửa file .env
+      targetCallUrl = 'http://localhost:4001';
+    } else {
+      // Nếu chạy thực tế trên Production (mạng ngoài), giữ nguyên cấu hình .env và ép chạy giao thức bảo mật https/wss
+      targetCallUrl = safeCallUrl.replace(/^http:/, 'https:');
+    }
 
     const callSocketInstance = io(targetCallUrl, {
       path: '/call-socket', 
-      transports: ['websocket'],
-      secure: !targetCallUrl.includes('http://'),
+      // Bật cả websocket và polling làm đệm chống rớt kết nối
+      transports: ['websocket', 'polling'], 
       rejectUnauthorized: false,
-      auth: { token: token.replace(/^Bearer\s+/i, '').trim() }
+      withCredentials: true, 
+      
+      // 🎯 ĐỒNG BỘ AUTHENTICATION: 
+      // Truyền cả 2 key để vừa khớp với socket chính, vừa khớp với `socket.handshake.auth.token` của file callServer.js
+      auth: { 
+        token: token.replace(/^Bearer\s+/i, '').trim(),
+        accessToken: token.replace(/^Bearer\s+/i, '').trim()
+      }
     });
     setCallSocket(callSocketInstance);
 
@@ -131,10 +175,9 @@ export const SocketProvider = ({ children }) => {
     });
 
     callSocketInstance.on('connect_error', (err) => {
-      console.error('🔴 Lỗi kết nối Call Socket:', err.message);
+      console.error('🔴 Lỗi kết nối Call Socket tại:', targetCallUrl, '| Chi tiết:', err.message);
     });
 
-    // 🌟 ĐÃ BỔ SUNG: Lắng nghe cuộc gọi đến để Header lập tức có chấm đỏ thông báo
     callSocketInstance.on('call:incoming', (data) => {
       setGlobalUnreadCount(prev => prev + 1);
       const callTypeLabel = data?.type === 'video' ? '📹 Cuộc gọi Video đến...' : '📞 Cuộc gọi thoại đến...';
@@ -146,9 +189,8 @@ export const SocketProvider = ({ children }) => {
       callSocketInstance.disconnect();
       stopFallbackPolling();
     };
-  }, [token, location.pathname]); // Hook lắng nghe location.pathname để đồng bộ hiển thị Toast
+  }, [token]);
 
-  // Lắng nghe việc đăng xuất để hủy kết nối
   useEffect(() => {
     if (location.pathname === '/login') {
       if (socket) {

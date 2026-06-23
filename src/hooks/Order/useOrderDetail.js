@@ -179,6 +179,7 @@ export const useOrderDetail = () => {
             employee: raw.createuser_fullname || 'Hệ thống',
             address: finalCustomerAddress || 'Nhận tại cửa hàng'
           },
+          googleDriveLink: formatAbsoluteDriveLink(raw.linkgoogledrive || raw.drive_link || raw.link_google_drive),
           attachments: orderAttachments.map((img, i) => {
             const fId = typeof img === 'string' ? img : (img.id || img.fileId || '');
             const absolutePath = resolveAbsoluteUrl(fId);
@@ -190,7 +191,7 @@ export const useOrderDetail = () => {
             };
           }),
           products: (raw.items || []).map(item => {
-            const itemDriveLink = formatAbsoluteDriveLink(item.linkgoogledrive);
+            const itemDriveLink = formatAbsoluteDriveLink(item.linkgoogledrive || item.drive_link || item.link_google_drive);
 
             let rawItemImages = safeParseAttachments(item.attachments || item.images);
             if (rawItemImages.length === 0 && (raw.items || []).length === 1) {

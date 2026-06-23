@@ -1,7 +1,7 @@
 // src/components/layout/Header.jsx
-import React, { useState, useEffect } from 'react'; // ĐÃ CẬP NHẬT: Thêm useEffect để đồng bộ số liệu
+import React, { useState, useEffect } from 'react'; 
 import { useSelector } from 'react-redux';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom'; // Thêm useLocation
 import { useAuth } from '../../hooks/Login/useAuth';
 import { NAV_LINKS } from '../../constants/navigation';
 import { useSocket } from '../../context/SocketContext'; 
@@ -10,13 +10,10 @@ import Button from '../skeleton/Button';
 import ActiveWrapper from '../skeleton/ActiveWrapper'; 
 import NotificationDropdown from '../../pages/Notification/NotificationDropdown';
 import chaticon from '../../assets/images/icon_chat.png';
-import { chatService } from '../../services/chatService'; // ĐÃ BỔ SUNG: Gọi API lấy unread ban đầu
+import { chatService } from '../../services/chatService'; 
 
 const COMPANY_ID = '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791';
 
-// ==========================================
-// 1. COMPONENT LOGO (ĐIỀU CHỈNH ROUTE ĐỘNG)
-// ==========================================
 const Logo = () => {
   const role = getUserRoleFromToken();
   const targetPath = role === 'customer' ? "/products" : "/home";
@@ -34,9 +31,6 @@ const Logo = () => {
   );
 };
 
-// ==========================================
-// 2. NAVIGATION LINKS (ĐIỀU CHỈNH LỌC THEO QUYỀN)
-// ==========================================
 const NavigationLinks = ({ filteredLinks }) => {
   return (
     <nav className="hidden md:flex items-center gap-[16px] pl-8 flex-1 justify-start">
@@ -61,9 +55,6 @@ const NavigationLinks = ({ filteredLinks }) => {
   );
 };
 
-// ==========================================
-// 3. COMPONENT USER MENU (GIỮ NGUYÊN LOGIC)
-// ==========================================
 const UserMenu = () => {
   const { user } = useSelector((state) => state.auth);
   const { logout } = useAuth();
@@ -99,17 +90,19 @@ const UserMenu = () => {
   );
 };
 
-// ==========================================
-// 4. MAIN HEADER COMPONENT (MỞ KHÓA CHO CUSTOMER)
-// ==========================================
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const socketContext = useSocket();
   const globalUnreadCount = socketContext?.globalUnreadCount || 0; 
   const setGlobalUnreadCount = socketContext?.setGlobalUnreadCount;
+  const socket = socketContext?.socket; 
   const role = getUserRoleFromToken(); 
+  const location = useLocation(); // 🎯 Bắt URL hiện tại
 
-  // 🌟 ĐÃ BỔ SUNG: Gọi nạp số liệu chưa đọc từ DB ngay khi khởi động Header tránh F5 bị mất badge đỏ
+  // =========================================================================
+  // 🎯 ĐIỀU CHỈNH CỐT LÕI: Thêm location.pathname vào dependency array.
+  // Giúp Header tự động gọi API đồng bộ lại unread chuẩn chỉ ngay khi chuyển trang mà không cần F5.
+  // =========================================================================
   useEffect(() => {
     const syncUnreadCount = async () => {
       if (role !== 'customer' && typeof setGlobalUnreadCount === 'function') {
@@ -124,9 +117,49 @@ const Header = () => {
       }
     };
     syncUnreadCount();
-  }, [role, setGlobalUnreadCount]);
+  }, [role, setGlobalUnreadCount, location.pathname]); 
 
-  // HÀM LỌC MENU: Chỉ hiển thị các route mà Role hiện tại được phép dùng
+  useEffect(() => {
+      const handleRoomRead = (event) => {
+          const clearedCount = event.detail?.unreadCleared || 0;
+          if (clearedCount > 0 && typeof setGlobalUnreadCount === 'function') {
+              setGlobalUnreadCount(prev => Math.max(0, prev - clearedCount));
+          }
+      };
+
+      window.addEventListener('chat:mark_room_read', handleRoomRead);
+      return () => window.removeEventListener('chat:mark_room_read', handleRoomRead);
+  }, [setGlobalUnreadCount]);
+
+  // 🎯 Lắng nghe Socket liên tục trên toàn cục Header
+  useEffect(() => {
+    if (!socket) return; 
+
+    const handleGlobalMessage = (data) => {
+        const incomingSenderType = Number(data.sendertype || data.sender_type);
+        
+        let isFromOther = false;
+        
+        if (role === 'staff' && incomingSenderType === 1) {
+            isFromOther = true;
+        } 
+        else if (role === 'customer' && incomingSenderType === 2) {
+            isFromOther = true;
+        }
+
+        if (isFromOther && typeof setGlobalUnreadCount === 'function') {
+            // Chỉ tăng bộ đếm nếu user KHÔNG Ở TRANG CHAT
+            // Dùng location.pathname thay vì window.location để React theo dõi chính xác hơn
+            if(!location.pathname.startsWith('/chat')) {
+                 setGlobalUnreadCount(prev => prev + 1);
+            }
+        }
+    };
+
+    socket.on('chat:message', handleGlobalMessage);
+    return () => socket.off('chat:message', handleGlobalMessage);
+  }, [socket, role, setGlobalUnreadCount, location.pathname]);
+
   const filteredLinks = NAV_LINKS.filter(link => {
     if (link.allowedRoles) return link.allowedRoles.includes(role);
     
@@ -147,11 +180,9 @@ const Header = () => {
           </div>
           
           <div className="flex items-center gap-4"> 
-            {/* Desktop-only icons (Notification and Chat) */}
             <div className="hidden md:flex items-center gap-4">
               <NotificationDropdown />
               
-              {/* Chat Icon - Đồng bộ hoàn hảo qua globalUnreadCount */}
               <Link to="/chat" className="relative flex items-center justify-center group" title="Tin nhắn">
                 <Button 
                   variant="icon" 
@@ -164,6 +195,7 @@ const Header = () => {
                   />
                 </Button>
                 
+                {/* 🎯 Bỏ chặn role === 'staff', áp dụng chung cho mọi user */}
                 {globalUnreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white shadow-lg shadow-red-500/40 border border-[#0037B0] transition-transform duration-300 group-hover:scale-110">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
@@ -173,12 +205,10 @@ const Header = () => {
               </Link>
             </div>
             
-            {/* UserMenu luôn hiển thị trên desktop */}
             <div className="hidden md:block">
               <UserMenu />
             </div>
             
-            {/* Mobile Burger Button */}
             <div className="md:hidden flex items-center -mr-2">
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
@@ -197,7 +227,6 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-[#0037B0] absolute top-[56px] left-0 w-full shadow-lg z-50">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">

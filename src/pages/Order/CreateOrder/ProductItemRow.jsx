@@ -3,6 +3,7 @@ import { useProductItemRow } from '../../../hooks/Order/useProductItemRow';
 
 const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable, onRemove, onUpdate }) => {
   const {
+    isUploading,
     formatCurrency,
     handleSelectProduct,
     handleQuantityChange,
@@ -32,6 +33,13 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
       isProductDisabled ? 'border-l-4 border-l-red-500 bg-red-50/10' : 'border-gray-100 border-l-4 border-l-blue-500/90'
     }`}>
       
+      {isUploading && (
+        <div className="absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center rounded-xl">
+          <span className="text-sm font-bold text-blue-600">Đang tải lên...</span>
+          <span className="text-xs text-gray-500">Vui lòng chờ trong giây lát.</span>
+        </div>
+      )}
+
       {/* Floating Badge số thứ tự dòng */}
       <div className={`absolute -left-2.5 -top-2 w-5.5 h-5.5 text-white rounded-full flex items-center justify-center shadow-md z-10 text-[10px] font-bold ${
         isProductDisabled ? 'bg-gradient-to-tr from-red-600 to-red-500' : 'bg-gradient-to-tr from-blue-600 to-blue-500'
@@ -133,21 +141,35 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
         <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">File thiết kế</label>
         
         {/* Google Drive Link */}
-        <div className="flex items-center gap-2">
-             <input 
-              type="text"
-              placeholder="Dán link Google Drive tại đây..."
-              value={product.driveLink || ''}
-              onChange={handleDriveLinkChange}
-              className="flex-1 h-9 px-3 border border-gray-200 rounded-lg text-[12px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-gray-700 data-all"
-             />
-             <button
-               type="button"
-               onClick={() => window.open('https://drive.google.com', '_blank')}
-               className="h-9 px-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-2xs shrink-0 hover:brightness-105 active:scale-95"
-             >
-               🌐 Truy cập Drive
-             </button>
+        <div className="relative flex items-center gap-2">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
+              <path fill="#4285F4" d="M11.996 10.994l-5.498.002-2.999-5.25H9.497z" />
+              <path fill="#34A853" d="M6.501 5.744l-2.999 5.251-2.5-4.329h5.499z" />
+              <path fill="#FBBC04" d="M6.501 5.744L9.497.493 11.996 4.82h-5.495z" />
+              <path fill="#EA4335" d="M12.496 11.411l2.502-4.33h-5.498l2.996 4.33z" />
+              <path fill="none" d="M.002.493h15.996v15.023H.002z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Dán link Google Drive tại đây..."
+            value={product.driveLink || ''}
+            onChange={handleDriveLinkChange}
+            className="flex-1 h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-[12px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-gray-700 data-all"
+          />
+          <button
+            type="button"
+            onClick={() => window.open('https://drive.google.com', '_blank')}
+            className="h-9 px-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-2xs shrink-0 hover:brightness-105 active:scale-95"
+          >
+            🌐 Truy cập Drive
+          </button>
         </div>
 
         {/* Direct Upload */}

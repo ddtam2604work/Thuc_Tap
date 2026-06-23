@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import Table from '../../../components/skeleton/Table';
 import { useProductOrderList } from '../../../hooks/Order/useProductOrderList';
 
-const ProductOrderList = ({ products = [], attachments = [], generalNote = '', audioNoteUrl = '' }) => {
+const ProductOrderList = ({ products = [], attachments = [], generalNote = '', audioNoteUrl = '', googleDriveLink = '' }) => {
   const formatPrice = (val) => new Intl.NumberFormat('en-US').format(val || 0);
   const { getAbsoluteUrl, handleDownloadFile, getFileIcon } = useProductOrderList();
   const [currentImageIndex, setCurrentImageIndex] = useState(null);
@@ -185,6 +185,11 @@ const ProductOrderList = ({ products = [], attachments = [], generalNote = '', a
           <div>
             <h4 className="font-bold text-gray-400 uppercase text-[10px] tracking-wide mb-1">📝 Ghi chú chung & File đính kèm tổng đơn</h4>
             <p className="text-gray-700 text-xs font-semibold whitespace-pre-wrap leading-relaxed mb-2">{generalNote || 'Không có ghi chú nào đi kèm.'}</p>
+            {googleDriveLink && (
+              <a href={googleDriveLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md hover:bg-amber-100 transition-colors mt-2">
+                🌐 Google Drive (Tổng)
+              </a>
+            )}
           </div>
           {safeAttachments.length > 0 && (
             <div className="border-t border-gray-200/60 pt-2 flex flex-col gap-1.5">
@@ -234,6 +239,7 @@ ProductOrderList.propTypes = {
   attachments: PropTypes.array,
   generalNote: PropTypes.string,
   audioNoteUrl: PropTypes.string,
+  googleDriveLink: PropTypes.string,
 };
 
 export default ProductOrderList;

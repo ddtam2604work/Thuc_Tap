@@ -34,7 +34,6 @@ const getUserRoleFromToken = () => {
 };
 
 export const useChat = () => {
-    // ĐÃ CẬP NHẬT: Lấy thêm setGlobalUnreadCount từ context để đồng bộ số lượng lên Header
     const { socket, callSocket, setGlobalUnreadCount } = useSocket();
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -139,8 +138,18 @@ export const useChat = () => {
                         unread: Number(item.unreadcount_staff || 0),
                         isOnline: true,
                     }));
+                    
+                    mappedRooms.sort((a, b) => b.unread - a.unread);
+                    
                     setChatRooms(mappedRooms);
-                    if (mappedRooms.length > 0 && !activeRoomId) setActiveRoomId(mappedRooms[0].id);
+                    if (mappedRooms.length > 0 && !activeRoomId) {
+                      setActiveRoomId(mappedRooms[0].id);
+                      if(mappedRooms[0].unread > 0){
+                          setTimeout(() => {
+                              window.dispatchEvent(new CustomEvent('chat:mark_room_read', { detail: { unreadCleared: mappedRooms[0].unread } }));
+                          }, 500);
+                      }
+                    }
                 } catch (err) { console.error('Error loading conversations', err); }
             }
         };
@@ -178,6 +187,7 @@ export const useChat = () => {
         const handleChatMessage = (data) => {
             const cid = data.chatconversation_id;
             if (!cid) return;
+            
             if (cid === activeRoomId) {
                 setMessages((prev) => [...prev, data]);
                 setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30);
@@ -192,17 +202,12 @@ export const useChat = () => {
                     const callData = JSON.parse(data.content.replace('__CALL_HISTORY__:', ''));
                     const isVideo = callData.type === 'video';
                     const icon = isVideo ? '📹' : '📞';
-                    
                     const isMyCall = callData.initiator === role; 
                     
                     if (callData.status === 'rejected') {
-                        previewText = isMyCall 
-                            ? `${icon} Cuộc gọi thoại bị từ chối` 
-                            : `${icon} Từ chối cuộc gọi`;
+                        previewText = isMyCall ? `${icon} Cuộc gọi thoại bị từ chối` : `${icon} Từ chối cuộc gọi`;
                     } else if (callData.status === 'missed' || callData.status === 'busy') {
-                        previewText = isMyCall 
-                            ? `${icon} Cuộc gọi đi bị nhỡ` 
-                            : `${icon} Cuộc gọi đến bị nhỡ`;
+                        previewText = isMyCall ? `${icon} Cuộc gọi đi bị nhỡ` : `${icon} Cuộc gọi đến bị nhỡ`;
                     } else {
                         previewText = `${icon} Cuộc gọi (${callData.duration}s)`;
                     }
@@ -217,26 +222,55 @@ export const useChat = () => {
                 previewText = '[Ghi âm]';
             }
 
-            setChatRooms((prevRooms) =>
-                prevRooms.map((room) => {
-                    if (room.id === cid) {
-                        const isNewUnread = cid !== activeRoomId;
-                        
-                        // 🌟 ĐÃ BỔ SUNG: Nếu có tin nhắn mới gửi đến phòng chat khác, tăng tổng unread trên Header lên 1
-                        if (isNewUnread && typeof setGlobalUnreadCount === 'function') {
-                            setGlobalUnreadCount(prev => prev + 1);
-                        }
+            // 🎯 LỌC CHÍNH XÁC TIN NHẮN TỪ NGƯỜI KHÁC BẰNG CÁCH ĐẢO CHIỀU SENDERTYPE
+            const incomingSenderType = Number(data.sendertype || data.sender_type);
+            let isFromOther = false;
+            
+            // Nếu tôi là NHÂN VIÊN, tin nhắn từ người khác phải có sendertype = 1 (Khách)
+            if (role === 'staff' && incomingSenderType === 1) {
+                isFromOther = true;
+            } 
+            // Nếu tôi là KHÁCH HÀNG, tin nhắn từ người khác phải có sendertype = 2 (Nhân viên)
+            else if (role === 'customer' && incomingSenderType === 2) {
+                isFromOther = true;
+            }
 
+            // =========================================================================
+            // 🎯 ĐIỀU CHỈNH CỐT LÕI: Mở lại logic đếm tăng unread tổng lên Header lập tức
+            // Khi đang mở mục chat, nhưng có một phòng chat ẩn nhận tin nhắn mới
+            // =========================================================================
+            const isNewUnread = cid !== activeRoomId;
+            if (isNewUnread && isFromOther && typeof setGlobalUnreadCount === 'function') {
+                setGlobalUnreadCount(prev => prev + 1);
+            }
+            // =========================================================================
+
+            setChatRooms((prevRooms) => {
+                let isRoomExists = false;
+                
+                const updatedRooms = prevRooms.map((room) => {
+                    if (room.id === cid) {
+                        isRoomExists = true;
+                        
                         return {
                             ...room,
                             lastMessage: previewText,
                             time: formatTime(data.createdate || new Date()),
-                            unread: isNewUnread ? room.unread + 1 : 0,
+                            // Bộ đếm unread nội bộ của sidebar vẫn hoạt động đồng bộ hoàn hảo
+                            unread: (isNewUnread && isFromOther) ? (Number(room.unread) || 0) + 1 : Number(room.unread || 0),
                         };
                     }
                     return room;
-                })
-            );
+                });
+                
+                updatedRooms.sort((a, b) => {
+                    if (a.id === cid) return -1;
+                    if (b.id === cid) return 1;
+                    return b.unread - a.unread;
+                });
+                
+                return updatedRooms;
+            });
         };
 
         const handleTyping = (data) => {
@@ -531,13 +565,14 @@ export const useChat = () => {
     const handleRoomSelect = useCallback((roomId) => {
         if (role === 'customer') return;
         
-        // 🌟 ĐÃ BỔ SUNG: Trừ bớt số tin nhắn chưa đọc của phòng vừa chọn ra khỏi tổng số trên Header
         setChatRooms(prevRooms => {
             const targetRoom = prevRooms.find(room => room.id === roomId);
             const roomUnreadCount = targetRoom ? Number(targetRoom.unread || 0) : 0;
             
-            if (roomUnreadCount > 0 && typeof setGlobalUnreadCount === 'function') {
-                setGlobalUnreadCount(prev => Math.max(0, prev - roomUnreadCount));
+            if (roomUnreadCount > 0) {
+                window.dispatchEvent(new CustomEvent('chat:mark_room_read', { 
+                    detail: { unreadCleared: roomUnreadCount } 
+                }));
             }
             
             return prevRooms.map(room => room.id === roomId ? { ...room, unread: 0 } : room);
@@ -556,7 +591,7 @@ export const useChat = () => {
             recognitionRef.current.stop();
             setIsListening(false);
         }
-    }, [role, setGlobalUnreadCount]);
+    }, [role]);
 
     const activeRoom = useMemo(() => chatRooms.find(r => r.id === activeRoomId), [chatRooms, activeRoomId]);
 

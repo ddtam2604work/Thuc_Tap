@@ -79,7 +79,8 @@ const OrderDetail = () => {
                 <ProductOrderList 
                   products={order?.products || []} 
                   generalNote={order?.generalNote || ''} 
-                  audioNoteUrl={audioNoteUrl} 
+                  audioNoteUrl={audioNoteUrl}
+                  googleDriveLink={order?.googleDriveLink}
                 />
               </>
             )}

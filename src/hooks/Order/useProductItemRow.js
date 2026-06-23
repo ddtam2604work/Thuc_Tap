@@ -1,6 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { apiMedia } from '../../config/axiosClient';
 
 export const useProductItemRow = ({ product, catalog, onUpdate }) => {
+  const [isUploading, setIsUploading] = useState(false);
+
   // Định dạng tiền tệ VNĐ hiển thị trên giao diện trực quan
   const formatCurrency = useCallback((value) => {
     return new Intl.NumberFormat('en-US').format(value || 0) + ' đ';
@@ -70,33 +73,66 @@ export const useProductItemRow = ({ product, catalog, onUpdate }) => {
     });
   }, [onUpdate]);
 
-  const handleFileUpload = useCallback((e) => {
+  const handleFileUpload = useCallback(async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
-    // Không lọc theo image/ nữa để cho phép mọi định dạng (PDF, AI, DOCX...)
-    const maxFileSize = 50 * 1024 * 1024; // Nới lỏng lên 50MB cho các file thiết kế
+  
+    const maxFileSize = 50 * 1024 * 1024;
     const oversizedFiles = files.filter(f => f.size > maxFileSize);
     if (oversizedFiles.length > 0) {
       alert(`⚠️ Các tệp sau vượt quá 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
       return;
     }
-
-    const newFiles = files.map(file => {
-      const isImage = file.type.startsWith('image/');
-      return {
-        file: file,                                 
-        name: file.name,                                   
-        previewUrl: isImage ? URL.createObjectURL(file) : null, // Chỉ tạo object URL cho ảnh
-        isImage: isImage,
-        size: file.size                                    
-      };
+  
+    setIsUploading(true);
+  
+    const uploadPromises = files.map(file => {
+      const formData = new FormData();
+      formData.append('files', file);
+      formData.append('ispublic', '1');
+  
+      return apiMedia.post(`/upload/image/multi-draft`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
     });
-
-    onUpdate({ 
-      images: [...(product.images || []), ...newFiles] 
-    });
-    
+  
+    try {
+      const responses = await Promise.all(uploadPromises);
+      const newFiles = responses.flatMap((response, index) => {
+        if (response?.errorCode === 1 && response?.data?.success) {
+          return response.data.success.map(item => {
+            const file = files[index];
+            const isImage = file.type.startsWith('image/');
+            return {
+              id: item.id,
+              name: file.name,
+              previewUrl: isImage ? URL.createObjectURL(file) : null,
+              isImage: isImage,
+              size: file.size
+            };
+          });
+        }
+        return [];
+      });
+  
+      onUpdate({ images: [...(product.images || []), ...newFiles] });
+    } catch (error) {
+      console.error('Lỗi khi tải tệp lên:', error);
+      let errorMessage = 'Đã xảy ra lỗi trong quá trình tải tệp lên. Vui lòng thử lại.';
+      if (error.response) {
+        errorMessage = `Lỗi từ máy chủ: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`;
+      } else if (error.request) {
+        errorMessage = 'Không nhận được phản hồi từ máy chủ. Vui lòng kiểm tra kết nối mạng.';
+      } else {
+        errorMessage = `Lỗi khi gửi yêu cầu: ${error.message}`;
+      }
+      alert(errorMessage);
+    } finally {
+      setIsUploading(false);
+    }
+  
     e.target.value = null;
   }, [product.images, onUpdate]);
 
@@ -118,6 +154,7 @@ export const useProductItemRow = ({ product, catalog, onUpdate }) => {
   }, [onUpdate]);
 
   return {
+    isUploading,
     formatCurrency,
     handleSelectProduct,
     handleQuantityChange,

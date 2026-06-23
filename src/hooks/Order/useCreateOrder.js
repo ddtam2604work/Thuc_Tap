@@ -1,14 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { orderService } from '../../services/orderService'; 
+import { orderService } from '../../services/orderService';
 import { productService } from '../../services/productService';
-import axios from 'axios';
+import { apiMedia } from '../../config/axiosClient';
 
-import { useConfirm } from '../../context/ConfirmContext';
 import { useNotification } from '../../context/NotificationContext';
 
-const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://113.161.204.185:4010';
- 
 export const useCreateOrder = (existingDraftId = null) => {
   const navigate = useNavigate();
   const [customer, setCustomer] = useState('');
@@ -17,9 +14,9 @@ export const useCreateOrder = (existingDraftId = null) => {
   const [generalNote, setGeneralNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftId, setDraftId] = useState(existingDraftId);
-  
+
   const [generalImages, setGeneralImages] = useState([]);
-  const [recordedAudioFile, setRecordedAudioFile] = useState(null); // Chỉ giữ lại luồng ghi âm trực tiếp
+  const [recordedAudioFile, setRecordedAudioFile] = useState(null);
 
   const [catalog, setCatalog] = useState([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
@@ -27,7 +24,6 @@ export const useCreateOrder = (existingDraftId = null) => {
     { id: 1, productId: '', name: '', quantity: 1, basePrice: 0, appliedPrice: 0, note: '', images: [], driveLink: '' }
   ]);
 
-  const { confirm } = useConfirm();
   const { showToast } = useNotification();
 
   useEffect(() => {
@@ -91,38 +87,17 @@ export const useCreateOrder = (existingDraftId = null) => {
   const handleRemoveProduct = useCallback((id) => {
     setProducts(prev => {
       const target = prev.find(p => p.id === id);
-      if (target?.images) target.images.forEach(img => URL.revokeObjectURL(img.previewUrl));
+      if (target?.images) {
+        target.images.forEach(img => {
+          if (img.previewUrl) URL.revokeObjectURL(img.previewUrl);
+        });
+      }
       return prev.filter(p => p.id !== id);
     });
   }, []);
 
   const subtotal = useMemo(() => products.reduce((acc, p) => acc + (Number(p.quantity || 0) * Number(p.appliedPrice || p.price || 0)), 0), [products]);
   const total = useMemo(() => subtotal, [subtotal]);
-
-  const uploadDraftImages = useCallback(async (productImages) => {
-    if (!productImages || productImages.length === 0) return null;
-    const existingImageIds = productImages.filter(img => !img.file && img.id).map(img => img.id);
-    const filesToUpload = productImages.filter(img => img.file).map(img => img.file);
-
-    if (filesToUpload.length === 0) return existingImageIds.length > 0 ? existingImageIds : null;
-
-    const formData = new FormData();
-    filesToUpload.forEach(file => formData.append('files', file));
-    formData.append('ispublic', '1');
-
-    try {
-      const response = await axios.post(`${MEDIA_URL}/api/upload/image/multi-draft`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
-      if (response?.data?.errorCode === 1 && response?.data?.data?.success) {
-        const newImageIds = response.data.data.success.map(item => item.id);
-        return [...existingImageIds, ...newImageIds];
-      }
-      return existingImageIds.length > 0 ? existingImageIds : null;
-    } catch (error) {
-      return existingImageIds.length > 0 ? existingImageIds : null;
-    }
-  }, []);
 
   const uploadAudioNote = useCallback(async (file) => {
     if (!file) return null;
@@ -134,7 +109,6 @@ export const useCreateOrder = (existingDraftId = null) => {
     });
   }, []);
 
-  // Xử lý đơn lẻ mã hóa file ghi âm sang Base64
   const processAudioNoteToBase64 = useCallback(async () => {
     if (!recordedAudioFile) return null;
     if (typeof recordedAudioFile === 'string') return recordedAudioFile;
@@ -143,42 +117,49 @@ export const useCreateOrder = (existingDraftId = null) => {
 
   const buildFormDataPayload = useCallback((statusMode = 'NEW', audioNoteId = null) => {
     const formData = new FormData();
+  
     formData.append('customer_id', customer);
     formData.append('shipping_unit', (shippingUnit || '').trim());
     formData.append('shipping_code', (shippingCode || '').trim());
     formData.append('general_note', (generalNote || '').trim());
     formData.append('subtotal', String(subtotal));
     formData.append('total', String(total));
-    formData.append('status_mode', statusMode); 
+    formData.append('status_mode', statusMode);
+  
+    if (audioNoteId) {
+      formData.append('audionote', audioNoteId);
+    } else if (recordedAudioFile && recordedAudioFile instanceof File) {
+      formData.append('recorded_audio', recordedAudioFile);
+    }
+  
+    const generalAttachmentIds = generalImages.map(img => img.id).filter(Boolean);
+    if (generalAttachmentIds.length > 0) {
+      generalAttachmentIds.forEach(id => formData.append('general_attachments[]', id));
+    }
+  
+    const itemsPayload = products
+      .filter(p => p.productId || p.product_id)
+      .map(prod => ({
+        product_id: prod.productId || prod.product_id,
+        quantity: Number(prod.quantity || 1),
+        unitprice: Number(prod.appliedPrice || prod.price || 0),
+        discount: 0,
+        note: prod.note ? String(prod.note).trim() : '',
+        attachments: prod.images?.map(img => img.id).filter(Boolean) || [],
+        linkgoogledrive: prod.driveLink || null
+      }));
+  
+    if (itemsPayload.length > 0) {
+      formData.append('items', JSON.stringify(itemsPayload));
+    }
     
+    // 🎯 SỬA LỖI DRIVE LINK: Đồng bộ đa dạng định dạng Naming Convention lên Root Level của FormData
     const firstValidDriveLink = products.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
-    if (firstValidDriveLink) formData.append('linkgoogledrive', firstValidDriveLink);
-
-    if (recordedAudioFile && recordedAudioFile instanceof File) formData.append('recorded_audio', recordedAudioFile);
-    if (audioNoteId) formData.append('audionote', audioNoteId);
-    if (generalImages?.length > 0) generalImages.forEach(img => formData.append('general_attachments', img.file));
-
-    const validProducts = products.filter(p => p.productId || p.product_id);
-    const itemsJsonArray = validProducts.map(prod => ({
-      product_id: prod.productId || prod.product_id,
-      quantity: Number(prod.quantity || 1),
-      unitprice: Number(prod.appliedPrice || prod.price || 0),
-      discount: 0,
-      note: prod.note ? String(prod.note).trim() : '' 
-    }));
-    
-    formData.append('items', JSON.stringify(itemsJsonArray));
-    formData.append('products', JSON.stringify(itemsJsonArray));
-
-    validProducts.forEach((prod, index) => {
-      const pId = prod.productId || prod.product_id;
-      const aPrice = prod.appliedPrice || prod.price || 0;
-      formData.append(`items[${index}][product_id]`, pId);
-      formData.append(`items[${index}][quantity]`, String(prod.quantity));
-      formData.append(`items[${index}][unitprice]`, String(aPrice));
-      formData.append(`items[${index}][applied_price]`, String(aPrice));
-      formData.append(`items[${index}][note]`, prod.note ? String(prod.note).trim() : '');
-    });
+    if (firstValidDriveLink) {
+        formData.append('linkgoogledrive', firstValidDriveLink);
+        formData.append('drive_link', firstValidDriveLink);
+        formData.append('link_google_drive', firstValidDriveLink);
+    }
 
     return formData;
   }, [customer, shippingUnit, shippingCode, generalNote, subtotal, total, products, recordedAudioFile, generalImages]);
@@ -192,6 +173,7 @@ export const useCreateOrder = (existingDraftId = null) => {
     try {
       const audioNoteId = await processAudioNoteToBase64();
       const payload = buildFormDataPayload('NEW', audioNoteId);
+      
       const res = await orderService.createNew(payload);
       const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
@@ -220,8 +202,8 @@ export const useCreateOrder = (existingDraftId = null) => {
       const audioNoteId = await processAudioNoteToBase64();
       const productsToSave = products.filter(p => p.productId || (p.images && p.images.length > 0) || p.driveLink);
 
-      const itemsPayload = await Promise.all(productsToSave.map(async (p) => {
-          const fileIds = (p.images && p.images.length > 0) ? await uploadDraftImages(p.images) : null;
+      const itemsPayload = productsToSave.map(p => {
+          const fileIds = p.images?.map(img => img.id).filter(Boolean) || null;
           return {
               product_id: p.productId || p.product_id || null,
               quantity: Number(p.quantity) || 1,
@@ -231,7 +213,9 @@ export const useCreateOrder = (existingDraftId = null) => {
               linkgoogledrive: p.driveLink || null,
               note: p.note || null
           };
-      }));
+      });
+
+      const firstValidDriveLink = productsToSave.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
 
       const jsonPayload = {
           customer_id: customer || null,
@@ -239,6 +223,11 @@ export const useCreateOrder = (existingDraftId = null) => {
           note: generalNote || null,
           audionote: audioNoteId,
           noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
+          
+          // 🎯 SỬA LỖI DRIVE LINK: Bổ sung đẩy link Google Drive lên Root Level của object lưu Draft
+          linkgoogledrive: firstValidDriveLink,
+          drive_link: firstValidDriveLink,
+          link_google_drive: firstValidDriveLink,
       };
 
       if (draftId) jsonPayload.id = draftId;
@@ -282,10 +271,107 @@ export const useCreateOrder = (existingDraftId = null) => {
       setIsSubmitting(false); 
     }
   };
+  
+  // 🚀 API UPLOAD ẢNH TỔNG HỢP NGAY LẬP TỨC
+  const uploadGeneralImages = useCallback(async (files) => {
+    const maxFileSize = 50 * 1024 * 1024;
+    const oversizedFiles = files.filter(f => f.size > maxFileSize);
+    if (oversizedFiles.length > 0) {
+      alert(`⚠️ Các tệp sau vượt quá 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+
+    const uploadPromises = files.map(file => {
+      const formData = new FormData();
+      formData.append('files', file);
+      formData.append('ispublic', '1');
+      return apiMedia.post(`/upload/image/multi-draft`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    });
+
+    try {
+      const responses = await Promise.all(uploadPromises);
+      const newFiles = responses.flatMap((response, index) => {
+        if (response?.errorCode === 1 && response?.data?.success) {
+          return response.data.success.map(item => {
+            const file = files[index];
+            const isImage = file.type.startsWith('image/');
+            return {
+              id: item.id,
+              name: file.name,
+              previewUrl: isImage ? URL.createObjectURL(file) : null,
+              isImage: isImage,
+              size: file.size
+            };
+          });
+        }
+        return [];
+      });
+      setGeneralImages(prev => [...prev, ...newFiles]);
+    } catch (error) {
+      console.error('Lỗi khi tải tệp lên:', error);
+      alert('Đã xảy ra lỗi trong quá trình tải tệp lên.');
+    }
+  }, []);
+
+  // 🚀 API UPLOAD ẢNH TỪNG SẢN PHẨM CHI TIẾT NGAY LẬP TỨC 
+  const uploadProductImages = useCallback(async (productStateId, files) => {
+    const maxFileSize = 50 * 1024 * 1024;
+    const oversizedFiles = files.filter(f => f.size > maxFileSize);
+    if (oversizedFiles.length > 0) {
+      alert(`⚠️ Các tệp vượt quá 50MB: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+
+    const uploadPromises = files.map(file => {
+      const formData = new FormData();
+      formData.append('files', file);
+      formData.append('ispublic', '1');
+      return apiMedia.post(`/upload/image/multi-draft`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    });
+
+    try {
+      const responses = await Promise.all(uploadPromises);
+      const newUploadedFiles = responses.flatMap((response, index) => {
+        if (response?.errorCode === 1 && response?.data?.success) {
+          return response.data.success.map(item => {
+            const file = files[index];
+            const isImage = file.type.startsWith('image/');
+            return {
+              id: item.id,
+              name: file.name,
+              previewUrl: isImage ? URL.createObjectURL(file) : null,
+              isImage: isImage,
+              size: file.size
+            };
+          });
+        }
+        return [];
+      });
+
+      // Cập nhật mảng ảnh đã upload thành công từ API server trực tiếp vào đúng sản phẩm
+      setProducts(prev => prev.map(p => {
+        if (p.id === productStateId) {
+          return {
+            ...p,
+            images: [...(p.images || []), ...newUploadedFiles]
+          };
+        }
+        return p;
+      }));
+    } catch (error) {
+      console.error('Lỗi khi tải ảnh chi tiết sản phẩm:', error);
+      alert('Không thể tải ảnh sản phẩm lên hệ thống.');
+    }
+  }, []);
 
   return {
     customer, setCustomer, shippingUnit, setShippingUnit, shippingCode, setShippingCode, generalNote, setGeneralNote,
     products, catalog, isLoadingCatalog, generalImages, setGeneralImages, recordedAudioFile, setRecordedAudioFile,
-    handleAddProduct, handleRemoveProduct, handleUpdateProduct, subtotal, total, handleCreateOrderSubmit, handleSaveDraft, handleCreateAndAwait, isSubmitting
+    handleAddProduct, handleRemoveProduct, handleUpdateProduct, subtotal, total, handleCreateOrderSubmit, handleSaveDraft, handleCreateAndAwait, isSubmitting, 
+    uploadGeneralImages, uploadProductImages // Export hàm xử lý upload ảnh sản phẩm tức thời ra ngoài UI
   };
 };

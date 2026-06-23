@@ -97,21 +97,21 @@ const OrderTable = ({ orders }) => {
               </td>
               
               <td className="py-2.5 px-3 text-gray-600 text-center min-w-[90px]">
-                {totalfile > 0 ? (
-                  <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-[10px]">
-                    {totalfile} tệp
-                  </span>
+                  {totalfile > 0 ? (
+                    <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-[10px]">
+                      {totalfile} tệp
+                    </span>
                 ) : (
                   <span className="text-gray-300">-</span>
                 )}
               </td>
-              
+                  
               <td className="py-2.5 px-3 text-center min-w-[90px]">
-                {driveUrl ? (
-                  <a href={driveUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 text-blue-600 hover:underline">
+                  {driveUrl ? (
+                    <a href={driveUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 text-blue-600 hover:underline">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>
                     <span className="font-medium">Mở</span>
-                  </a>
+                    </a>
                 ) : <span className="text-gray-300">-</span>}
               </td>
               

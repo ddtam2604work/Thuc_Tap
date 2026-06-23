@@ -3,32 +3,85 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { NAV_LINKS, HEADER_TITLE } from '../../constants/navigation';
 import { useAuth } from '../../hooks/Login/useAuth';
-import { useSocket } from '../../context/SocketContext'; // Tích hợp Hook Socket
+import { useSocket } from '../../context/SocketContext'; 
 import { getUserRoleFromToken } from '../../utils/auth';
-
-// Import ICON & Component
-import Button from './Button'; // Chú ý kiểm tra lại đường dẫn import Button của bạn
+import Button from './Button'; 
 import notificationIcon from '../../assets/images/icon_chuong_thong_bao.png';
 import chatIcon from '../../assets/images/icon_chat.png';
+import { chatService } from '../../services/chatService';
 import NotificationDropdown from '../../pages/Notification/NotificationDropdown';
+
+const COMPANY_ID = '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791';
 
 const TopNavBar = () => {
   const { logout } = useAuth();
-  const location = useLocation(); // Hook lấy path hiện tại để xử lý Active Menu
+  const location = useLocation(); 
   const role = getUserRoleFromToken();
   
-  // Lấy state đếm số tin nhắn từ Socket
-  // Dùng fallback an toàn (?.) để tránh crash app nếu chưa bọc Provider
   const socketContext = useSocket();
+  const socket = socketContext?.socket; 
   const globalUnreadCount = socketContext?.globalUnreadCount || 0;
-  
-  // State quản lý Dropdown & Mobile Menu
+  const setGlobalUnreadCount = socketContext?.setGlobalUnreadCount;
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
   const mobileNavRef = useRef(null);
 
-  // Logic: Đóng dropdown và mobile menu khi click ra ngoài
+  useEffect(() => {
+    const syncUnreadCount = async () => {
+      if (role !== 'customer' && typeof setGlobalUnreadCount === 'function') {
+        try {
+          const response = await chatService.getConversations(COMPANY_ID);
+          const rows = response?.data?.rows || [];
+          const totalUnread = rows.reduce((acc, room) => acc + Number(room.unreadcount_staff || 0), 0);
+          setGlobalUnreadCount(totalUnread);
+        } catch (error) {
+          console.error("❌ [TopNavBar Init Unread Error]:", error);
+        }
+      }
+    };
+    syncUnreadCount();
+  }, [role, setGlobalUnreadCount]);
+
+  useEffect(() => {
+    const handleRoomRead = (event) => {
+        const clearedCount = event.detail?.unreadCleared || 0;
+        if (clearedCount > 0 && typeof setGlobalUnreadCount === 'function') {
+            setGlobalUnreadCount(prev => Math.max(0, prev - clearedCount));
+        }
+    };
+
+    window.addEventListener('chat:mark_room_read', handleRoomRead);
+    return () => window.removeEventListener('chat:mark_room_read', handleRoomRead);
+  }, [setGlobalUnreadCount]);
+  
+  // 🎯 Đồng bộ Listener
+  useEffect(() => {
+    if (!socket) return; 
+
+    const handleGlobalMessage = (data) => {
+        const incomingSenderType = Number(data.sendertype || data.sender_type);
+        
+        let isFromOther = false;
+        if (role === 'staff' && incomingSenderType === 1) {
+            isFromOther = true;
+        } 
+        else if (role === 'customer' && incomingSenderType === 2) {
+            isFromOther = true;
+        }
+
+        if (isFromOther && typeof setGlobalUnreadCount === 'function') {
+            if(!location.pathname.startsWith('/chat')) {
+                 setGlobalUnreadCount(prev => prev + 1);
+            }
+        }
+    };
+
+    socket.on('chat:message', handleGlobalMessage);
+    return () => socket.off('chat:message', handleGlobalMessage);
+  }, [socket, role, setGlobalUnreadCount, location.pathname]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -42,37 +95,29 @@ const TopNavBar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Logic: Đóng mobile menu khi chuyển trang (thay đổi URL)
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
   const handleLogout = async () => {
-    await logout(); // Gọi logic logout từ useAuth (đã bao gồm xóa token và chuyển trang)
+    await logout(); 
   };
 
-  // 🎯 HÀM MAP DỮ LIỆU: Dịch mã quyền sang tên hiển thị thân thiện (UI)
   const getRoleDisplayName = (rawRole) => {
     if (!rawRole) return "Người dùng";
     const normalizedRole = String(rawRole).toUpperCase();
     switch (normalizedRole) {
-      case 'ADMIN':
-        return "Quản trị viên";
-      case 'STAFF':
-        return "Nhân viên";
-      case 'CUSTOMER':
-        return "Khách hàng";
-      default:
-        return rawRole; // Fallback nếu có role lạ
+      case 'ADMIN': return "Quản trị viên";
+      case 'STAFF': return "Nhân viên";
+      case 'CUSTOMER': return "Khách hàng";
+      default: return rawRole; 
     }
   };
 
   return (
     <header className="sticky top-0 z-50 flex h-[56px] w-full justify-center bg-[#0037B0] shadow-md border-b border-white/20">
       <div className="flex w-full items-center justify-between max-w-[1440px] px-3 sm:px-6 lg:px-8">
-      {/* Left side: Hamburger (Mobile) & Title */}
       <div className="flex items-center gap-2">
-        {/* Hamburger Menu Icon - for mobile */}
         {role !== 'customer' && (
           <div className="lg:hidden" ref={mobileNavRef}>
             <Button
@@ -85,7 +130,6 @@ const TopNavBar = () => {
               </svg>
             </Button>
 
-            {/* Mobile Menu Dropdown */}
             {isMobileMenuOpen && (
               <div className="absolute top-full left-0 w-full bg-[#002a80] shadow-lg lg:hidden animate-in fade-in slide-in-from-top-5 duration-300">
                 <ul className="flex flex-col p-4 gap-2">
@@ -118,12 +162,10 @@ const TopNavBar = () => {
         </h1>
       </div>
 
-      {/* Middle: Links for Desktop */}
       <nav className="hidden lg:flex flex-1 items-center justify-start pl-8">
         {role !== 'customer' && (
         <ul className="flex items-center gap-[24px]">
           {NAV_LINKS.map((link) => {
-            // Kiểm tra xem path hiện tại có khớp với link không (tạo trạng thái active)
             const isActive = location.pathname.includes(link.path);
             return (
               <li key={link.path}>
@@ -145,13 +187,10 @@ const TopNavBar = () => {
         )}
       </nav>
 
-      {/* Right side: Icons & Avatar */}
       <div className="flex items-center gap-4">
         
-        {/* Notification Icon */}
         {role !== 'customer' && <NotificationDropdown />}
         
-        {/* Chat Icon (Tích hợp link & Badge đếm tin nhắn) */}
         <Link to="/chat" className="relative flex items-center justify-center">
           <Button variant="icon" className="h-[34px] w-[34px] p-0 hover:bg-white/10 transition-colors rounded-lg flex items-center justify-center">
             <div 
@@ -160,7 +199,6 @@ const TopNavBar = () => {
             />
           </Button>
           
-          {/* Badge: Chỉ hiển thị khi có tin nhắn chưa đọc (globalUnreadCount > 0) */}
           {globalUnreadCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
               {globalUnreadCount > 99 ? '99+' : globalUnreadCount}
@@ -168,7 +206,6 @@ const TopNavBar = () => {
           )}
         </Link>
 
-        {/* Profile Avatar & Dropdown Logic */}
         <div className="relative ml-2" ref={dropdownRef}>
           <button 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -177,19 +214,15 @@ const TopNavBar = () => {
             `}
           >
             <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-white/30 overflow-hidden text-white text-[12px] font-bold">
-              {/* Có thể thay đổi chữ 'A' thành ký tự đầu của tên User nếu bạn có thông tin UserInfo */}
               <span>A</span>
             </div>
           </button>
 
-          {/* Dropdown Menu Box */}
           {isDropdownOpen && (
             <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg py-1 border border-gray-100 z-50 animate-in fade-in zoom-in-95 duration-200">
               
-              {/* User Info Header */}
               <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Tài khoản</p>
-                {/* 🎯 ĐÃ SỬA: Map đúng tên Role vào UI thay vì fix cứng */}
                 <p className="text-[13px] font-bold text-[#1E293B] truncate">
                   {(() => {
                     try {
@@ -211,7 +244,6 @@ const TopNavBar = () => {
                 </p>
               </div>
               
-              {/* Menu Links */}
               <div className="py-1">
                 <Link
                   to="/profile"
@@ -222,7 +254,6 @@ const TopNavBar = () => {
                 </Link>
               </div>
 
-              {/* Logout Action */}
               <div className="border-t border-gray-100 py-1">
                 <button
                   onClick={handleLogout}
