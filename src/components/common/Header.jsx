@@ -1,5 +1,5 @@
 // src/components/layout/Header.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // ĐÃ CẬP NHẬT: Thêm useEffect để đồng bộ số liệu
 import { useSelector } from 'react-redux';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/Login/useAuth';
@@ -9,13 +9,16 @@ import { getUserRoleFromToken } from '../../utils/auth';
 import Button from '../skeleton/Button'; 
 import ActiveWrapper from '../skeleton/ActiveWrapper'; 
 import NotificationDropdown from '../../pages/Notification/NotificationDropdown';
+import chaticon from '../../assets/images/icon_chat.png';
+import { chatService } from '../../services/chatService'; // ĐÃ BỔ SUNG: Gọi API lấy unread ban đầu
+
+const COMPANY_ID = '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791';
 
 // ==========================================
 // 1. COMPONENT LOGO (ĐIỀU CHỈNH ROUTE ĐỘNG)
 // ==========================================
 const Logo = () => {
   const role = getUserRoleFromToken();
-  // Khách hàng click Logo sẽ về /products, Admin/Staff sẽ về /home
   const targetPath = role === 'customer' ? "/products" : "/home";
 
   return (
@@ -103,20 +106,35 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const socketContext = useSocket();
   const globalUnreadCount = socketContext?.globalUnreadCount || 0; 
+  const setGlobalUnreadCount = socketContext?.setGlobalUnreadCount;
   const role = getUserRoleFromToken(); 
+
+  // 🌟 ĐÃ BỔ SUNG: Gọi nạp số liệu chưa đọc từ DB ngay khi khởi động Header tránh F5 bị mất badge đỏ
+  useEffect(() => {
+    const syncUnreadCount = async () => {
+      if (role !== 'customer' && typeof setGlobalUnreadCount === 'function') {
+        try {
+          const response = await chatService.getConversations(COMPANY_ID);
+          const rows = response?.data?.rows || [];
+          const totalUnread = rows.reduce((acc, room) => acc + Number(room.unreadcount_staff || 0), 0);
+          setGlobalUnreadCount(totalUnread);
+        } catch (error) {
+          console.error("❌ [Header Init Unread Error]:", error);
+        }
+      }
+    };
+    syncUnreadCount();
+  }, [role, setGlobalUnreadCount]);
 
   // HÀM LỌC MENU: Chỉ hiển thị các route mà Role hiện tại được phép dùng
   const filteredLinks = NAV_LINKS.filter(link => {
-    // Cách 1: Nếu file constants/navigation.js của bạn có cấu hình mảng allowedRoles
     if (link.allowedRoles) return link.allowedRoles.includes(role);
     
-    // Cách 2: Nếu chưa cấu hình, ta lọc thủ công bằng code dựa trên yêu cầu mới của bạn
     if (role === 'customer') {
       const customerPaths = ['/products', '/orders', '/chat', '/notifications', '/profile'];
-      // Chỉ giữ lại những path bắt đầu bằng các tuyến đường trên
       return customerPaths.some(p => link.path.startsWith(p));
     }
-    return true; // Admin/Staff xem được hết
+    return true; 
   });
 
   return (
@@ -131,23 +149,25 @@ const Header = () => {
           <div className="flex items-center gap-4"> 
             {/* Desktop-only icons (Notification and Chat) */}
             <div className="hidden md:flex items-center gap-4">
-              {/* ĐÃ BỎ CHẶN role !== 'customer' -> Khách hàng giờ đã thấy Thông báo và Chat */}
               <NotificationDropdown />
               
-              {/* Chat Icon */}
-              <Link to="/chat" className="relative flex items-center justify-center" title="Tin nhắn">
+              {/* Chat Icon - Đồng bộ hoàn hảo qua globalUnreadCount */}
+              <Link to="/chat" className="relative flex items-center justify-center group" title="Tin nhắn">
                 <Button 
                   variant="icon" 
-                  className="h-9 w-9 p-0 flex items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
+                  className="h-10 w-10 p-0 flex items-center justify-center rounded-full border border-white/10 bg-white/5 shadow-md shadow-[#002780]/30 transition-all duration-300 hover:bg-white/15 hover:border-white/25 hover:scale-105 active:scale-95"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
+                  <img 
+                    src={chaticon} 
+                    alt="Chat Icon" 
+                    className="h-[22px] w-[22px] object-contain opacity-80 transition-all duration-300 group-hover:opacity-100 group-hover:scale-110"
+                  />
                 </Button>
                 
                 {globalUnreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
-                    {globalUnreadCount > 99 ? '99+' : globalUnreadCount}
+                  <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white shadow-lg shadow-red-500/40 border border-[#0037B0] transition-transform duration-300 group-hover:scale-110">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+                    <span className="relative z-10">{globalUnreadCount > 99 ? '99+' : globalUnreadCount}</span>
                   </span>
                 )}
               </Link>
@@ -181,7 +201,6 @@ const Header = () => {
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-[#0037B0] absolute top-[56px] left-0 w-full shadow-lg z-50">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {/* Render các menu mobile đã được lọc quyền */}
             {filteredLinks.map(link => (
               <NavLink 
                 key={`mobile-${link.path}`} 
@@ -201,7 +220,6 @@ const Header = () => {
               </NavLink>
             ))}
             
-            {/* Hiển thị đếm tin nhắn cho mọi đối tượng (Kể cả customer) */}
             {globalUnreadCount > 0 && (
               <Link to="/chat" className="block px-3 py-2 rounded-md text-base font-medium text-white/80 hover:bg-white/10 hover:text-white" onClick={() => setIsMobileMenuOpen(false)}>
                 Tin nhắn <span className="ml-2 px-2 py-0.5 bg-red-500 text-white rounded-full text-xs">{globalUnreadCount > 99 ? '99+' : globalUnreadCount}</span>

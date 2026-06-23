@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../hooks/Notification/useNotification';
 import Button from "../../components/skeleton/Button";
-import notificationIcon from '../../assets/images/icon_chuong_thong_bao.png';
 
 const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,7 +19,7 @@ const NotificationDropdown = () => {
     handleNotificationClick 
   } = useNotification();
 
-  // 🎯 TỰ ĐỘNG RE-FETCH THEO TAB KHI DROPDOWN ĐANG MỞ (ĐỒNG BỘ 0:03 TRONG VIDEO)
+  // 🎯 TỰ ĐỘNG RE-FETCH THEO TAB KHI DROPDOWN ĐANG MỞ
   useEffect(() => {
     if (isOpen) {
       const isReadParam = dropdownTab === 'unread' ? 0 : undefined;
@@ -43,16 +42,31 @@ const NotificationDropdown = () => {
     <div className="relative" ref={dropdownRef}>
       <Button 
         variant="icon" 
-        className={`relative h-[34px] w-[34px] p-0 flex items-center justify-center rounded-lg text-white transition-colors ${isOpen ? 'bg-white/20' : 'hover:bg-white/10'}`}
+        className={`relative h-10 w-10 flex items-center justify-center rounded-full border border-white/10 shadow-md shadow-[#002780]/30 transition-all duration-300 group hover:scale-105 active:scale-95 ${
+          isOpen ? 'bg-white/20 border-white/30 scale-105' : 'bg-white/5 hover:bg-white/15 hover:border-white/25'
+        }`}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div 
-          style={{ maskImage: `url(${notificationIcon})` }}
-          className="h-[19px] w-[15px] bg-white [mask-size:contain] [mask-repeat:no-repeat]" 
-        />
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className={`h-[22px] w-[22px] transition-all duration-300 ${
+            isOpen ? 'text-white scale-110' : 'text-white/80 group-hover:text-white group-hover:scale-110'
+          }`}
+        >
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0037B0] animate-in zoom-in">
-            {unreadCount > 99 ? '99+' : unreadCount}
+          <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white shadow-lg shadow-red-500/40 border border-[#0037B0] transition-transform duration-300 group-hover:scale-110">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+            <span className="relative z-10">{unreadCount > 99 ? '99+' : unreadCount}</span>
           </span>
         )}
       </Button>
@@ -60,7 +74,6 @@ const NotificationDropdown = () => {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50 text-gray-800 animate-in fade-in slide-in-from-top-3 duration-200 flex flex-col">
           
-          {/* 🎯 HEADER DROPDOWN ĐƯỢC THAY ĐỔI CỤM TABS ĐỒNG BỘ VIDEO */}
           <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-lg">
             <span className="font-bold text-sm text-[#191C1D]">Thông báo</span>
             <div className="flex bg-gray-200/70 p-0.5 rounded-md text-[10px] font-bold">
@@ -121,7 +134,6 @@ const NotificationDropdown = () => {
             )}
           </div>
 
-          {/* 🎯 SỬA ROUTE LINK FOOTER VÀ ACTIONS ĐỒNG BỘ CHUẨN VIDEO */}
           <div className="border-t border-gray-100 p-2 text-center bg-gray-50/30 rounded-b-lg flex flex-col gap-1">
             <button
               type="button"

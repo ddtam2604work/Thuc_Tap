@@ -4,7 +4,6 @@ import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 // Đảm bảo không lỗi nếu biến môi trường chưa load kịp
-// 🌟 SỬA LỖI: Trỏ Core Chat Socket về tên miền bảo mật cổng 7002 thay vì gọi IP trực tiếp
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_BE_URL || 'https://qlkd.nosomovo.xyz:7002';
 const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || 'https://qlkd.nosomovo.xyz:7002';
 
@@ -52,23 +51,20 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    // Chuẩn hóa URL an toàn, tránh lỗi crash chuỗi
     const safeSocketUrl = String(SOCKET_URL);
     const targetUrl = safeSocketUrl.includes('localhost') 
       ? safeSocketUrl.replace('https://', 'http://') 
       : safeSocketUrl;
 
-    // Lấy thêm refresh token dự phòng từ Storage (nếu có) để phục vụ cơ chế Re-auth của Server
     const localRefreshToken = localStorage.getItem('refreshToken') || '';
 
-    // SỬA LỖI CHÍNH: Thay đổi cấu trúc auth object khớp 100% với Backend
     const socketInstance = io(targetUrl, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'], // Ưu tiên websocket trước theo chuẩn Vite
+      transports: ['websocket', 'polling'], 
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
       withCredentials: true,
-      rejectUnauthorized: false, // Vượt lỗi chứng chỉ SSL Self-signed của IP thực tế
+      rejectUnauthorized: false, 
       auth: { 
         accessToken: token.replace(/^Bearer\s+/i, '').trim(), 
         refreshToken: localRefreshToken 
@@ -87,27 +83,28 @@ export const SocketProvider = ({ children }) => {
       startFallbackPolling();
     });
 
-    // LẮNG NGHE EVENT THỰC TẾ 1: Tin nhắn real-time trong phòng trò chuyện
+    // =========================================================================
+    // 🌟 ĐÃ ĐIỀU CHỈNH LOGIC REALTIME 1: Bỏ chặn điều kiện trang để luôn tăng thông báo trên Header
+    // =========================================================================
     socketInstance.on('chat:message', (data) => {
-      if (location.pathname !== '/chat') {
-        setGlobalUnreadCount(prev => prev + 1);
-        if (data?.content) {
-          showToast(data.content, data.sender_name || 'Khách hàng');
-        }
+      // Bất kể đang ở trang nào, nếu có tin nhắn gửi đến, ta đều tăng số lượng thông báo tổng lên
+      setGlobalUnreadCount(prev => prev + 1);
+      
+      // Chỉ hiển thị popup Toast thông báo khi người dùng đang không ở màn hình chat góc rộng
+      if (location.pathname !== '/chat' && data?.content) {
+        showToast(data.content, data.sender_name || 'Khách hàng');
       }
     });
 
-    // LẮNG NGHE EVENT THỰC TẾ 2: Cảnh báo tin nhắn mới từ phòng chat khác (Dành cho cả Khách và Staff khi ẩn màn hình)
+    // 🌟 ĐÃ ĐIỀU CHỈNH LOGIC REALTIME 2: Tương tự đối với tin nhắn từ phòng khác
     socketInstance.on('chat:new_message', (data) => {
-      if (location.pathname !== '/chat') {
-        setGlobalUnreadCount(prev => prev + 1);
-        if (data?.content) {
-          showToast(data.content, data.sender_name || 'Tin nhắn mới');
-        }
+      setGlobalUnreadCount(prev => prev + 1);
+      
+      if (location.pathname !== '/chat' && data?.content) {
+        showToast(data.content, data.sender_name || 'Tin nhắn mới');
       }
     });
 
-    // LẮNG NGHE EVENT THỰC TẾ 3: Tự động cập nhật Access Token mới khi được Server cấp lại qua Socket
     socketInstance.on('chat:access_token_refreshed', (data) => {
       if (data?.accessToken) {
         console.log('🔄 Đã tự động cập nhật Access Token mới từ Socket.');
@@ -115,15 +112,13 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
-    // Tự động chuẩn hóa giao thức kết nối động cho Call Socket
     const safeCallUrl = String(CALL_SERVER_URL);
     const targetCallUrl = safeCallUrl.includes('localhost')
       ? safeCallUrl.replace('https://', 'http://')
       : safeCallUrl;
 
-    // 🌟 ĐIỀU CHỈNH 2: Thiết lập kết nối đồng bộ tắp qua cổng công khai 7002 của Nginx
     const callSocketInstance = io(targetCallUrl, {
-      path: '/call-socket', // Khai báo chuỗi sạch đồng bộ, không thêm dấu gạch chéo ở cuối
+      path: '/call-socket', 
       transports: ['websocket'],
       secure: !targetCallUrl.includes('http://'),
       rejectUnauthorized: false,
@@ -139,12 +134,19 @@ export const SocketProvider = ({ children }) => {
       console.error('🔴 Lỗi kết nối Call Socket:', err.message);
     });
 
+    // 🌟 ĐÃ BỔ SUNG: Lắng nghe cuộc gọi đến để Header lập tức có chấm đỏ thông báo
+    callSocketInstance.on('call:incoming', (data) => {
+      setGlobalUnreadCount(prev => prev + 1);
+      const callTypeLabel = data?.type === 'video' ? '📹 Cuộc gọi Video đến...' : '📞 Cuộc gọi thoại đến...';
+      showToast(callTypeLabel, data?.callerName || 'Khách hàng hỗ trợ');
+    });
+
     return () => {
       socketInstance.disconnect();
       callSocketInstance.disconnect();
       stopFallbackPolling();
     };
-  }, [token, location.pathname]);
+  }, [token, location.pathname]); // Hook lắng nghe location.pathname để đồng bộ hiển thị Toast
 
   // Lắng nghe việc đăng xuất để hủy kết nối
   useEffect(() => {
@@ -167,14 +169,14 @@ export const SocketProvider = ({ children }) => {
       {toastMessage && (
         <div className="fixed bottom-4 right-4 z-50 bg-white border border-blue-200 shadow-xl rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 cursor-pointer hover:bg-gray-50 transition-colors"
              onClick={() => window.location.href = '/chat'}>
-           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
-               {(toastMessage.sender[0] || 'N').toUpperCase()}
-           </div>
-           <div className="flex-1 min-w-0 pr-2">
-               <h4 className="text-sm font-bold text-gray-800 truncate">{toastMessage.sender}</h4>
-               <p className="text-xs text-gray-600 truncate mt-0.5">{toastMessage.message}</p>
-           </div>
-           <div className="w-2 h-2 rounded-full bg-blue-500 self-start mt-1"></div>
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                {(toastMessage.sender[0] || 'N').toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0 pr-2">
+                <h4 className="text-sm font-bold text-gray-800 truncate">{toastMessage.sender}</h4>
+                <p className="text-xs text-gray-600 truncate mt-0.5">{toastMessage.message}</p>
+            </div>
+            <div className="w-2 h-2 rounded-full bg-blue-500 self-start mt-1"></div>
         </div>
       )}
     </SocketContext.Provider>

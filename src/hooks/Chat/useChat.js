@@ -1,3 +1,4 @@
+// src/hooks/Chat/useChat.js
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { chatService } from '../../services/chatService';
@@ -33,7 +34,8 @@ const getUserRoleFromToken = () => {
 };
 
 export const useChat = () => {
-    const { socket, callSocket } = useSocket();
+    // ĐÃ CẬP NHẬT: Lấy thêm setGlobalUnreadCount từ context để đồng bộ số lượng lên Header
+    const { socket, callSocket, setGlobalUnreadCount } = useSocket();
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -182,7 +184,6 @@ export const useChat = () => {
                 socket.emit('chat:read', { chatconversation_id: activeRoomId });
             }
             
-            // 🌟 THAY ĐỔI: Xử lý logic bóc tách chi tiết trạng thái cuộc gọi theo vai trò
             const isMasked = typeof data.content === 'string' && data.content.startsWith('__CALL_HISTORY__:');
             let previewText = data.content;
 
@@ -192,12 +193,9 @@ export const useChat = () => {
                     const isVideo = callData.type === 'video';
                     const icon = isVideo ? '📹' : '📞';
                     
-                    // Kiểm tra xem user hiện tại có phải là người gọi hay không
                     const isMyCall = callData.initiator === role; 
                     
                     if (callData.status === 'rejected') {
-                        // Nếu mình là người gọi đi (Khách hàng) -> Hiển thị "bị từ chối"
-                        // Nếu mình là người nhận (Admin) -> Hiển thị "Từ chối cuộc gọi"
                         previewText = isMyCall 
                             ? `${icon} Cuộc gọi thoại bị từ chối` 
                             : `${icon} Từ chối cuộc gọi`;
@@ -220,16 +218,24 @@ export const useChat = () => {
             }
 
             setChatRooms((prevRooms) =>
-                prevRooms.map((room) =>
-                    room.id === cid
-                        ? {
-                              ...room,
-                              lastMessage: previewText,
-                              time: formatTime(data.createdate || new Date()),
-                              unread: cid === activeRoomId ? 0 : room.unread + 1,
-                          }
-                        : room
-                )
+                prevRooms.map((room) => {
+                    if (room.id === cid) {
+                        const isNewUnread = cid !== activeRoomId;
+                        
+                        // 🌟 ĐÃ BỔ SUNG: Nếu có tin nhắn mới gửi đến phòng chat khác, tăng tổng unread trên Header lên 1
+                        if (isNewUnread && typeof setGlobalUnreadCount === 'function') {
+                            setGlobalUnreadCount(prev => prev + 1);
+                        }
+
+                        return {
+                            ...room,
+                            lastMessage: previewText,
+                            time: formatTime(data.createdate || new Date()),
+                            unread: isNewUnread ? room.unread + 1 : 0,
+                        };
+                    }
+                    return room;
+                })
             );
         };
 
@@ -247,8 +253,6 @@ export const useChat = () => {
             callSocket.on('chat:message', handleChatMessage);
             
             callSocket.on('call:save_log', (logData) => {
-                // Giải pháp tối ưu: Chỉ cho tài khoản 'staff' gửi tín hiệu 'chat:send' để lưu DB lõi qua tin nhắn văn bản,
-                // tránh hiện tượng nhân bản bản ghi (Duplicate) từ cả 2 đầu client cùng lúc.
                 if (role === 'staff' && socket && logData.chatconversation_id) {
                     socket.emit('chat:send', {
                         chatconversation_id: logData.chatconversation_id,
@@ -273,7 +277,7 @@ export const useChat = () => {
                 callSocket.off('call:save_log');
             }
         };
-    }, [socket, callSocket, activeRoomId, role]);
+    }, [socket, callSocket, activeRoomId, role, setGlobalUnreadCount]);
 
     const handleScroll = useCallback(async (e) => {
         const container = e.currentTarget;
@@ -330,15 +334,13 @@ export const useChat = () => {
         
         const isVideo = file.type && file.type.startsWith('video/');
 
-        // 🌟 XỬ LÝ VIDEO TƯƠNG TỰ AUDIO: Chuyển thành Base64 và Fallback qua Socket nếu API lỗi 404
         if (isVideo) {
             const reader = new FileReader();
-            reader.readAsDataURL(file); // Mã hóa video thành Base64
+            reader.readAsDataURL(file); 
             
             reader.onloadend = async () => {
                 const base64Data = reader.result;
                 try {
-                    // Thử gọi API upload Base64
                     const result = await chatService.uploadVideoBase64(base64Data);
                     const savedPath = result?.data?.filePath || result?.data?.fileUrl || base64Data;
                     
@@ -347,19 +349,15 @@ export const useChat = () => {
                         content: savedPath, msg_type: 'video'
                     });
                 } catch (err) {
-                    // 🎯 FALLBACK: Vì API đang báo 404, code sẽ nhảy vào đây và gửi trực tiếp Video Base64 vào thẳng Socket chat!
                     socket.emit('chat:send', {
                         chatconversation_id: activeRoomId, company_id: COMPANY_ID,
                         content: base64Data, msg_type: 'video'
                     });
                 }
             };
-            return; // Dừng luồng tại đây để chờ FileReader hoàn tất
+            return; 
         }
 
-        // ==========================================
-        // KHỐI LOGIC UPLOAD ẢNH CŨ (GIỮ NGUYÊN 100%)
-        // ==========================================
         try {
             const formData = new FormData();
             formData.append('files', file); 
@@ -532,25 +530,33 @@ export const useChat = () => {
 
     const handleRoomSelect = useCallback((roomId) => {
         if (role === 'customer') return;
-        setActiveRoomId(roomId);
-        setChatRooms(prevRooms => prevRooms.map(room => room.id === roomId ? { ...room, unread: 0 } : room));
+        
+        // 🌟 ĐÃ BỔ SUNG: Trừ bớt số tin nhắn chưa đọc của phòng vừa chọn ra khỏi tổng số trên Header
+        setChatRooms(prevRooms => {
+            const targetRoom = prevRooms.find(room => room.id === roomId);
+            const roomUnreadCount = targetRoom ? Number(targetRoom.unread || 0) : 0;
+            
+            if (roomUnreadCount > 0 && typeof setGlobalUnreadCount === 'function') {
+                setGlobalUnreadCount(prev => Math.max(0, prev - roomUnreadCount));
+            }
+            
+            return prevRooms.map(room => room.id === roomId ? { ...room, unread: 0 } : room);
+        });
 
-        // 🌟 NÂNG CẤP UX: Tự động thu gọn tất cả các chức năng mở rộng khi đổi khách hàng (Reset Context)
+        setActiveRoomId(roomId);
         setShowMediaSidebar(false);
         setShowStickerPicker(false);
         
-        // Dọn dẹp micro nếu đang bật ghi âm
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
             setIsRecording(false);
         }
         
-        // Dọn dẹp bộ nhận diện giọng nói nếu đang dịch
         if (recognitionRef.current) {
             recognitionRef.current.stop();
             setIsListening(false);
         }
-    }, [role]);
+    }, [role, setGlobalUnreadCount]);
 
     const activeRoom = useMemo(() => chatRooms.find(r => r.id === activeRoomId), [chatRooms, activeRoomId]);
 
