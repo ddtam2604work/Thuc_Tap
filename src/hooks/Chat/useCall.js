@@ -1,53 +1,39 @@
+cat << 'EOF' > /var/www/qlkd/src/hooks/Chat/useCall.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // =========================================================================
-// 🔥 ĐIỀU CHỈNH: Bổ sung TURN Server vào rtcConfig để xuyên thủng NAT mạng 4G
-// (Mẹo: Bạn có thể đăng ký tài khoản miễn phí tại Metered.ca hoặc Xirsys để lấy cụm này)
+// 🎯 HẠ TẦNG CHUẨN: Chỉ sử dụng cổng 3478 (UDP/TCP) phân vùng Singapore thật
 // =========================================================================
 const rtcConfig = {
   iceServers: [
-    // Giữ nguyên các máy chủ STUN cũ để tối ưu kết nối P2P khi cùng mạng
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
     {
-        urls: "stun:stun.relay.metered.ca:80",
-      },
-      {
-        urls: "turn:sg.relay.metered.ca:80",
-        username: "25af1a05bc8b364f03a4d339",
-        credential: "4ViOVjtSABg67DiZ",
-      },
-      {
-        urls: "turn:sg.relay.metered.ca:80?transport=tcp",
-        username: "25af1a05bc8b364f03a4d339",
-        credential: "4ViOVjtSABg67DiZ",
-      },
-      {
-        urls: "turn:sg.relay.metered.ca:443",
-        username: "25af1a05bc8b364f03a4d339",
-        credential: "4ViOVjtSABg67DiZ",
-      },
-      {
-        urls: "turns:sg.relay.metered.ca:443?transport=tcp",
-        username: "25af1a05bc8b364f03a4d339",
-        credential: "4ViOVjtSABg67DiZ",
-      }
+      urls: 'turn:sg.turn.metered.ca:3478?transport=udp',
+      username: '25af1a05bc8b364f03a4d339',
+      credential: '4ViOVjtSABg67DiZ'
+    },
+    {
+      urls: 'turn:sg.turn.metered.ca:3478?transport=tcp',
+      username: '25af1a05bc8b364f03a4d339',
+      credential: '4ViOVjtSABg67DiZ'
+    }
   ]
 };
-// =========================================================================
 
 export const useCall = (socket, activeRoomId, role) => {
-  const [callState, setCallState] = useState('idle'); // idle | calling | incoming | connected
-  const [callType, setCallType] = useState(null); // 'voice' | 'video'
+  const [callState, setCallState] = useState('idle'); 
+  const [callType, setCallType] = useState(null); 
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [roomCallId, setRoomCallId] = useState(null); // 🌟 Lưu ID phòng đang call để hiển thị đúng tên
+  const [roomCallId, setRoomCallId] = useState(null); 
 
   const peerConnectionRef = useRef(null);
   const currentCallSessionRef = useRef(null);
-  const iceCandidatesQueueRef = useRef([]); // 🌟 BỔ SUNG: Hàng đợi lưu ICE candidates đến sớm khi peer chưa sẵn sàng
+  const iceCandidatesQueueRef = useRef([]); 
   
-  // 🌟 KHỞI TẠO BỘ NHẠC CHUÔNG PROCEDURAL (WEB AUDIO API)
   const audioCtxRef = useRef(null);
   const audioOscRef = useRef([]);
   const ringtoneTimerRef = useRef(null);
@@ -60,19 +46,15 @@ export const useCall = (socket, activeRoomId, role) => {
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
 
-      stopRingtone(); // Dọn dẹp chuông cũ trước khi phát chuông mới
+      stopRingtone(); 
 
       if (type === 'incoming') {
-        // Âm reng reng báo cuộc gọi đến (Dual-tone 400Hz + 450Hz pulsed)
         const playRing = () => {
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
           const gainNode = ctx.createGain();
           osc1.type = 'sine'; osc1.frequency.setValueAtTime(400, ctx.currentTime);
-          
-          // 🌟 ĐÃ SỬA: Thêm const để chặn đứng hoàn toàn lỗi ReferenceError bẻ gãy luồng Signalling
           const box2 = ctx.createOscillator(); 
-          
           osc2.type = 'sine'; osc2.frequency.setValueAtTime(450, ctx.currentTime);
           
           gainNode.gain.setValueAtTime(0, ctx.currentTime);
@@ -89,7 +71,6 @@ export const useCall = (socket, activeRoomId, role) => {
         playRing();
         ringtoneTimerRef.current = setInterval(playRing, 3000);
       } else if (type === 'calling') {
-        // Âm bíp... bíp... chờ máy khi gọi đi (440Hz + 480Hz)
         const playDial = () => {
           const osc1 = ctx.createOscillator();
           const osc2 = ctx.createOscillator();
@@ -122,7 +103,6 @@ export const useCall = (socket, activeRoomId, role) => {
     }
   };
 
-  // 🌟 SỬ DỤNG REF STATE ĐỂ KHÔNG BỊ COLLISION KHI SOCKET RE-REGISTER
   const latestStateRef = useRef({ callState, localStream, callType });
   useEffect(() => {
     latestStateRef.current = { callState, localStream, callType };
@@ -139,7 +119,7 @@ export const useCall = (socket, activeRoomId, role) => {
     setIsMuted(false);
     setIsVideoOff(false);
     currentCallSessionRef.current = null;
-    iceCandidatesQueueRef.current = []; // 🌟 BỔ SUNG: Dọn sạch hàng đợi khi reset
+    iceCandidatesQueueRef.current = []; 
   }, [localStream]);
 
   const createPeerConnection = useCallback((targetRoomId) => {
@@ -169,7 +149,6 @@ export const useCall = (socket, activeRoomId, role) => {
       const constraints = { audio: true, video: type === 'video' };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Ép ghi dữ liệu đồng bộ vào Ref lập tức
       latestStateRef.current.localStream = stream;
       setLocalStream(stream);
 
@@ -180,7 +159,6 @@ export const useCall = (socket, activeRoomId, role) => {
     }
   }, [socket, activeRoomId, role, resetCallContext]);
 
-  // 🌟 LẮNG NGHE SỰ KIỆN SOCKET CỐ ĐỊNH - ĐẢM BẢO KHÔNG BỊ HỦY LUỒNG ĐẦU NHẬN
   useEffect(() => {
     if (!socket) return;
 
@@ -193,11 +171,11 @@ export const useCall = (socket, activeRoomId, role) => {
       setCallType(data.type);
       setRoomCallId(data.chatconversation_id);
       setCallState('incoming');
-      startRingtone('incoming'); // 🔔 Phát nhạc chuông báo gọi đến
+      startRingtone('incoming'); 
     };
 
     const handleCallAccepted = async (data) => {
-      stopRingtone(); // 🔔 Tắt chuông khi đầu kia bắt máy
+      stopRingtone(); 
       const state = latestStateRef.current;
       const pc = peerConnectionRef.current || createPeerConnection(data.chatconversation_id);
       
@@ -213,26 +191,22 @@ export const useCall = (socket, activeRoomId, role) => {
     };
 
     const handleCallOffer = async (data) => {
-      stopRingtone();
+      stopRingtone(); 
       try {
         const pc = createPeerConnection(data.chatconversation_id);
-        
-        // 🎯 ĐIỀU CHỈNH CỐT LÕI: Lấy trực tiếp Stream đã được xin quyền trước đó từ nút acceptCall
         let stream = latestStateRef.current.localStream;
         
-        // Dự phòng cho Desktop (nếu vì lý do re-render nào đó stream chưa kịp nạp vào Ref)
         if (!stream) {
           const constraints = { audio: true, video: latestStateRef.current.callType === 'video' };
           stream = await navigator.mediaDevices.getUserMedia(constraints);
+          latestStateRef.current.localStream = stream;
           setLocalStream(stream);
         }
         
-        // Đẩy các Track của luồng có sẵn vào Peer Connection
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
 
-        // Nạp các ICE candidate đã tích lũy trong hàng đợi từ trước (Giữ nguyên gốc nâng cấp trước)
         if (iceCandidatesQueueRef.current.length > 0) {
           for (const candidate of iceCandidatesQueueRef.current) {
             await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
@@ -244,43 +218,31 @@ export const useCall = (socket, activeRoomId, role) => {
         await pc.setLocalDescription(answer);
         setCallState('connected');
         socket.emit('call:answer', { chatconversation_id: data.chatconversation_id, sdp: answer });
-      } catch (err) { 
-        console.error("❌ Lỗi xử lý cấu hình bắt tay Offer WebRTC:", err);
-        resetCallContext(); 
-      }
+      } catch (err) { resetCallContext(); }
     };
 
     const handleCallAnswer = async (data) => {
       if (peerConnectionRef.current) {
         try {
-          // 1. Thiết lập cấu hình mô tả cấu trúc mạng từ đầu nhận gửi về
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
           setCallState('connected');
 
-          // 🎯 BỔ SUNG LƯU Ý KỸ SƯ: Giải phóng hàng đợi ICE Candidates bị kẹt bên phía Caller
-          // Luồng này cực kỳ quan trọng để Desktop đọc được các cổng NAT mạng 4G từ điện thoại gửi sang sớm
           if (iceCandidatesQueueRef.current.length > 0) {
-            console.log(`📡 [Hạ tầng WebRTC] Giải phóng ${iceCandidatesQueueRef.current.length} gói tin ICE kẹt cho Caller.`);
             for (const candidate of iceCandidatesQueueRef.current) {
               await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
             }
-            iceCandidatesQueueRef.current = []; // Dọn sạch hàng đợi sau khi nạp thành công
+            iceCandidatesQueueRef.current = [];
           }
-          
-        } catch (err) {
-          console.error("❌ [WebRTC Signalling Error] Lỗi đồng bộ cấu trúc mạng Answer:", err);
-        }
+        } catch (err) { console.error(err); }
       }
     };
 
     const handleNewIceCandidate = async (data) => {
       if (data.candidate) {
         const pc = peerConnectionRef.current;
-        // 🌟 SỬA BUG: Chỉ thêm khi PC sẵn sàng và remoteDescription đã được cấu hình từ Offer/Answer
         if (pc && pc.remoteDescription) {
           try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
         } else {
-          // Ngược lại đưa vào hàng đợi chờ xử lý sau
           iceCandidatesQueueRef.current.push(data.candidate);
         }
       }
@@ -312,14 +274,11 @@ export const useCall = (socket, activeRoomId, role) => {
     try {
       const constraints = { audio: true, video: latestStateRef.current.callType === 'video' };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Ép ghi dữ liệu đồng bộ vào Ref để chặn đứng việc gọi getUserMedia lần 2 trên Mobile
       latestStateRef.current.localStream = stream;
       setLocalStream(stream);
       
       socket.emit('call:accept', { chatconversation_id: currentCallSessionRef.current.chatconversation_id });
     } catch (err) {
-      console.error("❌ Không thể kích hoạt thiết bị phần cứng phần nhận:", err);
       alert('Vui lòng mở quyền truy cập Camera/Microphone trên trình duyệt di động để nhận cuộc gọi.');
       resetCallContext();
     }
@@ -356,3 +315,4 @@ export const useCall = (socket, activeRoomId, role) => {
     startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo
   };
 };
+EOF
