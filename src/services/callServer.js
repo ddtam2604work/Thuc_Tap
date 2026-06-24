@@ -1,4 +1,4 @@
-import 'dotenv/config'; // 🌟 Đọc cấu hình từ file .env
+import 'dotenv/config'; // Đọc cấu hình từ file .env
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -8,18 +8,28 @@ import cors from 'cors';
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const app = express();
-app.use(cors());
 
-// 🌟 ĐIỀU CHỈNH TRIỆT ĐỂ: Luôn chạy HTTP thuần túy ở môi trường nội bộ sau Nginx Reverse Proxy
+// Cấu hình CORS mềm dẻo cho Express HTTP endpoints nếu có phát sinh
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
+// Vận hành nội bộ dưới giao thức HTTP/WS thuần túy (SSL Offloading được xử lý bởi Nginx ở cổng 7002)
 const server = http.createServer(app);
 console.log('🔓 Call Server vận hành nội bộ dưới giao thức HTTP/WS (SSL Offloading Enabled)');
 
-// Khởi tạo Socket.io và cấp quyền CORS động linh hoạt cho toàn bộ hạ tầng mạng Production
+// Khởi tạo Socket.io với cấu hình CORS tối ưu cho môi trường Production
 const io = new Server(server, {
-  path: '/call-socket', // Đặt cứng path này đồng bộ 100% với Frontend và Nginx
+  // 🎯 ĐIỀU CHỈNH CHÍNH: Thay đổi thành '/socket.io' để khớp hoàn toàn với cấu hình proxy_pass của Nginx
+  path: '/socket.io', 
+  connectTimeout: 45000,
+  pingTimeout: 30000,
+  pingInterval: 25000,
   cors: {
     origin: (origin, callback) => {
-      callback(null, true); // Chấp nhận mọi Origin gọi tới kể cả từ 4G di động
+      // Chấp nhận mọi Origin kết nối đến (bao gồm cả domain + port 7002)
+      callback(null, true); 
     },
     methods: ["GET", "POST"],
     credentials: true
@@ -28,10 +38,11 @@ const io = new Server(server, {
 
 const activeCalls = new Map();
 
-// Hàm xử lý gọi API lưu dữ liệu sang Backend lõi dựa trên cấu hình BE_Call từ .env
+// Hàm xử lý gọi API lưu dữ liệu sang Backend lõi (Port 4000)
 async function saveCallToMainDatabase(roomCallId, session, status, duration = 0) {
   try {
-    const backendBaseUrl = process.env.BE_Call || 'https://113.161.204.185:4000';
+    // 🎯 ƯU TIÊN LUỒNG NỘI BỘ: Nếu không có cấu hình env, gọi thẳng qua localhost HTTPS để có tốc độ cao nhất
+    const backendBaseUrl = process.env.BE_Call || 'https://127.0.0.1:4000';
     const cleanUrl = backendBaseUrl.replace(/\/$/, '');
 
     const payload = {
@@ -48,19 +59,25 @@ async function saveCallToMainDatabase(roomCallId, session, status, duration = 0)
       })
     };
 
-    await fetch(`${cleanUrl}/api/v1/chat/conversations/messages/save-call`, {
+    const response = await fetch(`${cleanUrl}/api/v1/chat/conversations/messages/save-call`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
     console.log(`💾 [BE_Call API] Đồng bộ dữ liệu cuộc gọi sang API cổng 4000 thành công.`);
   } catch (err) {
-    console.error("❌ [BE_Call API Error] Không thể kết nối API cổng 4000, chuyển sang luồng socket dự phòng:", err.message);
+    console.error("❌ [BE_Call API Error] Không thể kết nối API cổng 4000:", err.message);
   }
 }
 
+// Middleware xác thực trạng thái kết nối
 io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
+  const token = socket.handshake.auth.token || socket.handshake.auth.accessToken;
   if (!token || token === "null" || token === "undefined") {
     socket.isGuest = true;
     return next();
@@ -100,7 +117,6 @@ io.on('connection', (socket) => {
     if (session) {
       saveCallToMainDatabase(roomCallId, session, 'rejected', 0);
       
-      // SỬA BUG CỐT LÕI: Đổi socket.emit thành io.emit để Staff luôn bắt được log kể cả khi Customer từ chối
       io.emit('call:save_log', {
         chatconversation_id: roomCallId,
         type: session.type,
@@ -124,7 +140,6 @@ io.on('connection', (socket) => {
 
       saveCallToMainDatabase(roomCallId, session, duration > 0 ? 'completed' : 'missed', duration);
 
-      // SỬA BUG CỐT LÕI: Đổi từ socket.emit sang io.emit phát tán toàn cục chống rớt log khi Customer cúp máy
       io.emit('call:save_log', {
         chatconversation_id: roomCallId,
         type: session.type,
@@ -143,7 +158,6 @@ io.on('connection', (socket) => {
     if (session) {
       saveCallToMainDatabase(roomCallId, session, 'busy', 0);
 
-      // SỬA BUG CỐT LÕI: Đồng bộ io.emit báo bận cho toàn hệ thống
       io.emit('call:save_log', {
         chatconversation_id: roomCallId,
         type: session.type,
@@ -156,10 +170,12 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('call:busy', data);
   });
 
+  // Luồng WebRTC Signaling trung chuyển gói tin thô
   socket.on('call:offer', (data) => { socket.broadcast.emit('call:offer', data); });
   socket.on('call:answer', (data) => { socket.broadcast.emit('call:answer', data); });
   socket.on('call:ice-candidate', (data) => { socket.broadcast.emit('call:ice-candidate', data); });
 
+  // Cơ chế thông báo đẩy mô phỏng (Giữ nguyên gốc)
   let mockInterval;
   if (!socket.isGuest) {
     mockInterval = setInterval(() => {

@@ -17,30 +17,32 @@ const LoginPage = () => {
     handleLogin 
   } = useAuth();
 
-  // State cục bộ phục vụ việc Ẩn/Hiện mật khẩu
   const [showPassword, setShowPassword] = useState(false);
 
   // 🎯 KIỂM SOÁT LUỒNG ĐĂNG NHẬP Ở TẦNG GIAO DIỆN (INTERCEPTOR FORM SUBMIT)
   const handleSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
-    // Kịch bản 1: Nếu chưa nhập mật khẩu -> Chặn đăng nhập và chủ động focus xuống ô password
-    if (!password || !password.trim()) {
-      const passwordField = document.querySelector('input[type="password"], input[type="text"]:nth-child(2)');
-      const targetInput = passwordField || document.querySelectorAll('main input')[1];
-      if (targetInput) {
-        targetInput.focus();
-      }
-      return; // Kết thúc hàm tại đây, KHÔNG gọi API login bừa bãi
+    // Kịch bản 1: Nếu chưa nhập tài khoản -> Focus vào ô username
+    if (!username || !username.trim()) {
+      const usernameField = document.querySelector('input[name="username"]');
+      if (usernameField) usernameField.focus();
+      return; 
     }
 
-    // Kịch bản 2: Đã điền đầy đủ mật khẩu -> Thực thi luồng xử lý của useAuth hook
+    // Kịch bản 2: Nếu chưa nhập mật khẩu -> Focus vào ô password
+    if (!password || !password.trim()) {
+      const passwordField = document.querySelector('input[name="password"]');
+      if (passwordField) passwordField.focus();
+      return; 
+    }
+
+    // Kịch bản 3: Đã điền đầy đủ -> Thực thi luồng gọi API login
     handleLogin(e);
   };
 
   return (
     <div className="relative flex items-center justify-center min-h-screen py-[45.5px] px-4 isolate">
-      {/* Khử hoàn toàn icon mắt mặc định của trình duyệt Edge/Chromium */}
       <style>{`
         input::-ms-reveal, input::-ms-clear { display: none !important; }
       `}</style>
@@ -65,17 +67,14 @@ const LoginPage = () => {
           </p>
         </header>
 
-        {/* Đồng bộ luồng onSubmit qua hàm kiểm tra handleSubmit */}
         <form onSubmit={handleSubmit} className="flex flex-col items-start gap-6 w-full pb-4">
           
-          {/* Thông báo lỗi đỏ */}
           {errorMessage && (
             <div className="w-full p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg animate-in fade-in duration-200">
               {errorMessage}
             </div>
           )}
 
-          {/* Thông báo thành công xanh */}
           {successMessage && (
             <div className="w-full p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg font-medium animate-in fade-in duration-200">
               {successMessage}
@@ -83,7 +82,10 @@ const LoginPage = () => {
           )}
 
           <div className="flex flex-col gap-4 w-full">
+            {/* 🎯 BỔ SUNG: name và autoComplete tài khoản */}
             <FormInput
+              name="username"
+              autoComplete="username"
               type="text"
               placeholder={LOGIN_TEXT.USERNAME_PLACEHOLDER}
               value={username}
@@ -92,7 +94,10 @@ const LoginPage = () => {
             />
             
             <div className="relative w-full flex items-center">
+              {/* 🎯 BỔ SUNG: name và autoComplete mật khẩu */}
               <FormInput
+                name="password"
+                autoComplete="current-password"
                 type={showPassword ? "text" : "password"}
                 placeholder={LOGIN_TEXT.PASSWORD_PLACEHOLDER}
                 value={password}
@@ -100,7 +105,6 @@ const LoginPage = () => {
                 disabled={loading}
               />
               
-              {/* CHỈ HIỂN THỊ ICON MẮT KHI BẮT ĐẦU NHẬP MẬT KHẨU */}
               {password && password.length > 0 && (
                 <button
                   type="button"
@@ -110,12 +114,10 @@ const LoginPage = () => {
                   aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
                 >
                   {showPassword ? (
-                    /* Icon Mắt Gạch Chéo (Ẩn Pass) */
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
                     </svg>
                   ) : (
-                    /* Icon Mắt Mở (Xem Pass) */
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -127,10 +129,9 @@ const LoginPage = () => {
           </div>
 
           <div className="w-full pt-2">
-            {/* Đổi trực tiếp hàm onClick của Button sang handleSubmit để phòng thủ đồng bộ */}
+            {/* 🎯 ĐIỀU CHỈNH: Gỡ bỏ sự kiện onClick, chỉ giữ type="submit" để form lo phần còn lại */}
             <Button 
               type="submit" 
-              onClick={handleSubmit}
               disabled={loading}
               className={`w-full ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
