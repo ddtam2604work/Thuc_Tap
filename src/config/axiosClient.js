@@ -45,6 +45,16 @@ apiBackend.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // =========================================================================
+    // 🎯 ĐIỀU CHỈNH 1: Tự động xóa Content-Type JSON nếu dữ liệu gửi đi là FormData
+    // Giúp trình duyệt tự sinh Boundary mã hóa chính xác luồng gửi thông tin Drive Link
+    // =========================================================================
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    // =========================================================================
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -142,6 +152,12 @@ apiMedia.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // Tương thích đồng bộ cho cả cổng Media Server
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -239,5 +255,4 @@ const handleLogoutSystem = () => {
   }
   
   console.error('🔴 Phiên đăng nhập hết hạn hoàn toàn. Mời đăng nhập lại.');
-  // Tùy chọn: window.location.href = '/login'; (Nếu Redux authSlice chưa kịp bắt sự thay đổi)
 };

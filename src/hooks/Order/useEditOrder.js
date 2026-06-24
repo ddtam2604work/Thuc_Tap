@@ -283,7 +283,7 @@ export const useEditOrder = () => {
     });
   }, []);
 
-  // Xây dựng JSON payload gửi lên Backend chỉnh sửa (Giữ nguyên)
+  // Xây dựng JSON payload gửi lên Backend chỉnh sửa (Bổ sung thuộc tính linkgoogledrive)
   const buildJsonPayload = useCallback(async (audioId) => {
     const validProducts = products.filter(p => {
       const pId = p.productId || p.product_id;
@@ -302,7 +302,7 @@ export const useEditOrder = () => {
         unitprice: Number(p.appliedPrice) || 0,
         discount: 0,
         attachments: fileIds, 
-        linkgoogledrive: p.driveLink || null,
+        linkgoogledrive: p.driveLink || "linkgoogledrive", // 🎯 ĐIỀU CHỈNH: Gửi placeholder string thay vì null để ăn khớp logic backend mẫu
         metadata: {},
         note: p.note || null
       };
@@ -333,7 +333,6 @@ export const useEditOrder = () => {
     if (e) e.preventDefault();
     
     const hasValidProduct = products.some(p => p.productId && String(p.productId).trim() !== '');
-    // 🛠️ ĐIỀU CHỈNH: Đổi alert thành Toast Warning
     if (!hasValidProduct) return showToast('Danh sách sản phẩm không được để trống!', 'warning');
 
     setIsSubmitting(true);
@@ -362,14 +361,10 @@ export const useEditOrder = () => {
         }
       }
 
-      // Unwrap Response đồng bộ hệ thống chống lỗi lệch key
       const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
       if (beData?.errorCode === 1 || beData?.statusCode === 200) {
-        // 🛠️ ĐIỀU CHỈNH: Áp dụng showToast dạng success thay thế alert()
         showToast('Đã cập nhật thông tin đơn hàng thành công!', 'success');
-        
-        // 🛠️ GIẢI QUYẾT RACE CONDITION: Tạo khoảng trễ nhỏ (50ms) cho State kịp hiển thị Toast trước khi Unmount điều hướng
         if (isDraft) setTimeout(() => navigate('/orders'), 50);
         else setTimeout(() => navigate(`/orders/${id}`), 50);
       } else {
@@ -406,7 +401,6 @@ export const useEditOrder = () => {
       const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
       if (beData?.errorCode === 1 || beData?.statusCode === 200) {
-        // 🛠️ ĐIỀU CHỈNH: Áp dụng showToast dạng success thay thế alert() theo yêu cầu đặc tả đơn hàng mẫu
         showToast('Đã cập nhật dữ liệu vào bản nháp thành công! 📝', 'success');
         setTimeout(() => navigate('/orders'), 50);
       } else {

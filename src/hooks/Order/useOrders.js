@@ -21,12 +21,20 @@ const safeParseAttachments = (data) => {
 
 // 🌟 HELPER 2: Chuẩn hóa link Google Drive tuyệt đối bảo vệ an toàn định dạng URL
 const formatAbsoluteDriveLink = (url) => {
-  if (!url || url === 'linkgoogledrive' || url === 'null' || String(url).trim() === '') return '';
-  const trimmed = String(url).trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
+  if (!url) return '';
+  const trimmedStr = String(url).trim();
+  const lowerUrl = trimmedStr.toLowerCase();
+  
+  // Tránh hiển thị các chuỗi text rác mặc định của DB
+  // 🎯 ĐIỀU CHỈNH: Thêm bộ lọc chuỗi mặc định 'linkgoogledrive' để loại trừ hiển thị text placeholder ra UI danh sách
+  if (lowerUrl === 'null' || lowerUrl === 'undefined' || lowerUrl === '---' || lowerUrl === '-' || lowerUrl === 'linkgoogledrive') {
+    return '';
   }
-  return `https://${trimmed}`;
+  
+  if (trimmedStr.startsWith('http://') || trimmedStr.startsWith('https://')) {
+    return trimmedStr;
+  }
+  return `https://${trimmedStr}`;
 };
 
 export const useOrders = () => {
@@ -86,7 +94,6 @@ export const useOrders = () => {
       fDate = now;
       tDate = now;
     } else if (dateFilter === 'month') {
-      // Thay thế tìm kiếm cố định tháng này bằng việc đọc dữ liệu từ hai biến động Từ ngày - Đến ngày
       return {
         from_createdate: fromDate,
         to_createdate: toDate
@@ -142,7 +149,7 @@ export const useOrders = () => {
 
               if (!childDriveLink) {
                 const pLink = product.linkgoogledrive || product.drive_link || product.link_google_drive || product.googledrive_link;
-                if (pLink && pLink !== 'linkgoogledrive' && pLink !== 'null' && String(pLink).trim() !== '') {
+                if (pLink && pLink !== 'null' && String(pLink).trim() !== '') {
                   childDriveLink = String(pLink).trim();
                 }
               }
@@ -156,7 +163,7 @@ export const useOrders = () => {
           const potentialParentLinks = [item.linkgoogledrive, item.drive_link, item.googledrive_link, item.link_google_drive];
           
           for (const link of potentialParentLinks) {
-            if (link && link !== 'linkgoogledrive' && link !== 'null' && String(link).trim() !== '') {
+            if (link && link !== 'null' && String(link).trim() !== '') {
               parentDriveLink = String(link).trim();
               break;
             }
@@ -222,7 +229,6 @@ export const useOrders = () => {
     setSearchKey,
     dateFilter,
     setDateFilter: (val) => { setDateFilter(val); setCurrentPage(1); },
-    // Xuất ra ngoài cho giao diện sử dụng và cập nhật trang hiện tại về 1 khi lọc thay đổi
     fromDate,
     setFromDate: (val) => { setFromDate(val); setCurrentPage(1); },
     toDate,

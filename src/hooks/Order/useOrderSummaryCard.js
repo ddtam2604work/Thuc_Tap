@@ -68,10 +68,13 @@ export const useOrderSummaryCard = ({
           unitprice: Number(p.appliedPrice) || Number(p.applied_price) || 0,
           discount: 0,
           attachments: fileIds,
-          linkgoogledrive: p.driveLink || null,
+          linkgoogledrive: p.driveLink || "linkgoogledrive", // 🎯 ĐIỀU CHỈNH: Gửi placeholder string theo mẫu Postman nếu rỗng
           note: p.note || null
         };
       }));
+
+      // 🎯 ĐIỀU CHỈNH: Trích xuất link Google Drive đầu tiên của danh sách sản phẩm để đưa lên Root Payload
+      const firstValidDriveLink = validProducts.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
 
       const jsonPayload = {
         customer_id: customer || null, 
@@ -79,6 +82,7 @@ export const useOrderSummaryCard = ({
         note: generalNote || null,
         audionote: audioNoteId,
         noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
+        linkgoogledrive: firstValidDriveLink // 🎯 ĐIỀU CHỈNH: Thêm trường linkgoogledrive cấp root như đặc tả mẫu Postman
       };
 
       const res = await orderService.createNew(jsonPayload);
@@ -92,7 +96,7 @@ export const useOrderSummaryCard = ({
       }
     } catch (error) {
       showToast('Lỗi kết nối máy chủ, không thể khởi tạo đơn hàng.', 'error');
-    } platform: { 
+    } finally { 
       setIsSubmitting(false);
     }
   }, [customer, products, generalNote, shippingUnit, shippingCode, recordedAudioFile, uploadDraftImages, navigate, showToast]);
@@ -115,10 +119,13 @@ export const useOrderSummaryCard = ({
           quantity: Number(p.quantity) || 1,
           unitprice: Number(p.appliedPrice) || Number(p.applied_price) || 0,
           attachments: fileIds,
-          linkgoogledrive: p.driveLink || null,
+          linkgoogledrive: p.driveLink || "linkgoogledrive", // 🎯 ĐIỀU CHỈNH: Đồng bộ hóa item-level link drive
           note: p.note || null
         };
       }));
+
+      // 🎯 ĐIỀU CHỈNH: Trích xuất link Google Drive đầu tiên cấp root cho Đơn nháp
+      const firstValidDriveLink = validProducts.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
 
       const jsonPayload = {
         customer_id: customer || null, 
@@ -126,6 +133,7 @@ export const useOrderSummaryCard = ({
         note: generalNote || null,
         audionote: audioNoteId,
         noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
+        linkgoogledrive: firstValidDriveLink // 🎯 ĐIỀU CHỈNH: Bổ sung trường linkgoogledrive cấp root
       };
 
       const res = await orderService.createDraft(jsonPayload);

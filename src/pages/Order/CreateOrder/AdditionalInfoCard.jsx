@@ -22,16 +22,16 @@ const AdditionalInfoCard = ({
   
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+  // const handleFileChange = async (e) => {
+  //   const files = Array.from(e.target.files || []);
+  //   if (!files.length) return;
     
-    setIsUploading(true);
-    await uploadGeneralImages(files);
-    setIsUploading(false);
+  //   setIsUploading(true);
+  //   await uploadGeneralImages(files);
+  //   setIsUploading(false);
     
-    e.target.value = null;
-  };
+  //   e.target.value = null;
+  // };
 
   const handleRemoveImage = (indexToRemove) => {
     const targetImg = generalImages?.[indexToRemove];
@@ -75,7 +75,7 @@ const AdditionalInfoCard = ({
             </div>
           ))}
           
-          <label className="w-[82px] h-[82px] border-2 border-dashed border-gray-200 hover:border-blue-500/40 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer bg-gray-50/50 hover:bg-blue-50/20 transition-all duration-200 active:scale-95">
+          {/* <label className="w-[82px] h-[82px] border-2 border-dashed border-gray-200 hover:border-blue-500/40 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer bg-gray-50/50 hover:bg-blue-50/20 transition-all duration-200 active:scale-95">
             <span className="text-gray-400 text-sm">📎</span>
             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Đính kèm</span>
             <input 
@@ -84,7 +84,7 @@ const AdditionalInfoCard = ({
               onChange={handleFileChange} 
               className="hidden" 
             />
-          </label>
+          </label> */}
         </div>
         
         {/* KHÔNG GIAN THAO TÁC GHI ÂM TRỰC TIẾP */}

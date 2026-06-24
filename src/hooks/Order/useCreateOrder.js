@@ -115,28 +115,10 @@ export const useCreateOrder = (existingDraftId = null) => {
     return await uploadAudioNote(recordedAudioFile);
   }, [recordedAudioFile, uploadAudioNote]);
 
-  const buildFormDataPayload = useCallback((statusMode = 'NEW', audioNoteId = null) => {
-    const formData = new FormData();
-  
-    formData.append('customer_id', customer);
-    formData.append('shipping_unit', (shippingUnit || '').trim());
-    formData.append('shipping_code', (shippingCode || '').trim());
-    formData.append('general_note', (generalNote || '').trim());
-    formData.append('subtotal', String(subtotal));
-    formData.append('total', String(total));
-    formData.append('status_mode', statusMode);
-  
-    if (audioNoteId) {
-      formData.append('audionote', audioNoteId);
-    } else if (recordedAudioFile && recordedAudioFile instanceof File) {
-      formData.append('recorded_audio', recordedAudioFile);
-    }
-  
-    const generalAttachmentIds = generalImages.map(img => img.id).filter(Boolean);
-    if (generalAttachmentIds.length > 0) {
-      generalAttachmentIds.forEach(id => formData.append('general_attachments[]', id));
-    }
-  
+  // 🎯 ĐIỀU CHỈNH CHÍNH: Đóng gói chuẩn xác cấu trúc và đưa linkgoogledrive vào đúng vị trí để gọi thành công API Backend
+  const buildJsonPayload = useCallback((audioNoteId = null) => {
+    const firstValidDriveLink = products.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink?.trim() || null;
+    
     const itemsPayload = products
       .filter(p => p.productId || p.product_id)
       .map(prod => ({
@@ -144,25 +126,27 @@ export const useCreateOrder = (existingDraftId = null) => {
         quantity: Number(prod.quantity || 1),
         unitprice: Number(prod.appliedPrice || prod.price || 0),
         discount: 0,
-        note: prod.note ? String(prod.note).trim() : '',
-        attachments: prod.images?.map(img => img.id).filter(Boolean) || [],
-        linkgoogledrive: prod.driveLink || null
+        attachments: prod.images?.map(img => img.id).filter(Boolean) || [], 
+        attachmentsinfo: null, 
+        zip_fileid: null,      
+        zip_fileinfo: null,    
+        metadata: {},          
+        linkgoogledrive: prod.driveLink || "linkgoogledrive", // 🎯 ĐIỀU CHỈNH: Gửi placeholder string thay vì trống theo như Postman mẫu yêu cầu
+        note: prod.note ? String(prod.note).trim() : "" 
       }));
-  
-    if (itemsPayload.length > 0) {
-      formData.append('items', JSON.stringify(itemsPayload));
-    }
-    
-    // 🎯 SỬA LỖI DRIVE LINK: Đồng bộ đa dạng định dạng Naming Convention lên Root Level của FormData
-    const firstValidDriveLink = products.find(p => p.driveLink && p.driveLink.trim() !== '')?.driveLink || null;
-    if (firstValidDriveLink) {
-        formData.append('linkgoogledrive', firstValidDriveLink);
-        formData.append('drive_link', firstValidDriveLink);
-        formData.append('link_google_drive', firstValidDriveLink);
-    }
 
-    return formData;
-  }, [customer, shippingUnit, shippingCode, generalNote, subtotal, total, products, recordedAudioFile, generalImages]);
+    return {
+      audionote: audioNoteId || null,
+      customer_id: customer || null,
+      discount: 0,            
+      items: itemsPayload,
+      linkgoogledrive: firstValidDriveLink, // 🎯 ĐIỀU CHỈNH: Đẩy link drive tổng đơn lên root payload
+      note: generalNote ? String(generalNote).trim() : null,
+      noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
+      zip_fileid: null,       
+      zip_fileinfo: null      
+    };
+  }, [customer, shippingUnit, shippingCode, generalNote, products]);
 
   const handleCreateOrderSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -172,9 +156,9 @@ export const useCreateOrder = (existingDraftId = null) => {
     setIsSubmitting(true);
     try {
       const audioNoteId = await processAudioNoteToBase64();
-      const payload = buildFormDataPayload('NEW', audioNoteId);
+      const jsonPayload = buildJsonPayload(audioNoteId);
       
-      const res = await orderService.createNew(payload);
+      const res = await orderService.createNew(jsonPayload);
       const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
       if (beData?.errorCode === 1 || beData?.statusCode === 200) {
@@ -210,7 +194,9 @@ export const useCreateOrder = (existingDraftId = null) => {
               unitprice: Number(p.appliedPrice) || Number(p.price) || 0,
               discount: 0,
               attachments: fileIds,
-              linkgoogledrive: p.driveLink || null,
+              linkgoogledrive: p.driveLink || "linkgoogledrive", // 🎯 ĐIỀU CHỈNH: Gửi giá trị mặc định cho bản nháp
+              drive_link: p.driveLink || null,
+              link_google_drive: p.driveLink || null,
               note: p.note || null
           };
       });
@@ -223,8 +209,6 @@ export const useCreateOrder = (existingDraftId = null) => {
           note: generalNote || null,
           audionote: audioNoteId,
           noteshipping: shippingUnit || shippingCode ? `${shippingUnit} - ${shippingCode}`.trim() : null,
-          
-          // 🎯 SỬA LỖI DRIVE LINK: Bổ sung đẩy link Google Drive lên Root Level của object lưu Draft
           linkgoogledrive: firstValidDriveLink,
           drive_link: firstValidDriveLink,
           link_google_drive: firstValidDriveLink,
@@ -255,8 +239,9 @@ export const useCreateOrder = (existingDraftId = null) => {
     setIsSubmitting(true);
     try {
       const audioNoteId = await processAudioNoteToBase64();
-      const payload = buildFormDataPayload('AWAIT', audioNoteId);
-      const res = await orderService.createAwait(payload);
+      const jsonPayload = buildJsonPayload(audioNoteId);
+      
+      const res = await orderService.createAwait(jsonPayload);
       const beData = res?.errorCode !== undefined ? res : (res?.data || res);
 
       if (beData?.errorCode === 1 || beData?.statusCode === 200) {
@@ -272,7 +257,7 @@ export const useCreateOrder = (existingDraftId = null) => {
     }
   };
   
-  // 🚀 API UPLOAD ẢNH TỔNG HỢP NGAY LẬP TỨC
+  // API UPLOAD ẢNH VỚI HÀNG ĐỢI TUẦN TỰ CHỐNG LỖI 429
   const uploadGeneralImages = useCallback(async (files) => {
     const maxFileSize = 50 * 1024 * 1024;
     const oversizedFiles = files.filter(f => f.size > maxFileSize);
@@ -281,41 +266,43 @@ export const useCreateOrder = (existingDraftId = null) => {
       return;
     }
 
-    const uploadPromises = files.map(file => {
-      const formData = new FormData();
-      formData.append('files', file);
-      formData.append('ispublic', '1');
-      return apiMedia.post(`/upload/image/multi-draft`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-    });
+    setIsSubmitting(true);
+    const newFiles = [];
 
     try {
-      const responses = await Promise.all(uploadPromises);
-      const newFiles = responses.flatMap((response, index) => {
-        if (response?.errorCode === 1 && response?.data?.success) {
-          return response.data.success.map(item => {
-            const file = files[index];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('files', file);
+        formData.append('ispublic', '1');
+
+        const response = await apiMedia.post(`/upload/image/multi-draft`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        const resData = response?.data || response;
+        if (resData?.errorCode === 1 && resData?.success) {
+          resData.success.forEach(item => {
             const isImage = file.type.startsWith('image/');
-            return {
+            newFiles.push({
               id: item.id,
               name: file.name,
               previewUrl: isImage ? URL.createObjectURL(file) : null,
               isImage: isImage,
               size: file.size
-            };
+            });
           });
         }
-        return [];
-      });
+      }
       setGeneralImages(prev => [...prev, ...newFiles]);
     } catch (error) {
       console.error('Lỗi khi tải tệp lên:', error);
       alert('Đã xảy ra lỗi trong quá trình tải tệp lên.');
+    } finally {
+      setIsSubmitting(false);
     }
   }, []);
 
-  // 🚀 API UPLOAD ẢNH TỪNG SẢN PHẨM CHI TIẾT NGAY LẬP TỨC 
+  // API UPLOAD ẢNH CHI TIẾT SẢN PHẨM VỚI HÀNG ĐỢI TUẦN TỰ CHỐNG LỖI 429
   const uploadProductImages = useCallback(async (productStateId, files) => {
     const maxFileSize = 50 * 1024 * 1024;
     const oversizedFiles = files.filter(f => f.size > maxFileSize);
@@ -324,35 +311,33 @@ export const useCreateOrder = (existingDraftId = null) => {
       return;
     }
 
-    const uploadPromises = files.map(file => {
-      const formData = new FormData();
-      formData.append('files', file);
-      formData.append('ispublic', '1');
-      return apiMedia.post(`/upload/image/multi-draft`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-    });
+    const newUploadedFiles = [];
 
     try {
-      const responses = await Promise.all(uploadPromises);
-      const newUploadedFiles = responses.flatMap((response, index) => {
-        if (response?.errorCode === 1 && response?.data?.success) {
-          return response.data.success.map(item => {
-            const file = files[index];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('files', file);
+        formData.append('ispublic', '1');
+
+        const response = await apiMedia.post(`/upload/image/multi-draft`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        const resData = response?.data || response;
+        if (resData?.errorCode === 1 && resData?.success) {
+          resData.success.forEach(item => {
             const isImage = file.type.startsWith('image/');
-            return {
+            newUploadedFiles.push({
               id: item.id,
               name: file.name,
               previewUrl: isImage ? URL.createObjectURL(file) : null,
               isImage: isImage,
               size: file.size
-            };
+            });
           });
         }
-        return [];
-      });
+      }
 
-      // Cập nhật mảng ảnh đã upload thành công từ API server trực tiếp vào đúng sản phẩm
       setProducts(prev => prev.map(p => {
         if (p.id === productStateId) {
           return {
@@ -364,7 +349,6 @@ export const useCreateOrder = (existingDraftId = null) => {
       }));
     } catch (error) {
       console.error('Lỗi khi tải ảnh chi tiết sản phẩm:', error);
-      alert('Không thể tải ảnh sản phẩm lên hệ thống.');
     }
   }, []);
 
@@ -372,6 +356,6 @@ export const useCreateOrder = (existingDraftId = null) => {
     customer, setCustomer, shippingUnit, setShippingUnit, shippingCode, setShippingCode, generalNote, setGeneralNote,
     products, catalog, isLoadingCatalog, generalImages, setGeneralImages, recordedAudioFile, setRecordedAudioFile,
     handleAddProduct, handleRemoveProduct, handleUpdateProduct, subtotal, total, handleCreateOrderSubmit, handleSaveDraft, handleCreateAndAwait, isSubmitting, 
-    uploadGeneralImages, uploadProductImages // Export hàm xử lý upload ảnh sản phẩm tức thời ra ngoài UI
+    uploadGeneralImages, uploadProductImages
   };
 };

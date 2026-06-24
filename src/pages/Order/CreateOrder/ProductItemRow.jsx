@@ -21,10 +21,8 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
     
     const found = catalog.find(item => String(item.id || item.product_id) === String(currentId));
     if (found) {
-      // Nhận diện theo cấu trúc API của ProductManagementTable (isactive string/bool hoặc status Khóa)
       return String(found.isactive) === '0' || found.isactive === false || found.status === 'Khóa';
     }
-    // Fallback: Nếu đơn hàng cũ có ID nhưng API catalog đã lọc bỏ hoàn toàn không trả về nữa
     return true;
   })();
 
@@ -65,7 +63,6 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Sản phẩm</label>
-            {/* Chú thích trạng thái khóa đồng bộ thời gian thực */}
             {isProductDisabled && (
               <span className="text-[11px] font-bold text-red-500 animate-pulse">
                 ⚠️ Sản phẩm không hoạt động
@@ -82,7 +79,6 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
           >
             <option value="" disabled>-- Vui lòng chọn sản phẩm cần in --</option>
             
-            {/* Ghi vết an toàn: Nếu sản phẩm cũ bị khóa hoàn toàn khỏi danh mục trả về, tự sinh option ẩn để bảo toàn UI */}
             {isProductDisabled && (product.productId || product.product_id) && !catalog.some(item => String(item.id || item.product_id) === String(product.productId || product.product_id)) && (
               <option value={product.productId || product.product_id}>
                 {product.name || 'Sản phẩm lưu vết cũ'} (Sản phẩm không hoạt động)
@@ -113,7 +109,7 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
           />
         </div>
 
-        {/* Giá Cơ Bản (Đọc từ trường .price của useProducts) */}
+        {/* Giá Cơ Bản */}
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Giá cơ bản</label>
           <input 
@@ -143,12 +139,7 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
         {/* Google Drive Link */}
         <div className="relative flex items-center gap-2">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
               <path fill="#4285F4" d="M11.996 10.994l-5.498.002-2.999-5.25H9.497z" />
               <path fill="#34A853" d="M6.501 5.744l-2.999 5.251-2.5-4.329h5.499z" />
               <path fill="#FBBC04" d="M6.501 5.744L9.497.493 11.996 4.82h-5.495z" />
@@ -161,7 +152,7 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
             placeholder="Dán link Google Drive tại đây..."
             value={product.driveLink || ''}
             onChange={handleDriveLinkChange}
-            className="flex-1 h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-[12px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-gray-700 data-all"
+            className="flex-1 h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-[12px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-gray-700"
           />
           <button
             type="button"
@@ -190,13 +181,13 @@ const ProductItemRow = ({ product, index, catalog, isLoadingCatalog, isRemovable
           <label className="w-[82px] h-[82px] border-2 border-dashed border-gray-200 hover:border-blue-500/40 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer bg-gray-50/50 hover:bg-blue-50/20 transition-all duration-200 active:scale-95">
             <span className="text-gray-400 text-sm">📷</span>
             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Tải trực tiếp</span>
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*" 
-                onChange={handleFileUpload} 
-                className="hidden" 
-              />
+            <input 
+              type="file" 
+              multiple 
+              accept="image/*" 
+              onChange={handleFileUpload} 
+              className="hidden" 
+            />
           </label>
         </div>
       </div>

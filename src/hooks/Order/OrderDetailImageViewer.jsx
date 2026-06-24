@@ -65,7 +65,7 @@ const OrderDetailImageViewer = ({ images = [], orderCode = 'download' }) => {
       console.error('Lỗi khi tạo file ZIP:', error);
       alert('Đã xảy ra lỗi khi tạo file ZIP. Vui lòng thử lại.');
     } finally {
-      setIsZipping(false);
+      saveAs(content, `${orderCode}_images.zip`);
     }
   }, [images, orderCode]);
 
