@@ -7,20 +7,29 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 const rtcConfig = {
   iceServers: [
     // Giữ nguyên các máy chủ STUN cũ để tối ưu kết nối P2P khi cùng mạng
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    
-    // 🌟 BỔ SUNG: Cụm TURN Server (Thay thế các thông tin mẫu dưới đây bằng tài khoản thật của bạn)
     {
-      urls: 'turn:your-turn-domain.com:3478?transport=udp', // Hoặc dùng giao thức turn: hoặc turns:
-      username: '25af1a05bc8b364f03a4d339',
-      credential: '4ViOVjtSABg67DiZ'
-    },
-    {
-      urls: 'turn:your-turn-domain.com:3478?transport=tcp', // Hoặc dùng giao thức turn: hoặc turns:
-      username: '25af1a05bc8b364f03a4d339',
-      credential: '4ViOVjtSABg67DiZ'
-    }
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:sg.relay.metered.ca:80",
+        username: "25af1a05bc8b364f03a4d339",
+        credential: "4ViOVjtSABg67DiZ",
+      },
+      {
+        urls: "turn:sg.relay.metered.ca:80?transport=tcp",
+        username: "25af1a05bc8b364f03a4d339",
+        credential: "4ViOVjtSABg67DiZ",
+      },
+      {
+        urls: "turn:sg.relay.metered.ca:443",
+        username: "25af1a05bc8b364f03a4d339",
+        credential: "4ViOVjtSABg67DiZ",
+      },
+      {
+        urls: "turns:sg.relay.metered.ca:443?transport=tcp",
+        username: "25af1a05bc8b364f03a4d339",
+        credential: "4ViOVjtSABg67DiZ",
+      }
   ]
 };
 // =========================================================================
