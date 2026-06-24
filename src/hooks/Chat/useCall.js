@@ -201,17 +201,26 @@ export const useCall = (socket, activeRoomId, role) => {
     };
 
     const handleCallOffer = async (data) => {
-      stopRingtone(); // 🔔 Tắt chuông khi kết nối đàm thoại thiết lập
+      stopRingtone();
       try {
         const pc = createPeerConnection(data.chatconversation_id);
-        const constraints = { audio: true, video: latestStateRef.current.callType === 'video' };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        setLocalStream(stream);
+        
+        // 🎯 ĐIỀU CHỈNH CỐT LÕI: Lấy trực tiếp Stream đã được xin quyền trước đó từ nút acceptCall
+        let stream = latestStateRef.current.localStream;
+        
+        // Dự phòng cho Desktop (nếu vì lý do re-render nào đó stream chưa kịp nạp vào Ref)
+        if (!stream) {
+          const constraints = { audio: true, video: latestStateRef.current.callType === 'video' };
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          setLocalStream(stream);
+        }
+        
+        // Đẩy các Track của luồng có sẵn vào Peer Connection
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
 
-        // 🌟 BỔ SUNG: Đẩy toàn bộ các ICE candidate đã tích lũy trong hàng đợi vào Peer Connection
+        // Nạp các ICE candidate đã tích lũy trong hàng đợi từ trước (Giữ nguyên gốc nâng cấp trước)
         if (iceCandidatesQueueRef.current.length > 0) {
           for (const candidate of iceCandidatesQueueRef.current) {
             await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
@@ -223,7 +232,10 @@ export const useCall = (socket, activeRoomId, role) => {
         await pc.setLocalDescription(answer);
         setCallState('connected');
         socket.emit('call:answer', { chatconversation_id: data.chatconversation_id, sdp: answer });
-      } catch (err) { resetCallContext(); }
+      } catch (err) { 
+        console.error("❌ Lỗi xử lý cấu hình bắt tay Offer WebRTC:", err);
+        resetCallContext(); 
+      }
     };
 
     const handleCallAnswer = async (data) => {
@@ -281,11 +293,24 @@ export const useCall = (socket, activeRoomId, role) => {
     };
   }, [socket, createPeerConnection, resetCallContext]);
 
-  const acceptCall = useCallback(() => {
+  const acceptCall = useCallback(async () => {
     if (!socket || !currentCallSessionRef.current) return;
     stopRingtone();
-    socket.emit('call:accept', { chatconversation_id: currentCallSessionRef.current.chatconversation_id });
-  }, [socket]);
+    
+    try {
+      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Kích hoạt quyền Camera/Micro ngay tại tick click của User để Mobile chấp thuận
+      const constraints = { audio: true, video: latestStateRef.current.callType === 'video' };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setLocalStream(stream); // Lưu vào React State
+      
+      // Sau khi thiết bị di động đã cấp quyền stream thành công, mới bắn tín hiệu lên Server
+      socket.emit('call:accept', { chatconversation_id: currentCallSessionRef.current.chatconversation_id });
+    } catch (err) {
+      console.error("❌ Không thể kích hoạt thiết bị phần cứng phần nhận:", err);
+      alert('Vui lòng mở quyền truy cập Camera/Microphone trên trình duyệt di động để nhận cuộc gọi.');
+      resetCallContext();
+    }
+  }, [socket, resetCallContext]);
 
   const rejectCall = useCallback(() => {
     if (!socket || !currentCallSessionRef.current) return;
