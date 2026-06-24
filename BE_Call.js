@@ -1,11 +1,21 @@
 import { Router } from 'express';
+// 🎯 ĐIỀU CHỈNH: Kích hoạt import thực tế từ thư mục chứa cấu hình Sequelize Models của bạn
+// Hãy đảm bảo đường dẫn đối chiếu (relative path) này trỏ chính xác tới file index models.
+import db from '../../../models/index.js'; 
+
 const router = Router();
 
-// Giả định db được import từ cấu hình models Sequelize của anh
-// import db from '../../../models/index.js'; 
+// =========================================================================
+// 💡 LƯU Ý KINH NGHIỆM ĐỊNH TUYẾN (ROUTER PREFIX MATCHING):
+// - Kịch bản A: Nếu trong file server chính (server.js/app.js), bạn mount router này dạng:
+//   app.use('/', callRouter); -> Thì GIỮ NGUYÊN chuỗi path dài bên dưới.
+//
+// - Kịch bản B (Khuyên dùng): Nếu file server chính bạn mount dạng có tiền tố rút gọn:
+//   app.use('/api/v1/chat/conversations/messages', callRouter);
+//   -> Thì đường dẫn bên dưới bạn hãy SỬA RÚT GỌN chỉ còn là: router.post('/save-call', ...)
+//   để tránh bị nhân đôi đường dẫn thành /api/v1/.../messages/api/v1/.../save-call gây lỗi 404.
+// =========================================================================
 
-// Đường dẫn Router mẫu trên Backend lõi (Cổng 4000)
-// Endpoint: POST /api/v1/chat/conversations/messages/save-call
 router.post('/api/v1/chat/conversations/messages/save-call', async (req, res) => {
   try {
     const { 
@@ -17,7 +27,7 @@ router.post('/api/v1/chat/conversations/messages/save-call', async (req, res) =>
       sender_name 
     } = req.body;
 
-    // Nguyên tắc phòng thủ tầng API: Kiểm tra dữ liệu bắt buộc đầu vào
+    // Nguyên tắc phòng thủ tầng API (Fail-Fast Validation): Kiểm tra dữ liệu bắt buộc đầu vào
     if (!chatconversation_id || !content) {
       return res.status(400).json({ 
         errorCode: 0, 
