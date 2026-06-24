@@ -1,3 +1,6 @@
+// =========================================================================
+// FILE: src/context/SocketContext.jsx (BẢN HOÀN THIỆN TOÀN CỤC)
+// =========================================================================
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useLocation } from 'react-router-dom';
@@ -55,6 +58,9 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
+    // -----------------------------------------------------------------
+    // 1. KHỞI TẠO LUỒNG SOCKET NHẮN TIN (MESSAGE SOCKET)
+    // -----------------------------------------------------------------
     const safeSocketUrl = String(SOCKET_URL);
     const targetUrl = safeSocketUrl.includes('localhost') 
       ? safeSocketUrl.replace('https://', 'http://') 
@@ -133,6 +139,9 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
+    // -----------------------------------------------------------------
+    // 2. KHỞI TẠO LUỒNG SOCKET CUỘC GỌI (CALL SOCKET WEBRTC)
+    // -----------------------------------------------------------------
     const safeCallUrl = String(CALL_SERVER_URL);
     let targetCallUrl = safeCallUrl;
 
@@ -144,16 +153,19 @@ export const SocketProvider = ({ children }) => {
       targetCallUrl = safeCallUrl.replace(/^http:/, 'https:');
     }
 
+    const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
+
     const callSocketInstance = io(targetCallUrl, {
-      path: '/call-socket', // Tự động đồng bộ bắt tay 1:1 theo cơ chế Transparent Proxy của Nginx mới
+      path: '/call-socket', 
       transports: ['websocket', 'polling'], 
       rejectUnauthorized: false,
       withCredentials: true, 
       auth: { 
-        token: token.replace(/^Bearer\s+/i, '').trim(),
-        accessToken: token.replace(/^Bearer\s+/i, '').trim()
+        token: cleanToken,        // Khớp cấu hình bảo mật bắt tay Handshake ngầm
+        accessToken: cleanToken  // Dự phòng trường hợp cổng API cũ đọc key accessToken
       }
     });
+    
     setCallSocket(callSocketInstance);
 
     callSocketInstance.on('connect', () => {
@@ -170,6 +182,7 @@ export const SocketProvider = ({ children }) => {
       showToast(callTypeLabel, data?.callerName || 'Khách hàng hỗ trợ');
     });
 
+    // Luồng Cleanup khi Component Unmount hoặc Token thay đổi
     return () => {
       socketInstance.disconnect();
       callSocketInstance.disconnect();
@@ -178,20 +191,19 @@ export const SocketProvider = ({ children }) => {
   }, [token]);
 
   useEffect(() => {
-  // 🎯 ĐIỀU CHỈNH TẠI ĐÂY: Chỉ ngắt kết nối nếu ở trang login VÀ thực sự KHÔNG CÓ token hợp lệ
-  // Điều này ngăn chặn việc ngắt kết nối nhầm khi vừa ấn Đăng nhập thành công (Token có nhưng chưa kịp chuyển trang)
-  if (location.pathname === '/login' && (!token || token.length < 30)) {
-    if (socket) {
-      socket.disconnect();
-      setSocket(null);
+    // Chỉ ngắt kết nối nếu ở trang login VÀ thực sự KHÔNG CÓ token hợp lệ
+    if (location.pathname === '/login' && (!token || token.length < 30)) {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      if (callSocket) {
+        callSocket.disconnect();
+        setCallSocket(null);
+      }
+      stopFallbackPolling();
     }
-    if (callSocket) {
-      callSocket.disconnect();
-      setCallSocket(null);
-    }
-    stopFallbackPolling();
-  }
-}, [location.pathname, socket, callSocket, token]);
+  }, [location.pathname, socket, callSocket, token]);
 
   return (
     <SocketContext.Provider value={{ socket, callSocket, globalUnreadCount, setGlobalUnreadCount, showToast }}>
