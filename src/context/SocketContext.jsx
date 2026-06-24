@@ -81,14 +81,10 @@ export const SocketProvider = ({ children }) => {
       console.log('🟢 Kết nối Socket thành công đến:', targetUrl);
       stopFallbackPolling(); 
 
-      // =========================================================================
-      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Tự động Join Company Channel ngay khi vừa kết nối thành công
-      // Giúp tài khoản lắng nghe tin nhắn Realtime lập tức ở mọi trang mà không cần vào mục Chat
-      // =========================================================================
       try {
         const currentToken = localStorage.getItem('accessToken') || token;
         const payload = JSON.parse(window.atob(currentToken.split('.')[1]));
-        const isStaff = !payload.customer_id; // Nếu không có customer_id thì chắc chắn là Nhân viên
+        const isStaff = !payload.customer_id; 
 
         if (isStaff) {
           socketInstance.emit('chat:join_company', { company_id: '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791' });
@@ -97,7 +93,6 @@ export const SocketProvider = ({ children }) => {
       } catch (e) {
         console.error("❌ Lỗi phân giải Token để tự động join Company Channel:", e);
       }
-      // =========================================================================
     });
 
     socketInstance.on('connect_error', (err) => {
@@ -141,28 +136,19 @@ export const SocketProvider = ({ children }) => {
     const safeCallUrl = String(CALL_SERVER_URL);
     let targetCallUrl = safeCallUrl;
 
-    // 🎯 GIẢI PHÁP ĐIỀU CHỈNH THÔNG MINH:
-    // Nhìn trực tiếp vào địa chỉ trình duyệt xem có phải đang chạy Test dưới Local hay không
     const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
     if (isLocalTest) {
-      // Nếu bạn đang mở http://localhost:5173 để test, ép luồng chạy thẳng vào callServer.js local (Cổng 4001)
-      // Giải pháp này giúp bỏ qua hoàn toàn IP Production trong .env mà không cần sửa file .env
       targetCallUrl = 'http://localhost:4001';
     } else {
-      // Nếu chạy thực tế trên Production (mạng ngoài), giữ nguyên cấu hình .env và ép chạy giao thức bảo mật https/wss
       targetCallUrl = safeCallUrl.replace(/^http:/, 'https:');
     }
 
     const callSocketInstance = io(targetCallUrl, {
-      path: '/call-socket', 
-      // Bật cả websocket và polling làm đệm chống rớt kết nối
+      path: '/call-socket', // 🎯 Bỏ dấu gạch chéo thừa phía cuối để thư viện tự kết nối đồng bộ theo quy tắc rewrite của Nginx mới
       transports: ['websocket', 'polling'], 
       rejectUnauthorized: false,
       withCredentials: true, 
-      
-      // 🎯 ĐỒNG BỘ AUTHENTICATION: 
-      // Truyền cả 2 key để vừa khớp với socket chính, vừa khớp với `socket.handshake.auth.token` của file callServer.js
       auth: { 
         token: token.replace(/^Bearer\s+/i, '').trim(),
         accessToken: token.replace(/^Bearer\s+/i, '').trim()
