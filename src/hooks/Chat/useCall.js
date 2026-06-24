@@ -228,8 +228,24 @@ export const useCall = (socket, activeRoomId, role) => {
 
     const handleCallAnswer = async (data) => {
       if (peerConnectionRef.current) {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        setCallState('connected');
+        try {
+          // 1. Thiết lập cấu hình mô tả cấu trúc mạng từ đầu nhận gửi về
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          setCallState('connected');
+
+          // 🎯 BỔ SUNG LƯU Ý KỸ SƯ: Giải phóng hàng đợi ICE Candidates bị kẹt bên phía Caller
+          // Luồng này cực kỳ quan trọng để Desktop đọc được các cổng NAT mạng 4G từ điện thoại gửi sang sớm
+          if (iceCandidatesQueueRef.current.length > 0) {
+            console.log(`📡 [Hạ tầng WebRTC] Giải phóng ${iceCandidatesQueueRef.current.length} gói tin ICE kẹt cho Caller.`);
+            for (const candidate of iceCandidatesQueueRef.current) {
+              await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {});
+            }
+            iceCandidatesQueueRef.current = []; // Dọn sạch hàng đợi sau khi nạp thành công
+          }
+          
+        } catch (err) {
+          console.error("❌ [WebRTC Signalling Error] Lỗi đồng bộ cấu trúc mạng Answer:", err);
+        }
       }
     };
 
