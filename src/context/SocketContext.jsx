@@ -178,18 +178,20 @@ export const SocketProvider = ({ children }) => {
   }, [token]);
 
   useEffect(() => {
-    if (location.pathname === '/login') {
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-      }
-      if (callSocket) {
-        callSocket.disconnect();
-        setCallSocket(null);
-      }
-      stopFallbackPolling();
+  // 🎯 ĐIỀU CHỈNH TẠI ĐÂY: Chỉ ngắt kết nối nếu ở trang login VÀ thực sự KHÔNG CÓ token hợp lệ
+  // Điều này ngăn chặn việc ngắt kết nối nhầm khi vừa ấn Đăng nhập thành công (Token có nhưng chưa kịp chuyển trang)
+  if (location.pathname === '/login' && (!token || token.length < 30)) {
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
     }
-  }, [location.pathname, socket, callSocket]);
+    if (callSocket) {
+      callSocket.disconnect();
+      setCallSocket(null);
+    }
+    stopFallbackPolling();
+  }
+}, [location.pathname, socket, callSocket, token]);
 
   return (
     <SocketContext.Provider value={{ socket, callSocket, globalUnreadCount, setGlobalUnreadCount, showToast }}>
