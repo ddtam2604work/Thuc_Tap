@@ -6,8 +6,21 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // =========================================================================
 const rtcConfig = {
   iceServers: [
+    // Giữ nguyên các máy chủ STUN cũ để tối ưu kết nối P2P khi cùng mạng
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    
+    // 🌟 BỔ SUNG: Cụm TURN Server (Thay thế các thông tin mẫu dưới đây bằng tài khoản thật của bạn)
+    {
+      urls: 'turn:your-turn-domain.com:3478?transport=udp', // Hoặc dùng giao thức turn: hoặc turns:
+      username: 'your_api_username_here',
+      credential: 'your_api_password_or_secret_key_here'
+    },
+    {
+      urls: 'turn:your-turn-domain.com:3478?transport=tcp', // Dự phòng giao thức TCP nếu UDP bị chặn
+      username: 'your_api_username_here',
+      credential: 'your_api_password_or_secret_key_here'
+    }
   ]
 };
 // =========================================================================
