@@ -13,13 +13,13 @@ const rtcConfig = {
     // 🌟 BỔ SUNG: Cụm TURN Server (Thay thế các thông tin mẫu dưới đây bằng tài khoản thật của bạn)
     {
       urls: 'turn:your-turn-domain.com:3478?transport=udp', // Hoặc dùng giao thức turn: hoặc turns:
-      username: 'your_api_username_here',
-      credential: 'your_api_password_or_secret_key_here'
+      username: '25af1a05bc8b364f03a4d339',
+      credential: '4ViOVjtSABg67DiZ'
     },
     {
-      urls: 'turn:your-turn-domain.com:3478?transport=tcp', // Dự phòng giao thức TCP nếu UDP bị chặn
-      username: 'your_api_username_here',
-      credential: 'your_api_password_or_secret_key_here'
+      urls: 'turn:your-turn-domain.com:3478?transport=tcp', // Hoặc dùng giao thức turn: hoặc turns:
+      username: '25af1a05bc8b364f03a4d339',
+      credential: '4ViOVjtSABg67DiZ'
     }
   ]
 };
@@ -155,10 +155,13 @@ export const useCall = (socket, activeRoomId, role) => {
       setRoomCallId(activeRoomId);
       currentCallSessionRef.current = { chatconversation_id: activeRoomId, type };
       
-      startRingtone('calling'); // 🔔 Phát nhạc chuông chờ gọi đi
+      startRingtone('calling'); 
 
       const constraints = { audio: true, video: type === 'video' };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Ép ghi dữ liệu đồng bộ vào Ref lập tức
+      latestStateRef.current.localStream = stream;
       setLocalStream(stream);
 
       socket.emit('call:invite', { chatconversation_id: activeRoomId, type, role });
@@ -298,12 +301,13 @@ export const useCall = (socket, activeRoomId, role) => {
     stopRingtone();
     
     try {
-      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Kích hoạt quyền Camera/Micro ngay tại tick click của User để Mobile chấp thuận
       const constraints = { audio: true, video: latestStateRef.current.callType === 'video' };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setLocalStream(stream); // Lưu vào React State
       
-      // Sau khi thiết bị di động đã cấp quyền stream thành công, mới bắn tín hiệu lên Server
+      // 🎯 ĐIỀU CHỈNH CỐT LÕI: Ép ghi dữ liệu đồng bộ vào Ref để chặn đứng việc gọi getUserMedia lần 2 trên Mobile
+      latestStateRef.current.localStream = stream;
+      setLocalStream(stream);
+      
       socket.emit('call:accept', { chatconversation_id: currentCallSessionRef.current.chatconversation_id });
     } catch (err) {
       console.error("❌ Không thể kích hoạt thiết bị phần cứng phần nhận:", err);
