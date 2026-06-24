@@ -1,4 +1,3 @@
-cat << 'EOF' > /var/www/qlkd/src/hooks/Chat/useCall.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // =========================================================================
