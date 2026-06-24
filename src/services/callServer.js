@@ -21,16 +21,18 @@ console.log('🔓 Call Server vận hành nội bộ dưới giao thức HTTP/WS
 
 // Khởi tạo Socket.io với cấu hình CORS tối ưu cho môi trường Production
 const io = new Server(server, {
-  // 🎯 ĐIỀU CHỈNH CHÍNH: Thay đổi thành '/socket.io' để khớp hoàn toàn với cấu hình proxy_pass của Nginx
-  path: '/socket.io', 
+  // 🎯 ĐIỀU CHỈNH CHÍNH: Thiết lập path là '/call-socket' đồng bộ trực tiếp với Nginx và Frontend
+  path: '/call-socket', 
   connectTimeout: 45000,
   pingTimeout: 30000,
   pingInterval: 25000,
   cors: {
-    origin: (origin, callback) => {
-      // Chấp nhận mọi Origin kết nối đến (bao gồm cả domain + port 7002)
-      callback(null, true); 
-    },
+    origin: [
+      "https://qlkd.nosomovo.xyz:7002", // 🎯 BẮT BUỘC: Cho phép tên miền chứa port đối ngoại 7002
+      "https://qlkd.nosomovo.xyz",
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -38,10 +40,9 @@ const io = new Server(server, {
 
 const activeCalls = new Map();
 
-// Hàm xử lý gọi API lưu dữ liệu sang Backend lõi (Port 4000)
+// Hàm xử lý gọi API lưu dữ liệu sang Backend lõi (Port 4000) dựa trên cấu hình BE_Call từ .env
 async function saveCallToMainDatabase(roomCallId, session, status, duration = 0) {
   try {
-    // 🎯 ƯU TIÊN LUỒNG NỘI BỘ: Nếu không có cấu hình env, gọi thẳng qua localhost HTTPS để có tốc độ cao nhất
     const backendBaseUrl = process.env.BE_Call || 'https://127.0.0.1:4000';
     const cleanUrl = backendBaseUrl.replace(/\/$/, '');
 
@@ -80,7 +81,8 @@ io.use((socket, next) => {
   const token = socket.handshake.auth.token || socket.handshake.auth.accessToken;
   if (!token || token === "null" || token === "undefined") {
     socket.isGuest = true;
-    return next();
+    next();
+    return;
   }
   socket.isGuest = false;
   next();

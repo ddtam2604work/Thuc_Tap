@@ -145,7 +145,7 @@ export const SocketProvider = ({ children }) => {
     }
 
     const callSocketInstance = io(targetCallUrl, {
-      path: '/call-socket', // 🎯 Bỏ dấu gạch chéo thừa phía cuối để thư viện tự kết nối đồng bộ theo quy tắc rewrite của Nginx mới
+      path: '/call-socket', // Tự động đồng bộ bắt tay 1:1 theo cơ chế Transparent Proxy của Nginx mới
       transports: ['websocket', 'polling'], 
       rejectUnauthorized: false,
       withCredentials: true, 
