@@ -46,8 +46,25 @@ function GlobalCallWrapper({ children }) {
   let role = token ? getUserRoleFromToken() : 'staff';
   if (Array.isArray(role)) role = role[0];
 
-  // Khởi tạo bộ hook useCall duy nhất tại tầng Root hạ tầng
+  // Khởi tạo bộ hook useCall
   const callProps = useCall(callSocket, activeRoomId, role);
+
+  // 🌟 BỔ SUNG 1: Ép Call Socket xác thực danh tính ngay khi vừa kết nối thành công
+  useEffect(() => {
+    if (callSocket && token) {
+      callSocket.emit('user:identify', { token, role });
+      callSocket.emit('authenticate', { token });
+    }
+  }, [callSocket, token, role]);
+
+  // 🌟 BỔ SUNG 2: Ép Call Socket đồng bộ vào phòng chat ngay khi có activeRoomId
+  useEffect(() => {
+    if (callSocket && activeRoomId) {
+      // Chạy cả 2 dạng event join thông dụng của hệ thống để đảm bảo lọt vào room cuộc gọi
+      callSocket.emit('room:join', { chatconversation_id: activeRoomId });
+      callSocket.emit('join', { roomId: activeRoomId });
+    }
+  }, [callSocket, activeRoomId]);
 
   const displayName = useMemo(() => {
     if (callProps.callState === 'incoming' && !activeRoomId) {
@@ -59,7 +76,6 @@ function GlobalCallWrapper({ children }) {
   return (
     <CallContext.Provider value={{ ...callProps, setActiveRoomId, setGlobalRoomName, displayName }}>
       {children}
-      {/* Cửa sổ cuộc gọi luôn sẵn sàng hiển thị đè lên bất kỳ Route nào khi có cuộc gọi */}
       <CallWindow {...callProps} roomName={displayName} />
     </CallContext.Provider>
   );
