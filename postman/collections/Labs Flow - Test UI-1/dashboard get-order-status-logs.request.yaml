@@ -1,0 +1,16 @@
+$kind: http-request
+name: dashboard get-order-status-logs
+url: "{{BE_URL}}/api/v1/dashboard/get-order-status-logs"
+method: POST
+headers:
+  Authorization: Bearer {{json_web_token_0ohl}}
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: "{\r\n    \"limit\":10\r\n}"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 2763167946823049

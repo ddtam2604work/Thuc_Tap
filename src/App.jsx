@@ -14,7 +14,7 @@ import CallWindow from './pages/Chat/CallWindow';
 
 // Chuyển nhóm các trang chức năng (Pages)
 import LoginPage from './pages/Auth/LoginPage';
-import HomePage from './pages/Home/HomePage'; 
+import DashboardPage from './pages/Dashboard/DashboardPage';
 import AccountPage from './pages/AccountManagement/AccountPage';
 import ProductPage from './pages/Product/ProductPage';
 import CustomerPage from './pages/Customer/CustomerPage';
@@ -92,7 +92,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (allowedRoles && !allowedRoles.map(r => r.toLowerCase()).includes(normalizedRole)) {
     if (normalizedRole === 'customer') return <Navigate to="/products" replace />;
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return children;
 };
@@ -102,7 +102,7 @@ const PublicRoute = ({ children }) => {
   if (token) {
     const role = getUserRoleFromToken();
     if (role === 'customer') return <Navigate to="/products" replace />;
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return children;
 };
@@ -120,8 +120,8 @@ function App() {
           <GlobalCallWrapper>
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
-              <Route path="/" element={<Navigate to="/home" replace />} />
-              <Route path="/home" element={<ProtectedRoute allowedRoles={managementRoles}><MainLayout><HomePage /></MainLayout></ProtectedRoute>} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<ProtectedRoute allowedRoles={managementRoles}><MainLayout><DashboardPage /></MainLayout></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute allowedRoles={allRoles}><MainLayout><ProductPage /></MainLayout></ProtectedRoute>} />
               <Route path="/account-management" element={<ProtectedRoute allowedRoles={['admin']}><MainLayout><AccountPage /></MainLayout></ProtectedRoute>} />
               <Route path="/customers" element={<ProtectedRoute allowedRoles={managementRoles}><MainLayout><CustomerPage /></MainLayout></ProtectedRoute>} />

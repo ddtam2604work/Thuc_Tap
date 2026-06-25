@@ -1,3 +1,6 @@
+// =========================================================================
+// FILE: src/pages/Customer/CustomerList.jsx
+// =========================================================================
 import { useEffect, useState, useCallback } from 'react';
 import { useCustomerList } from '../../hooks/Customer/useCustomer_List';
 import { useCustomerGroups } from '../../hooks/Customer/useCustomer_Group';
@@ -10,6 +13,7 @@ import FormInput from '../../components/skeleton/FormInput';
 import CustomerDetail from './CustomerDetail';
 
 import { useNotification } from '../../context/NotificationContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const CustomerList = () => {
   const {
@@ -25,8 +29,11 @@ const CustomerList = () => {
   const [localSearch, setLocalSearch] = useState(customerSearch || '');
 
   const { showToast } = useNotification();
+  
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  // Logic UI cho phân trang số hoàn chỉnh kế thừa từ AccountPage
+  // Logic UI cho phân trang số hoàn chỉnh
   const getPaginationGroup = () => {
     let start = Math.max(currentPage - 2, 1);
     let end = Math.min(start + 4, totalPages);
@@ -43,10 +50,18 @@ const CustomerList = () => {
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
-  const handleOpenAddModal = () => {
+  const handleOpenAddModal = useCallback(() => {
     if (typeof fetchGroups === 'function') fetchGroups();
     setModalConfig({ isOpen: true, mode: 'add', data: null });
-  };
+  }, [fetchGroups]);
+
+  // Effect tự động kiểm tra trạng thái nhảy từ trang chủ sang để tự bật Modal
+  useEffect(() => {
+    if (location.state?.openAddModal) {
+      handleOpenAddModal();
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, handleOpenAddModal, navigate, location.pathname]);
 
   const handleOpenEditModal = async (row) => {
     try {
@@ -94,7 +109,6 @@ const CustomerList = () => {
           isportal: (payload.isportal === true || payload.isportal === 1 || String(payload.isportal) === '1') ? 1 : 0,
         };
 
-        // Hàm này bên trong hook sẽ tự động bắn showToast thành công/thất bại
         await handleAddCustomer(finalPayload);
         
         setCurrentPage(1);
@@ -103,14 +117,10 @@ const CustomerList = () => {
         setPortalFilter('all');
         setStatusFilter('all');
       } else {
-        // Hàm này bên trong hook sẽ tự động bắn showToast thành công/thất bại
         await handleEditCustomer(modalConfig.data.id, payload);
       }
-      
-      // Chỉ đóng modal khi luồng API chạy thành công hoàn toàn không ném lỗi
       handleCloseModal();
     } catch (error) {
-      // Lỗi đã được tầng Hook bắt và hiển thị Toast, tại đây chỉ ghi nhận log an toàn
       console.error("🔒 [Component/CustomerList] Huỷ đóng modal do API trả lỗi:", error.message);
     }
   };
@@ -129,7 +139,6 @@ const CustomerList = () => {
         {/* Toolbar & Filter bộ lọc hợp nhất */}
         <div className="flex flex-row items-center justify-between gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-wrap md:flex-nowrap">
           
-          {/* Ô tìm kiếm Instant Search truyền trực tiếp về Hook */}
           <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="flex-1 min-w-[280px] max-w-md relative">
             <FormInput 
               value={localSearch}
@@ -147,7 +156,6 @@ const CustomerList = () => {
             </div>
           </form>
 
-          {/* Cụm bộ chọn Dropdown & Nút thêm mới */}
           <div className="flex items-center gap-3 ml-auto flex-wrap sm:flex-nowrap justify-end w-full md:w-auto">
             <div className="flex gap-2 shrink-0">
               <select
@@ -191,7 +199,7 @@ const CustomerList = () => {
           />
         </div>
 
-        {/* Hệ thống Phân trang số trực quan đồng bộ AccountPage */}
+        {/* Hệ thống Phân trang số trực quan */}
         {!loading && totalPages > 0 && (
           <div className="flex flex-col sm:flex-row justify-between items-center mt-6 px-2 gap-4">
             <div className="text-sm text-gray-500">
@@ -241,7 +249,7 @@ const CustomerList = () => {
         )}
       </main>
 
-      {/* Quản lý Modals ở cuối thành phần */}
+      {/* Quản lý Modals */}
       <Modal isOpen={modalConfig.isOpen} onClose={handleCloseModal} title={modalConfig.mode === 'add' ? "Thêm mới khách hàng" : "Cập nhật thông tin khách hàng"}>
         {modalConfig.mode === 'add' ? (
           <FormInsertCustomerList

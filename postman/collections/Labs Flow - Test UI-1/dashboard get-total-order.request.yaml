@@ -1,0 +1,24 @@
+$kind: http-request
+name: dashboard get-total-order
+url: "{{BE_URL}}/api/v1/dashboard/get-total-order"
+method: POST
+headers:
+  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzgyMTgxNDg3LCJleHAiOjE3ODI3ODYyODd9.TZleE7IPQJf1HOaZbtghlXAVLdAWsH2NBDeQ4b4frVQ
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: "{\r
+
+    \    \"from_date\": \"2026-04-04\",\r
+
+    \    \"to_date\": \"2026-05-04\"\r
+
+    \     \r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 19000

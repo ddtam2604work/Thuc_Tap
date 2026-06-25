@@ -3,7 +3,8 @@ url: "{{BE_URL}}/api/v1/customer/add"
 method: POST
 headers:
   Content-Type: application/json
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMDNlOWY4NC1lZjdkLTQzODMtODQ2NC1jNjY4NmIzZDQ3ZjYiLCJ1c2VybmFtZSI6InVzZXIwMDEiLCJpYXQiOjE3NzYwMDQ2NDEsImV4cCI6MTc3NjYwOTQ0MX0.kCrIpGM_yNJQ3PUroQ6CikOPlPrUzz40NuutcHtQJ9c
+  Authorization: Bearer
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMDNlOWY4NC1lZjdkLTQzODMtODQ2NC1jNjY4NmIzZDQ3ZjYiLCJ1c2VybmFtZSI6InVzZXIwMDEiLCJpYXQiOjE3NzYwMDQ2NDEsImV4cCI6MTc3NjYwOTQ0MX0.kCrIpGM_yNJQ3PUroQ6CikOPlPrUzz40NuutcHtQJ9c
   lang: vi
   refreshToken: "{{refreshToken}}"
 body:
@@ -25,4 +26,4 @@ auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 4394206848090111
+order: 46000

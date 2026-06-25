@@ -1,0 +1,16 @@
+$kind: http-request
+name: order create-new
+url: "{{BE_URL}}/api/v1/order/create-new"
+method: POST
+headers:
+  Authorization: "{{bearer_token_0tlr}}"
+  Content-Type: application/json
+  refreshToken: "{{refreshToken}}"
+body:
+  type: json
+  content: '{"customer_id":"ef81d37c-ea93-4f56-ad33-a32967089a4b","items":[{"product_id":"2daa86ca-1991-44a8-9cb6-25335f578ed6","quantity":1,"unitprice":100000,"discount":0,"attachments":null,"linkgoogledrive":"https://drive.google.com/file/d/10YAWc3acLJSIRnPKJUZ7APYtxbc58GPw/view?usp=sharing","note":null}],"note":null,"audionote":null,"noteshipping":null}'
+auth:
+  type: bearer
+  credentials:
+    token: "{{accessToken}}"
+order: 28000

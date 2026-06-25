@@ -314,4 +314,3 @@ export const useCall = (socket, activeRoomId, role) => {
     startCall, acceptCall, rejectCall, endCall, toggleMute, toggleVideo
   };
 };
-EOF

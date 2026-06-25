@@ -1,21 +1,21 @@
 $kind: http-request
-name: order-status get-all
-url: "{{BE_URL}}/api/v1/order/order-status/get-all"
+url: "{{BE_URL}}/api/v1/dashboard/get-revenue-monthly"
 method: POST
 headers:
+  Authorization: Bearer {{supabase_service_role_api_key_0ohl}}
   Content-Type: application/json
   refreshToken: "{{refreshToken}}"
 body:
   type: json
   content: "{\r
 
-    \    \"parent_id\": null,\r
+    \     \"revenue_month_count\":6\r
 
-    \    \"isactive\": 1 \r
+    \r
 
-    }\r\n"
+    }"
 auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 29000
+order: 2556654888796448

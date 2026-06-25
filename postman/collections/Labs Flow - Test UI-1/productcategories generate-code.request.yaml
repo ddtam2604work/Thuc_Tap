@@ -2,7 +2,8 @@ $kind: http-request
 url: "{{BE_URL}}/api/v1/productcategories/generate-code"
 method: POST
 headers:
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZjcwMDYwNWEtYjIwZC00NjAyLWE4ZDQtZmY4Y2ZjY2JkZWFkIiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2MTQwNzc0LCJleHAiOjE3NzY3NDU1NzR9.OMvKr2_xSXgUvUa7uwfzwskaLKhmeLPqzUDKPch9Lcs
+  Authorization: Bearer
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZjcwMDYwNWEtYjIwZC00NjAyLWE4ZDQtZmY4Y2ZjY2JkZWFkIiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2MTQwNzc0LCJleHAiOjE3NzY3NDU1NzR9.OMvKr2_xSXgUvUa7uwfzwskaLKhmeLPqzUDKPch9Lcs
   Content-Type: application/json
   refreshToken: "{{refreshToken}}"
 body:
@@ -14,4 +15,4 @@ auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 978812592455679
+order: 10000

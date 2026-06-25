@@ -3,7 +3,8 @@ url: "{{BE_URL}}/api/v1/customer/set-active"
 method: POST
 headers:
   Content-Type: application/json
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZjZiMDA2ZC1lMGVmLTRkZmItOWY5MC05ZDkzM2NmZmQ2ZTUiLCJ1c2VybmFtZSI6ImFkbWluMSIsImlhdCI6MTc3NTQ5MDI0NCwiZXhwIjoxNzc2MDk1MDQ0fQ.WDynshWuyWlT7mB6sQ0xUqIy05OvC1uj2YpuFQf4yVI
+  Authorization: Bearer
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiZjZiMDA2ZC1lMGVmLTRkZmItOWY5MC05ZDkzM2NmZmQ2ZTUiLCJ1c2VybmFtZSI6ImFkbWluMSIsImlhdCI6MTc3NTQ5MDI0NCwiZXhwIjoxNzc2MDk1MDQ0fQ.WDynshWuyWlT7mB6sQ0xUqIy05OvC1uj2YpuFQf4yVI
   refreshToken: "{{refreshToken}}"
 body:
   type: json
@@ -16,4 +17,4 @@ auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 339184694853631
+order: 3000

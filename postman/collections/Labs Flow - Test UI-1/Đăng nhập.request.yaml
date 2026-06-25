@@ -29,7 +29,8 @@ scripts:
 
       \    // 3. Tìm và lưu accessToken vào biến môi trường\r
 
-      \    // LƯU Ý: Thay đổi 'jsonData.accessToken' cho khớp với tên trường dữ liệu thực tế của backend\r
+      \    // LƯU Ý: Thay đổi 'jsonData.accessToken' cho khớp với tên trường dữ
+      liệu thực tế của backend\r
 
       \    if (jsonData.accessToken) {\r
 
@@ -59,7 +60,8 @@ scripts:
 
       \    } else if (jsonData.data && jsonData.data.refreshToken) {\r
 
-      \        pm.environment.set(\"refreshToken\", jsonData.data.refreshToken);\r
+      \        pm.environment.set(\"refreshToken\",
+      jsonData.data.refreshToken);\r
 
       \        console.log(\"Đã lưu refreshToken (từ data) thành công!\");\r
 
@@ -73,3 +75,4 @@ scripts:
 
       }"
     language: text/javascript
+order: 48000

@@ -1,4 +1,8 @@
-import { useState } from 'react';
+// =========================================================================
+// FILE: src/pages/Customer/CustomerPage.jsx
+// =========================================================================
+import { useState, useEffect } from 'react'; // BỔ SUNG: useEffect
+import { useLocation } from 'react-router-dom'; // BỔ SUNG: useLocation
 import CustomerGroup from './CustomerGroup';
 import CustomerList from './CustomerList';
 import { CUSTOMER_TABS } from '../../constants/customer';
@@ -6,6 +10,14 @@ import clsx from 'clsx';
 
 const CustomerPage = () => {
   const [activeTab, setActiveTab] = useState(CUSTOMER_TABS.GROUP);
+  const location = useLocation(); // BỔ SUNG: Lấy thông tin trạng thái route chuyển tiếp
+
+  // 🎯 BỔ SUNG: Tự động chuyển đổi tab sang "Khách hàng" nếu có yêu cầu mở modal từ Trang chủ
+  useEffect(() => {
+    if (location.state?.openAddModal) {
+      setActiveTab(CUSTOMER_TABS.CUSTOMER);
+    }
+  }, [location.state]);
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500">

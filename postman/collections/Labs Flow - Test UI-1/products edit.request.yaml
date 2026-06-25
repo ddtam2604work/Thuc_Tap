@@ -3,7 +3,8 @@ url: "{{BE_URL}}/api/v1/products/edit"
 method: POST
 headers:
   Content-Type: application/json
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc5ODU0MTMzLCJleHAiOjE3ODA0NTg5MzN9.t2YIOCGc4TXnpPK2raGNQq0b7zrLtx-56WrBUqVZfa4
+  Authorization: Bearer
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc5ODU0MTMzLCJleHAiOjE3ODA0NTg5MzN9.t2YIOCGc4TXnpPK2raGNQq0b7zrLtx-56WrBUqVZfa4
   refreshToken: "{{refreshToken}}"
 body:
   type: json
@@ -26,4 +27,4 @@ auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 3943013776621567
+order: 42000

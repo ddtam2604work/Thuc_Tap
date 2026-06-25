@@ -2,7 +2,8 @@ $kind: http-request
 url: "{{BE_URL}}/api/v1/order/export-pdf-small"
 method: POST
 headers:
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzgwMzkyMDExLCJleHAiOjE3ODA5OTY4MTF9.nH82Jjn5RECsXB39m9duu6LI9d585c2kdlLNxqi0xAM
+  Authorization: Bearer
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMzg1NTUxYmEtMjgyMC00N2FjLTliMzQtYmY1ZDZkNTVlZTE5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzgwMzkyMDExLCJleHAiOjE3ODA5OTY4MTF9.nH82Jjn5RECsXB39m9duu6LI9d585c2kdlLNxqi0xAM
   Content-Type: application/json
   refreshToken: "{{refreshToken}}"
 body:
@@ -16,4 +17,4 @@ auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 423362719383551
+order: 4000

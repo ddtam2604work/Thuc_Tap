@@ -3,7 +3,8 @@ url: "{{BE_URL}}/api/v1/user/add"
 method: POST
 headers:
   Content-Type: application/json
-  Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNDZhZDdkMGQtMTkwMy00MWQyLWFjYWYtNDIzYTQyZjE3ZGU5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2NzU3NTA2LCJleHAiOjE3NzczNjIzMDZ9.izWx_UGTbh6darsw645_4wJJVrXYi6pafScTF7rCdpc
+  Authorization: Bearer
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNDZhZDdkMGQtMTkwMy00MWQyLWFjYWYtNDIzYTQyZjE3ZGU5IiwidXNlcm5hbWUiOiJhZG1pbjEiLCJjdXN0b21lcl9pZCI6bnVsbCwiaWF0IjoxNzc2NzU3NTA2LCJleHAiOjE3NzczNjIzMDZ9.izWx_UGTbh6darsw645_4wJJVrXYi6pafScTF7rCdpc
   refreshToken: "{{refreshToken}}"
 body:
   type: json
@@ -22,4 +23,4 @@ auth:
   type: bearer
   credentials:
     token: "{{accessToken}}"
-order: 1437230229880831
+order: 16000
