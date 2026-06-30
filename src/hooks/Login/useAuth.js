@@ -94,7 +94,7 @@ export const useAuth = () => {
                 if (currentRole === 'customer') {
                     navigate('/chat', { replace: true });
                 } else {
-                    navigate('/home', { replace: true });
+                    navigate('/dashboard', { replace: true });
                 }
             }, 1000);
 
