@@ -21,15 +21,15 @@ console.log('🔓 Call Server vận hành nội bộ dưới giao thức HTTP/WS
 
 // Khởi tạo Socket.io với cấu hình CORS tối ưu cho môi trường Production
 const io = new Server(server, {
-  // 🎯 ĐIỀU CHỈNH CHÍNH: Giữ nguyên path nội bộ đồng bộ trực tiếp với Nginx và Frontend
+  // 🎯 GIỮ NGUYÊN: Khớp trực tiếp với endpoint đối ngoại của Frontend
   path: '/call-socket', 
   connectTimeout: 45000,
   pingTimeout: 30000,
   pingInterval: 25000,
-  transports: ['websocket', 'polling'], // Đảm bảo hỗ trợ cả luồng nâng cấp trực tiếp
+  transports: ['websocket', 'polling'], 
   cors: {
     origin: [
-      "https://qlkd.nosomovo.xyz:7002", // 🎯 BẮT BUỘC: Cho phép tên miền chứa port đối ngoại 7002
+      "https://qlkd.nosomovo.xyz:7002", 
       "https://qlkd.nosomovo.xyz",
       "http://localhost:5173",
       "http://localhost:3000"
@@ -89,11 +89,11 @@ io.use((socket, next) => {
   next();
 });
 
-// 🛠️ BỔ SUNG: Lắng nghe lỗi kết nối tầng bắt tay (Handshake Error) để debug nếu Nginx đẩy lỗi lên
+// Lắng nghe lỗi kết nối tầng bắt tay (Handshake Error) để debug nếu Nginx đẩy lỗi lên
 io.on("connection_error", (err) => {
-  console.error("⚠️ [Socket Connection Error] Lỗi bắt tay kết nối:", err.req);      // Request object
-  console.error("⚠️ [Socket Connection Error] Mã lỗi chi tiết:", err.code);     // Mã lỗi (vd: 1, 2, 3...)
-  console.error("⚠️ [Socket Connection Error] Thông điệp lỗi:", err.message);  // Message lỗi
+  console.error("⚠️ [Socket Connection Error] Lỗi bắt tay kết nối:", err.req);      
+  console.error("⚠️ [Socket Connection Error] Mã lỗi chi tiết:", err.code);     
+  console.error("⚠️ [Socket Connection Error] Thông điệp lỗi:", err.message);  
 });
 
 io.on('connection', (socket) => {
@@ -222,6 +222,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = 4001;
-server.listen(PORT, () => {
+// 🎯 ĐIỀU CHỈNH CHÍNH: Ép cứng Node lắng nghe trên '0.0.0.0' để chấp nhận cả cổng IPv4/IPv6 loopback từ Nginx gửi sang
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Call Server vận hành chính thức tại Port: ${PORT}`);
 });
