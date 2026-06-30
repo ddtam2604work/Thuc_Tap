@@ -1,12 +1,11 @@
 // =========================================================================
-// FILE: src/context/SocketContext.jsx (BẢN HOÀN THIỆN TOÀN CỤC)
+// FILE: src/context/SocketContext.jsx (ĐÃ KHẮC PHỤC LỖI WEBSOCKET CLOSED)
 // =========================================================================
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
-// Hợp nhất URL để tránh lỗi kết nối chéo khi chỉ có VITE_BE_URL được set
 const BE_URL = import.meta.env.VITE_BE_URL || 'wss://qlkd.nosomovo.xyz:7002';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || BE_URL;
 const CALL_SERVER_URL = import.meta.env.VITE_CALL_SERVER_URL || BE_URL;
@@ -70,7 +69,8 @@ export const SocketProvider = ({ children }) => {
 
     const socketInstance = io(targetUrl, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'], 
+      // 🌟 KHẮC PHỤC: Thay đổi thứ tự transport giúp chống lỗi closed kết nối khi remount khẩn cấp
+      transports: ['polling', 'websocket'], 
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
       withCredentials: true,
@@ -157,12 +157,13 @@ export const SocketProvider = ({ children }) => {
 
     const callSocketInstance = io(targetCallUrl, {
       path: '/call-socket', 
-      transports: ['websocket', 'polling'], 
+      // 🌟 KHẮC PHỤC: Đồng bộ cơ chế chống gãy tiến trình bắt tay bắt giữ tín hiệu WebRTC
+      transports: ['polling', 'websocket'], 
       rejectUnauthorized: false,
       withCredentials: true, 
       auth: { 
-        token: cleanToken,        // Khớp cấu hình bảo mật bắt tay Handshake ngầm
-        accessToken: cleanToken  // Dự phòng trường hợp cổng API cũ đọc key accessToken
+        token: cleanToken,        
+        accessToken: cleanToken  
       }
     });
     
@@ -182,7 +183,6 @@ export const SocketProvider = ({ children }) => {
       showToast(callTypeLabel, data?.callerName || 'Khách hàng hỗ trợ');
     });
 
-    // Luồng Cleanup khi Component Unmount hoặc Token thay đổi
     return () => {
       socketInstance.disconnect();
       callSocketInstance.disconnect();
@@ -191,7 +191,6 @@ export const SocketProvider = ({ children }) => {
   }, [token]);
 
   useEffect(() => {
-    // Chỉ ngắt kết nối nếu ở trang login VÀ thực sự KHÔNG CÓ token hợp lệ
     if (location.pathname === '/login' && (!token || token.length < 30)) {
       if (socket) {
         socket.disconnect();

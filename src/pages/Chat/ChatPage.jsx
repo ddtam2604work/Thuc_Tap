@@ -1,13 +1,8 @@
 // =========================================================================
-// FILE: src/pages/Chat/ChatPage.jsx
+// FILE: src/pages/Chat/ChatPage.jsx (BẢN HOÀN THIỆN ĐỒNG BỘ 100%)
 // =========================================================================
 import React, { useState, useMemo, useEffect } from 'react';
 import { useChat } from '../../hooks/Chat/useChat';
-
-// 🎯 XÓA BỎ IMPORT useSocket CŨ VÌ ĐÃ DÙNG CONTEXT TOÀN CỤC
-// import { useSocket } from '../../context/SocketContext'; 
-// import { useCall } from '../../hooks/Chat/useCall';       
-// import CallWindow from './CallWindow';                  
 
 // 🎯 KẾT NỐI VÀO BỘ ĐIỀU KHIỂN TOÀN CỤC TỪ APP.JSX
 import { useGlobalCall } from '../../App'; 
@@ -148,19 +143,48 @@ const ChatPage = () => {
         {activeRoom && (
           <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto p-6 bg-slate-50 flex flex-col gap-4 scrollbar-thin">
             {messages.map((msg) => {
+              // 🌟 ĐỒNG BỘ: Nhận diện chính xác định dạng bản ghi cuộc gọi
+              const isMaskedCallStr = typeof msg.content === 'string' && msg.content.startsWith('__CALL_HISTORY__:');
+              const isCallHistory = msg.msg_type === 'call_history' || isMaskedCallStr;
+
+              // Khởi tạo hướng căn lề mặc định cho tin nhắn văn bản thông thường
               let isMine = role === 'customer' ? msg.sendertype === 2 : msg.sendertype === 1;
-              if (typeof msg.content === 'string' && msg.content.startsWith('__CALL_HISTORY__:')) {
+
+              // Xử lý căn lề thông minh cho lịch sử cuộc gọi bằng giải thuật nhị phân
+              if (isCallHistory) {
                   try {
-                      const callData = JSON.parse(msg.content.replace('__CALL_HISTORY__:', ''));
-                      isMine = callData.initiator === role;
-                  } catch {}
+                      const rawJson = isMaskedCallStr ? msg.content.substring('__CALL_HISTORY__:'.length) : msg.content;
+                      const callData = JSON.parse(rawJson);
+                      
+                      // Kiểm tra xem thực tế cuộc gọi này có phải do Khách hàng bấm đầu tiên không
+                      const isCustomerInitiator = callData.initiator === 'customer' || callData.initiator === 2 || callData.initiator === '2';
+                      
+                      // Áp dụng quy tắc đối xứng: Khách hàng xem -> Bên phải; Nhân viên xem -> Bên trái
+                      isMine = role === 'customer' ? isCustomerInitiator : !isCustomerInitiator;
+                  } catch (err) {
+                      // Fallback an toàn nếu chuỗi dữ liệu là text thuần cũ
+                      isMine = role === 'customer' ? msg.sendertype === 2 : msg.sendertype === 1;
+                  }
               }
+
               const msgTime = msg.createdate ? new Date(msg.createdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : msg.time;
               const uniqueMsgId = msg.id || msg._id || msg.chatmessage_id || msg.createdate;
 
               return (
-                <div key={uniqueMsgId} id={`msg-${msg.id || msg._id || msg.chatmessage_id}`} className={`flex flex-col w-full ${isMine ? 'items-end' : 'items-start'} transition-all duration-300 scroll-mt-4`}>
-                  <ChatMessage msg={msg} isMine={isMine} msgTime={msgTime} openLightbox={openLightbox} setSelectedMsgToForward={setSelectedMsgToForward} setForwardModalOpen={setForwardModalOpen} role={role} />
+                <div 
+                  key={uniqueMsgId} 
+                  id={`msg-${msg.id || msg._id || msg.chatmessage_id}`} 
+                  className={`flex flex-col w-full ${isMine ? 'items-end' : 'items-start'} transition-all duration-300 scroll-mt-4`}
+                >
+                  <ChatMessage 
+                    msg={msg} 
+                    isMine={isMine} 
+                    msgTime={msgTime} 
+                    openLightbox={openLightbox} 
+                    setSelectedMsgToForward={setSelectedMsgToForward} 
+                    setForwardModalOpen={setForwardModalOpen} 
+                    role={role} 
+                  />
                 </div>
               );
             })}
@@ -200,19 +224,17 @@ const ChatPage = () => {
       {activeLightboxIndex !== null && (
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[9999] animate-in fade-in duration-200">
           <button className="absolute top-4 right-4 text-white text-2xl w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors" onClick={() => setActiveLightboxIndex(null)}>✕</button>
-          {chatImagesArray.length > 1 && (
+          {fullChatImages.length > 1 && (
             <button className="absolute left-6 text-white text-2xl w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-30" disabled={activeLightboxIndex === 0} onClick={() => setActiveLightboxIndex(prev => Math.max(0, prev - 1))}>◀</button>
           )}
-          <img src={chatImagesArray[activeLightboxIndex]} alt="Lightbox Target" className="max-w-[90vw] max-h-[85vh] object-contain rounded shadow-2xl animate-in zoom-in-95 duration-200" />
-          {chatImagesArray.length > 1 && (
-            <button className="absolute right-6 text-white text-2xl w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-30" disabled={activeLightboxIndex === chatImagesArray.length - 1} onClick={() => setActiveLightboxIndex(prev => Math.min(chatImagesArray.length - 1, prev + 1))}>▶</button>
+          {/* 🌟 SỬA LỖI LIGHTBOX SOURCE: Trỏ chính xác vào mảng hợp nhất fullChatImages */}
+          <img src={fullChatImages[activeLightboxIndex]} alt="Lightbox Target" className="max-w-[90vw] max-h-[85vh] object-contain rounded shadow-2xl animate-in zoom-in-95 duration-200" />
+          {fullChatImages.length > 1 && (
+            <button className="absolute right-6 text-white text-2xl w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors disabled:opacity-30" disabled={activeLightboxIndex === fullChatImages.length - 1} onClick={() => setActiveLightboxIndex(prev => Math.min(fullChatImages.length - 1, prev + 1))}>▶</button>
           )}
-          <div className="absolute bottom-4 text-white/60 text-xs font-mono">{activeLightboxIndex + 1} / {chatImagesArray.length}</div>
+          <div className="absolute bottom-4 text-white/60 text-xs font-mono">{activeLightboxIndex + 1} / {fullChatImages.length}</div>
         </div>
       )}
-
-      {/* ❌ XÓA BỎ HOÀN TOÀN KHỐI CALLWINDOW Ở ĐÂY VÌ APP.JSX ĐÃ ĐẢM NHIỆM RENDER TOÀN CỤC */}
-      {/* <CallWindow {...callProps} roomName={currentCallRoomName} /> */}
     </div>
   );
 };

@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { orderService } from '../../services/orderService';
 
-// 🌟 HELPER 1: Bộ giải mã chuỗi linh hoạt
+// 🌟 HELPER 1: Định dạng ngày YYYY-MM-DD theo giờ địa phương (Local Time) chống lỗi lệch múi giờ của .toISOString()
+const formatLocalDate = (date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// 🌟 HELPER 2: Bộ giải mã chuỗi linh hoạt
 const safeParseAttachments = (data) => {
   if (!data) return [];
   if (Array.isArray(data)) return data;
@@ -19,15 +27,20 @@ const safeParseAttachments = (data) => {
   return [];
 };
 
-// 🌟 HELPER 2: Chuẩn hóa link Google Drive tuyệt đối bảo vệ an toàn định dạng URL
+// 🌟 HELPER 3: Chuẩn hóa link Google Drive tuyệt đối bảo vệ an toàn định dạng URL
 const formatAbsoluteDriveLink = (url) => {
   if (!url) return '';
   const trimmedStr = String(url).trim();
   const lowerUrl = trimmedStr.toLowerCase();
   
-  // Tránh hiển thị các chuỗi text rác mặc định của DB
-  // 🎯 ĐIỀU CHỈNH: Thêm bộ lọc chuỗi mặc định 'linkgoogledrive' để loại trừ hiển thị text placeholder ra UI danh sách
-  if (lowerUrl === 'null' || lowerUrl === 'undefined' || lowerUrl === '---' || lowerUrl === '-' || lowerUrl === 'linkgoogledrive') {
+  // Loại trừ triệt để hiển thị text placeholder mặc định của DB ra UI danh sách
+  if (
+    lowerUrl === 'null' || 
+    lowerUrl === 'undefined' || 
+    lowerUrl === '---' || 
+    lowerUrl === '-' || 
+    lowerUrl === 'linkgoogledrive'
+  ) {
     return '';
   }
   
@@ -41,20 +54,16 @@ export const useOrders = () => {
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchKey, setSearchKey] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState('month');
+  
+  // 🎯 ĐIỀU CHỈNH 1: Mặc định dateFilter là 'all' để lấy tất cả đơn hàng khi vừa vào trang
+  const [dateFilter, setDateFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20); 
 
-  // 🌟 KHỞI TẠO 2 TRƯỜNG TỪ NGÀY - ĐẾN NGÀY (Mặc định giữ giá trị của tháng hiện tại)
-  const [fromDate, setFromDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [toDate, setToDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  // 🎯 ĐIỀU CHỈNH 2: Khởi tạo giá trị trống cho Từ ngày - Đến ngày để giao diện hiển thị dd/mm/yyyy
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const [orders, setOrders] = useState([]);
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
@@ -82,10 +91,10 @@ export const useOrders = () => {
     fetchStatusMasterData();
   }, []);
 
-  // Tính toán bộ lọc thời gian tác nghiệp
+  // Tính toán bộ lọc thời gian tác nghiệp dựa trên Giờ địa phương
   const calculateDateFilters = useCallback(() => {
     const now = new Date();
-    const format = (d) => d.toISOString().split('T')[0];
+    const format = (d) => formatLocalDate(d);
 
     let fDate = new Date();
     let tDate = new Date();
@@ -95,12 +104,19 @@ export const useOrders = () => {
       tDate = now;
     } else if (dateFilter === 'month') {
       return {
-        from_createdate: fromDate,
-        to_createdate: toDate
+        from_createdate: fromDate && fromDate.trim() ? fromDate : null,
+        to_createdate: toDate && toDate.trim() ? toDate : null
       };
     } else if (dateFilter === 'year') {
       fDate = new Date(now.getFullYear(), 0, 1);
       tDate = new Date(now.getFullYear(), 12, 0);
+    } else {
+      // 🎯 ĐIỀU CHỈNH 3: Nhánh xử lý mặc định cho 'all' hoặc khi người dùng xóa trống ô nhập ngày.
+      // Nếu chuỗi rỗng hoặc chỉ có khoảng trắng, chuyển thành null để gọi API lấy toàn bộ dữ liệu.
+      return {
+        from_createdate: fromDate && fromDate.trim() ? fromDate : null,
+        to_createdate: toDate && toDate.trim() ? toDate : null
+      };
     }
 
     return {
@@ -149,7 +165,7 @@ export const useOrders = () => {
 
               if (!childDriveLink) {
                 const pLink = product.linkgoogledrive || product.drive_link || product.link_google_drive || product.googledrive_link;
-                if (pLink && pLink !== 'null' && String(pLink).trim() !== '') {
+                if (pLink && pLink !== 'null' && pLink !== 'linkgoogledrive' && String(pLink).trim() !== '') {
                   childDriveLink = String(pLink).trim();
                 }
               }
@@ -163,7 +179,7 @@ export const useOrders = () => {
           const potentialParentLinks = [item.linkgoogledrive, item.drive_link, item.googledrive_link, item.link_google_drive];
           
           for (const link of potentialParentLinks) {
-            if (link && link !== 'null' && String(link).trim() !== '') {
+            if (link && link !== 'null' && link !== 'linkgoogledrive' && String(link).trim() !== '') {
               parentDriveLink = String(link).trim();
               break;
             }

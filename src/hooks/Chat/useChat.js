@@ -1,24 +1,13 @@
-// src/hooks/Chat/useChat.js
+// =========================================================================
+// FILE: src/hooks/Chat/useChat.js (BẢN PURE SOCKET TRÊN CỔNG 4000)
+// =========================================================================
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { chatService } from '../../services/chatService';
 import { mediaService } from '../../services/mediaService'; 
 
 const COMPANY_ID = '0e3b15dc-c1d8-4d1c-90a0-dde7333ac791';
-
-const INITIAL_MY_STICKERS = [
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Jack',
-    'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Boots',
-    'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Lulu'
-];
-const INITIAL_STORE_STICKERS = [
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Socks',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Tiger',
-    'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Buster',
-    'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Missy'
-];
+const MAX_VIDEO_SIZE_MB = 10; // Giới hạn kích thước video là 10MB (ví dụ)
 
 const getUserRoleFromToken = () => {
     try {
@@ -55,13 +44,28 @@ export const useChat = () => {
     const [isListening, setIsListening] = useState(false);
     
     const [showStickerPicker, setShowStickerPicker] = useState(false);
-    const [myStickers, setMyStickers] = useState(INITIAL_MY_STICKERS);
-    const [storeStickers, setStoreStickers] = useState(INITIAL_STORE_STICKERS);
+    const [myStickers, setMyStickers] = useState([]);
+    const [storeStickers, setStoreStickers] = useState([]);
     
     const [forwardModalOpen, setForwardModalOpen] = useState(false);
     const [selectedMsgToForward, setSelectedMsgToForward] = useState(null);
 
     const role = useMemo(() => getUserRoleFromToken(), []);
+
+    // Nạp gói nhãn dán tự động từ nguồn mở uy tín DiceBear API công khai
+    useEffect(() => {
+        const styles = ['lorelei', 'adventurer', 'open-peeps', 'bottts-neutral', 'fun-emoji'];
+        const minePacks = Array.from({ length: 12 }, (_, i) => {
+            const currentStyle = styles[i % styles.length];
+            return `https://api.dicebear.com/7.x/${currentStyle}/svg?seed=UserPack_${i + 10}`;
+        });
+        const storePacks = Array.from({ length: 16 }, (_, i) => {
+            const currentStyle = styles[(i + 2) % styles.length];
+            return `https://api.dicebear.com/7.x/${currentStyle}/svg?seed=StorePack_${i + 60}`;
+        });
+        setMyStickers(minePacks);
+        setStoreStickers(storePacks);
+    }, []);
 
     useEffect(() => {
         inputMessageRef.current = inputMessage;
@@ -216,34 +220,28 @@ export const useChat = () => {
                 }
             } else if (data.msg_type === 'image') {
                 previewText = '[Hình ảnh]';
+            } else if (data.msg_type === 'video') {
+                previewText = '[Video]';
             } else if (data.msg_type === 'sticker') {
                 previewText = '[Nhãn dán]';
             } else if (data.msg_type === 'audio') {
                 previewText = '[Ghi âm]';
             }
 
-            // 🎯 LỌC CHÍNH XÁC TIN NHẮN TỪ NGƯỜI KHÁC BẰNG CÁCH ĐẢO CHIỀU SENDERTYPE
             const incomingSenderType = Number(data.sendertype || data.sender_type);
             let isFromOther = false;
             
-            // Nếu tôi là NHÂN VIÊN, tin nhắn từ người khác phải có sendertype = 1 (Khách)
             if (role === 'staff' && incomingSenderType === 1) {
                 isFromOther = true;
             } 
-            // Nếu tôi là KHÁCH HÀNG, tin nhắn từ người khác phải có sendertype = 2 (Nhân viên)
             else if (role === 'customer' && incomingSenderType === 2) {
                 isFromOther = true;
             }
 
-            // =========================================================================
-            // 🎯 ĐIỀU CHỈNH CỐT LÕI: Mở lại logic đếm tăng unread tổng lên Header lập tức
-            // Khi đang mở mục chat, nhưng có một phòng chat ẩn nhận tin nhắn mới
-            // =========================================================================
             const isNewUnread = cid !== activeRoomId;
             if (isNewUnread && isFromOther && typeof setGlobalUnreadCount === 'function') {
                 setGlobalUnreadCount(prev => prev + 1);
             }
-            // =========================================================================
 
             setChatRooms((prevRooms) => {
                 let isRoomExists = false;
@@ -256,7 +254,6 @@ export const useChat = () => {
                             ...room,
                             lastMessage: previewText,
                             time: formatTime(data.createdate || new Date()),
-                            // Bộ đếm unread nội bộ của sidebar vẫn hoạt động đồng bộ hoàn hảo
                             unread: (isNewUnread && isFromOther) ? (Number(room.unread) || 0) + 1 : Number(room.unread || 0),
                         };
                     }
@@ -368,30 +365,30 @@ export const useChat = () => {
         
         const isVideo = file.type && file.type.startsWith('video/');
 
+        // 🌟 ÁP DỤNG LOGIC GỬI VOICE CHO VIDEO THEO YÊU CẦU
         if (isVideo) {
+            const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024; // Convert MB to bytes
+            if (file.size > MAX_VIDEO_SIZE_BYTES) {
+                alert(`Tệp video quá lớn! Kích thước tối đa cho phép là ${MAX_VIDEO_SIZE_MB}MB. Vui lòng chọn tệp nhỏ hơn.`);
+                return;
+            }
+
+            const videoBlob = new Blob([file], { type: file.type });
             const reader = new FileReader();
-            reader.readAsDataURL(file); 
-            
-            reader.onloadend = async () => {
+            reader.readAsDataURL(videoBlob); 
+            reader.onloadend = () => {
                 const base64Data = reader.result;
-                try {
-                    const result = await chatService.uploadVideoBase64(base64Data);
-                    const savedPath = result?.data?.filePath || result?.data?.fileUrl || base64Data;
-                    
-                    socket.emit('chat:send', {
-                        chatconversation_id: activeRoomId, company_id: COMPANY_ID,
-                        content: savedPath, msg_type: 'video'
-                    });
-                } catch (err) {
-                    socket.emit('chat:send', {
-                        chatconversation_id: activeRoomId, company_id: COMPANY_ID,
-                        content: base64Data, msg_type: 'video'
-                    });
-                }
+                socket.emit('chat:send', {
+                    chatconversation_id: activeRoomId, 
+                    company_id: COMPANY_ID,
+                    content: base64Data, 
+                    msg_type: 'video'
+                });
             };
             return; 
         }
 
+        // Đối với ảnh: Giữ luồng gọi HTTP Multipart ổn định đang hoạt động
         try {
             const formData = new FormData();
             formData.append('files', file); 
@@ -404,18 +401,15 @@ export const useChat = () => {
             if (uploadedData?.success && Array.isArray(uploadedData.success) && uploadedData.success.length > 0) {
                 const targetFile = uploadedData.success[0];
                 fileId = targetFile?.id || targetFile?.filename || targetFile?.fileId || targetFile?.path || targetFile?.filePath || targetFile?.fileUrl;
-            } 
-            else if (Array.isArray(uploadedData) && uploadedData.length > 0) {
+            } else if (Array.isArray(uploadedData) && uploadedData.length > 0) {
                 fileId = uploadedData[0].id || uploadedData[0].filename || uploadedData[0].fileUrl || uploadedData[0].filePath;
-            } 
-            else if (typeof uploadedData === 'object' && uploadedData !== null) {
+            } else if (typeof uploadedData === 'object' && uploadedData !== null) {
                 fileId = uploadedData.id || uploadedData.filename || uploadedData.fileUrl || uploadedData.filePath || uploadedData.data?.[0]?.id;
-            } 
-            else if (typeof uploadedData === 'string') {
+            } else if (typeof uploadedData === 'string') {
                 fileId = uploadedData;
             }
 
-            if (!fileId) throw new Error('Cấu trúc JSON phản hồi từ Server không khớp với cấu trúc phân giải của Client.');
+            if (!fileId) throw new Error('Cấu trúc JSON phản hồi từ Server không khớp.');
 
             socket.emit('chat:send', {
                 chatconversation_id: activeRoomId, 
@@ -425,13 +419,7 @@ export const useChat = () => {
             });
 
         } catch (err) {
-            let detailError = '';
-            if (typeof err === 'object' && err !== null) {
-                detailError = err.message || err.error || JSON.stringify(err);
-            } else {
-                detailError = String(err);
-            }
-            alert(`Tải file thất bại!\n\nChi tiết lỗi hệ thống:\n${detailError}`); 
+            console.error('Lỗi tải ảnh:', err);
         }
     }, [socket, activeRoomId]);
 
@@ -496,6 +484,7 @@ export const useChat = () => {
         setStoreStickers(prev => prev.filter(s => s !== stickerUrl));
     }, []);
 
+    // 🌟 KHẮC PHỤC HOÀN TOÀN LỖI 404 AUDIO: Đọc Base64 và truyền tải Pure Realtime qua cổng 4000 tương tự Video
     const handleStartRecording = useCallback(async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -508,21 +497,14 @@ export const useChat = () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
                 const reader = new FileReader();
                 reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
+                reader.onloadend = () => {
                     const base64Data = reader.result;
-                    try {
-                        const result = await chatService.uploadAudioBase64(base64Data);
-                        const savedAudioPath = result?.data?.filePath || result?.data?.fileUrl || base64Data;
-                        socket.emit('chat:send', {
-                            chatconversation_id: activeRoomId, company_id: COMPANY_ID,
-                            content: savedAudioPath, msg_type: 'audio'
-                        });
-                    } catch (err) {
-                        socket.emit('chat:send', {
-                            chatconversation_id: activeRoomId, company_id: COMPANY_ID,
-                            content: base64Data, msg_type: 'audio'
-                        });
-                    }
+                    socket.emit('chat:send', {
+                        chatconversation_id: activeRoomId, 
+                        company_id: COMPANY_ID,
+                        content: base64Data, 
+                        msg_type: 'audio'
+                    });
                 };
                 stream.getTracks().forEach(track => track.stop());
             };
@@ -540,26 +522,97 @@ export const useChat = () => {
 
     const handleToggleSpeechToText = useCallback(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return alert('Trình duyệt hiện tại không hỗ trợ bộ nhận diện Web Speech.');
+        if (!SpeechRecognition) {
+            alert('Trình duyệt của bạn không hỗ trợ API nhận dạng giọng nói. Vui lòng thử trên Google Chrome hoặc Edge.');
+            return;
+        }
+
         if (isListening) {
-            if (recognitionRef.current) recognitionRef.current.stop();
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
             setIsListening(false);
             return;
         }
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.onstart = () => setIsListening(true);
-        recognition.onend = () => setIsListening(false);
-        recognition.onerror = () => setIsListening(false);
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            const updatedText = inputMessageRef.current ? `${inputMessageRef.current} ${transcript}` : transcript;
-            handleInputChange(updatedText);
-        };
-        recognitionRef.current = recognition;
-        recognition.start();
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        const startRecognition = () => {
+            const recognition = new SpeechRecognition();
+            recognitionRef.current = recognition;
+
+            recognition.lang = 'vi-VN';
+            recognition.continuous = true; 
+            recognition.interimResults = true; 
+
+            let finalTranscript = '';
+            let initialText = inputMessageRef.current; 
+
+            recognition.onstart = () => {
+                setIsListening(true);
+                initialText = inputMessageRef.current; 
+                retryCount = 0; // Reset retry count on successful start
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+                recognitionRef.current = null;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Lỗi nhận dạng giọng nói:', event.error);
+
+                if (event.error === 'network' && retryCount < maxRetries) {
+                    retryCount++;
+                    console.log(`Lỗi mạng, đang thử lại lần ${retryCount}/${maxRetries}...`);
+                    setTimeout(() => {
+                        if (recognitionRef.current && !isListening) {
+                           startRecognition();
+                        }
+                    }, 1000); // Wait 1 second before retrying
+                    return;
+                }
+                
+                let alertMsg = 'Đã xảy ra lỗi trong quá trình nhận dạng giọng nói.';
+                if (event.error === 'no-speech') {
+                    alertMsg = 'Không phát hiện thấy giọng nói. Vui lòng thử lại.';
+                } else if (event.error === 'not-allowed') {
+                    alertMsg = 'Quyền truy cập micro bị từ chối. Vui lòng cấp quyền trong cài đặt trình duyệt.';
+                } else if (event.error === 'network') {
+                    alertMsg = 'Lỗi kết nối mạng. Không thể kết nối đến dịch vụ nhận dạng giọng nói sau nhiều lần thử.';
+                }
+                alert(alertMsg);
+                setIsListening(false);
+            };
+            
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                finalTranscript = ''; 
+                
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                const textBefore = initialText ? `${initialText} ` : '';
+                
+                if (finalTranscript) {
+                    initialText = textBefore + finalTranscript;
+                    handleInputChange(initialText);
+                } else {
+                    handleInputChange(textBefore + interimTranscript);
+                }
+            };
+
+            recognition.start();
+        }
+
+        startRecognition();
+
     }, [isListening, handleInputChange]);
 
     const handleRoomSelect = useCallback((roomId) => {

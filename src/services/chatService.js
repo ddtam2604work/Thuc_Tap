@@ -1,3 +1,6 @@
+// =========================================================================
+// FILE: src/services/chatService.js
+// =========================================================================
 const BASE_URL = import.meta.env.VITE_BE_URL || 'https://113.161.204.185:4000';
 const MEDIA_URL = import.meta.env.VITE_MEDIA_URL || 'https://113.161.204.185:4010';
 
@@ -85,16 +88,14 @@ export const chatService = {
     }
   },
 
-  // 🌟 ĐIỀU CHỈNH: Trỏ API upload Video về BASE_URL (Cổng 4000) theo đúng thiết kế của Backend
+  // 🌟 HOÀN THIỆN: Cấu hình cổng upload Video Base64 trỏ về địa chỉ cổng 4000 (BASE_URL)
   uploadVideoBase64: async (base64Data) => {
     try {
-      // Đổi MEDIA_URL thành BASE_URL
       const res = await fetch(`${BASE_URL}/api/v1/media/upload-video`, {
         method: 'POST',
         headers: getHeaders(false),
         body: JSON.stringify({ video: base64Data }),
       });
-      
       if (!res.ok) throw new Error(`Backend Error status ${res.status}`);
       return await res.json();
     } catch (error) {
@@ -103,9 +104,10 @@ export const chatService = {
     }
   },
 
+  // 🌟 HOÀN THIỆN: Cấu hình cổng upload Audio Base64 đồng bộ về địa chỉ cổng 4000 (BASE_URL)
   uploadAudioBase64: async (base64Data) => {
     try {
-      const res = await fetch(`${MEDIA_URL}/api/v1/media/upload-audio`, {
+      const res = await fetch(`${BASE_URL}/api/v1/media/upload-audio`, {
         method: 'POST',
         headers: getHeaders(false),
         body: JSON.stringify({ audio: base64Data }),

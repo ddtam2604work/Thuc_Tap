@@ -1,3 +1,6 @@
+// =========================================================================
+// FILE: src/pages/Chat/ChatMessage.jsx (BẢN VÁ LỖI HIỂN THỊ VIDEO BASE64)
+// =========================================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { mediaService } from '../../services/mediaService'; 
 
@@ -12,15 +15,45 @@ export const resolveAbsoluteUrl = (fileContent) => {
   return mediaService.getViewUrl(idStr);
 };
 
-const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelectedMsgToForward, setForwardModalOpen }) => {
+const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelectedMsgToForward, setForwardModalOpen, role }) => {
   const dataContent = (msg.content || msg.text || '').trim();
 
-  // 🌟 BỔ SUNG: State quản lý hiển thị các menu chức năng & thu gọn nội dung
   const [showMenu, setShowMenu] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [displayableVideoUrl, setDisplayableVideoUrl] = useState(null);
   const menuRef = useRef(null);
 
-  // Xử lý đóng Menu Tùy chọn khi click ra ngoài
+  // Effect to convert Base64 video to a blob URL for stable playback
+  useEffect(() => {
+    let objectUrl = null;
+    const isBase64Video = msg.msg_type === 'video' && dataContent.startsWith('data:video');
+
+    if (isBase64Video) {
+      const convertBase64ToBlobUrl = async () => {
+        try {
+          const response = await fetch(dataContent);
+          const blob = await response.blob();
+          objectUrl = URL.createObjectURL(blob);
+          setDisplayableVideoUrl(objectUrl);
+        } catch (error) {
+          console.error('Lỗi chuyển đổi Base64 sang Blob URL:', error);
+          setDisplayableVideoUrl(null); // Fallback or show error
+        }
+      };
+      convertBase64ToBlobUrl();
+    } else {
+      // If it's not a base64 video, reset the state
+      setDisplayableVideoUrl(null);
+    }
+    
+    // Cleanup function to prevent memory leaks
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [dataContent, msg.msg_type]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -39,6 +72,8 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
   const isSticker = msg.msg_type === 'sticker' || isStickerFallback;
   
   const isForcedImage = !isSticker && (msg.msg_type === 'image' || /^blob:/i.test(dataContent) || /^data:image\//i.test(dataContent) || (isUUID && msg.msg_type !== 'video' && msg.msg_type !== 'audio') || isImageFileName);
+  
+  // 🌟 KHẮC PHỤC CHÍNH: Bổ sung kiểm tra chuỗi data:video/ hoặc tin nhắn định danh msg_type === 'video' để bắt được Base64 Video
   const isForcedVideo = !isSticker && (msg.msg_type === 'video' || /^data:video\//i.test(dataContent) || isVideoFileName);
   
   const isMaskedCallStr = dataContent.startsWith('__CALL_HISTORY__:');
@@ -48,22 +83,19 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
   let parsedCallData = null;
 
   if (isCallHistory) {
+    const rawJson = isMaskedCallStr ? dataContent.substring('__CALL_HISTORY__:'.length) : dataContent;
     try {
-      const rawJson = isMaskedCallStr ? dataContent.substring('__CALL_HISTORY__:'.length) : dataContent;
       parsedCallData = JSON.parse(rawJson);
-
-      let currentRole = 'staff';
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const payload = JSON.parse(window.atob(base64));
-        currentRole = payload.customer_id ? 'customer' : 'staff';
-      }
-
-      isMine = parsedCallData.initiator === currentRole;
+      const isCustomerInitiator = parsedCallData.initiator === 'customer' || parsedCallData.initiator === 2 || parsedCallData.initiator === '2';
+      isMine = role === 'customer' ? isCustomerInitiator : !isCustomerInitiator;
     } catch (e) {
-      console.error("❌ Lỗi cấu trúc JSON trong msg.content của call_history:", e);
+      parsedCallData = {
+        status: 'unknown',
+        type: 'voice',
+        duration: 0,
+        customText: rawJson
+      };
+      isMine = propIsMine;
     }
   }
 
@@ -77,8 +109,6 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
 
   const renderBody = () => {
     if (isCallHistory) {
-      if (!parsedCallData) return <span className="text-xs italic text-gray-400 bg-gray-100 p-2 rounded-lg">Bản ghi cuộc gọi lỗi cấu trúc</span>;
-
       const callData = parsedCallData;
       const isVideo = callData.type === 'video';
       
@@ -88,9 +118,12 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
 
       let statusText = '';
       let subText = '';
-      let icon = isVideo ? '📹' : '📞';
+      const isSuccess = callData.status === 'completed';
 
-      if (callData.status === 'completed') {
+      if (callData.customText) {
+        statusText = callData.customText;
+        subText = 'Lịch sử cuộc gọi';
+      } else if (callData.status === 'completed') {
         statusText = isMine ? (isVideo ? 'Cuộc gọi video đi' : 'Cuộc gọi thoại đi') : (isVideo ? 'Cuộc gọi video đến' : 'Cuộc gọi thoại đến');
         subText = `Thời lượng: ${timeString}`;
       } else if (callData.status === 'busy') {
@@ -105,19 +138,27 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
       }
 
       return (
-        <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-xs shadow-xs min-w-[220px] transition-all max-w-[280px] ${
+        <div className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl border text-xs shadow-xs min-w-[240px] transition-all max-w-[300px] ${
           isMine 
-            ? 'bg-blue-50/70 border-blue-100 text-blue-950 rounded-tr-none' 
-            : 'bg-gray-50/90 border-gray-100 text-gray-800 rounded-tl-none'
+            ? 'bg-blue-500/10 border-blue-500/20 text-blue-950 rounded-tr-none' 
+            : 'bg-slate-100/90 border-slate-200/80 text-slate-800 rounded-tl-none'
         }`}>
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-xs ${
-            callData.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 ${
+            isSuccess || callData.status === 'unknown' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
           }`}>
-            {icon}
+            {isVideo ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.72l.54 2.21a1 1 0 01-.24.97l-1.45 1.45a15.54 15.54 0 006.26 6.26l1.45-1.45a1 1 0 01.97-.24l2.21.54a1 1 0 01.72.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            )}
           </div>
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="font-bold truncate text-[13px]">{statusText}</span>
-            <span className="text-[11px] font-medium text-gray-500">{subText}</span>
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <span className="font-semibold truncate text-[13px] tracking-tight">{statusText}</span>
+            <span className={`text-[11px] font-medium ${isMine ? 'text-blue-600/80' : 'text-slate-500'}`}>{subText}</span>
           </div>
         </div>
       );
@@ -149,13 +190,18 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
     }
 
     if (isForcedVideo) {
-      const videoUrl = resolveAbsoluteUrl(dataContent);
+      // Ưu tiên sử dụng blob URL đã được tạo để tăng hiệu suất và độ ổn định
+      const videoUrl = displayableVideoUrl || resolveAbsoluteUrl(dataContent);
       return (
-        <div className="relative overflow-hidden rounded-xl border border-gray-100 shadow-xs max-w-[260px] bg-black flex items-center justify-center min-h-[100px] min-w-[100px]">
+        <div className="relative overflow-hidden rounded-xl border border-slate-200/60 shadow-md max-w-[280px] bg-slate-950 flex items-center justify-center min-h-[160px] min-w-[200px]">
           <video 
-            src={videoUrl} controls playsInline preload="metadata"
-            className="max-h-[320px] w-full object-contain" 
-            onError={(e) => { console.error('Lỗi tải video'); }} 
+            key={videoUrl} // Thêm key để React nhận diện sự thay đổi src
+            src={videoUrl} 
+            controls 
+            playsInline 
+            preload="metadata"
+            className="max-h-[320px] w-full h-auto object-contain rounded-xl" 
+            onError={(e) => { console.error('Lỗi tải video. Có thể do nguồn không hợp lệ hoặc lỗi mạng.'); }} 
           />
         </div>
       );
@@ -230,7 +276,6 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
       );
     }
 
-    // 🌟 THAY ĐỔI: Thu gọn văn bản dài chỉ khi user bấm "Xem thêm" (UX cực mượt)
     const TEXT_LIMIT = 400;
     if (dataContent.length > TEXT_LIMIT) {
       return (
@@ -257,7 +302,6 @@ const ChatMessage = ({ msg, isMine: propIsMine, msgTime, openLightbox, setSelect
       onContextMenu={handleContextMenu}
       className={`flex flex-col max-w-[75%] group relative cursor-pointer select-none ${isMine ? 'self-end items-end' : 'self-start items-start'}`}
     >
-      {/* 🌟 THAY ĐỔI: Menu Tùy chọn (3 chấm) đóng gói chức năng ẩn, thay vì hiển thị hover thô thiển */}
       <div ref={menuRef} className={`absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-20 ${isMine ? '-left-8' : '-right-8'}`}>
         <button
           type="button"
